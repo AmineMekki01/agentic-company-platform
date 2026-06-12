@@ -26,7 +26,7 @@ async def chat_env(monkeypatch, session_factory):
     monkeypatch.setattr(graph_module, "get_chat_model", fake_chat_model)
     monkeypatch.setattr(llm_module, "get_chat_model", fake_chat_model)
 
-    async def _fake_retrieve(query, source_ids, agent_slug=""):
+    async def _fake_retrieve(query, source_ids, agent_slug="", top_k=5):
         return "", []
 
     monkeypatch.setattr(graph_module, "_retrieve_for_agent", _fake_retrieve)
@@ -128,8 +128,6 @@ async def test_chat_foreign_conversation_404(client, auth_headers, chat_env, cre
     assert res.status_code == 404
 
 
-# ---- Router unit tests ----
-
 async def test_router_respects_forced_agent(monkeypatch):
     from app.agents.graph import make_router_node
     from app.agents.registry import AgentSpec
@@ -174,18 +172,13 @@ async def test_router_routes_at_mention():
     assert result["current_agent"] == "it"
 
 
-async def test_router_fallback_to_default_on_unknown_llm_slug(monkeypatch):
-    from app.agents.graph import _llm_route, make_router_node
+async def test_non_orchestrator_stays_fixed():
+    from app.agents.graph import make_router_node
     from app.agents.registry import AgentSpec
 
     registry = {
         "hr": AgentSpec(slug="hr", name="HR", description="HR", tools=[]),
     }
-
-    async def fake_llm_route(user_msg, current_agent, registry):
-        return "nonexistent"
-
-    monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
 
     node = make_router_node(registry, routes_map={}, orchestrator_slugs=set(), default_agent="hr")
     state = {
@@ -242,9 +235,7 @@ async def test_orchestrator_empty_routes_only_routes_to_self(monkeypatch):
     }
 
     async def fake_llm_route(user_msg, current_agent, registry):
-        # If the router leaked to full registry, this would be called with "hr" as a valid option
-        # and might return "hr". With the fix, it should only be called with {"general"}.
-        return "hr"  # LLM tries to route to hr, but hr is not in allowed_registry
+        return "hr"
 
     monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
 
@@ -258,5 +249,31 @@ async def test_orchestrator_empty_routes_only_routes_to_self(monkeypatch):
         "mode": None,
     }
     result = await node(state)
-    # "hr" is not in allowed_registry (only "general"), so fallback to orchestrator itself
     assert result["current_agent"] == "general"
+
+
+async def test_non_orchestrator_stays_fixed_despite_cross_domain_message(monkeypatch):
+    from app.agents.graph import _llm_route, make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "it": AgentSpec(slug="it", name="IT", description="IT", tools=[]),
+        "finance": AgentSpec(slug="finance", name="Finance", description="Finance", tools=[]),
+    }
+
+    async def fake_llm_route(user_msg, current_agent, registry):
+        return "finance"
+
+    monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
+
+    node = make_router_node(registry, routes_map={}, orchestrator_slugs=set(), default_agent="it")
+    state = {
+        "messages": [],
+        "current_agent": "it",
+        "orchestrator_agent": "it",
+        "forced_agent": None,
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    assert result["current_agent"] == "it"

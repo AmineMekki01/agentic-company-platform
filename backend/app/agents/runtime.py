@@ -105,6 +105,7 @@ class AgentRuntime:
                     agent_settings[row.slug] = {
                         "model": row.llm_model,
                         "system_prompt": row.system_prompt,
+                        "retrieval_top_k": row.retrieval_top_k,
                         "connected_sources": sources,
                     }
                     logger.warning(
@@ -134,6 +135,7 @@ class AgentRuntime:
                         agent_settings[slug] = {
                             "model": agent_row.llm_model,
                             "system_prompt": agent_row.system_prompt,
+                            "retrieval_top_k": agent_row.retrieval_top_k,
                             "connected_sources": sources,
                         }
                         logger.warning(

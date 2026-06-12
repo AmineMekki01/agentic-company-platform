@@ -324,7 +324,7 @@ class RAGService:
         ]
 
     async def retrieve(
-        self, query: str, source_ids: list[str] | None = None
+        self, query: str, source_ids: list[str] | None = None, top_k: int = 5
     ) -> list[RetrievedChunk]:
         """
         Hybrid search -> native Qdrant RRF fusion -> rerank.
@@ -335,7 +335,9 @@ class RAGService:
         """
         await self.ensure_collection()
 
-        logger.warning("RAG retrieve query=%r source_ids=%s", query, source_ids)
+        prefetch_limit = top_k * 3
+        rrf_limit = top_k * 2
+        logger.warning("RAG retrieve query=%r source_ids=%s top_k=%d (prefetch=%d rrf=%d)", query, source_ids, top_k, prefetch_limit, rrf_limit)
 
         dense_query = await self.embeddings.aembed_query(query)
         sparse_query = self._embed_sparse([query])[0]
@@ -360,18 +362,18 @@ class RAGService:
                 models.Prefetch(
                     query=dense_query,
                     using="dense",
-                    limit=TOP_K,
+                    limit=prefetch_limit,
                     filter=qdrant_filter,
                 ),
                 models.Prefetch(
                     query=sparse_query,
                     using="sparse",
-                    limit=TOP_K,
+                    limit=prefetch_limit,
                     filter=qdrant_filter,
                 ),
             ],
             query=models.FusionQuery(fusion=models.Fusion.RRF),
-            limit=TOP_K,
+            limit=rrf_limit,
             with_payload=True,
         )
 
@@ -386,7 +388,7 @@ class RAGService:
             ", ".join(f"{sid[:8]}...={title}" for sid, title in sorted(raw_unique.items())) if raw_unique else "none",
         )
 
-        result = await self._rerank(query, resp.points, top_n=RERANK_TOP_K)
+        result = await self._rerank(query, resp.points, top_n=top_k)
         final_unique: dict[str, str] = {}
         for c in result:
             final_unique[c.source_id] = c.source_title
@@ -435,5 +437,3 @@ class RAGService:
                 break
         logger.info("Deleted %d chunks for knowledge_source_id=%s", total_deleted, knowledge_source_id)
         return total_deleted
-
-

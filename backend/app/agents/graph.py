@@ -23,13 +23,14 @@ logger = logging.getLogger(__name__)
 _TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket}
 
 
-async def _retrieve_for_agent(query: str, source_ids: list[str] | None, agent_slug: str = "unknown") -> tuple[str, list[dict]]:
+async def _retrieve_for_agent(query: str, source_ids: list[str] | None, agent_slug: str = "unknown", top_k: int = 5) -> tuple[str, list[dict]]:
     """Fetch relevant documents for an agent.
 
     Args:
         query: The search query
         source_ids: List of source IDs to filter by, or None for all sources
         agent_slug: The agent slug for logging
+        top_k: Number of top chunks to return after reranking
     
     Returns:
         Tuple of (formatted_context, source_metadata_list)
@@ -41,10 +42,13 @@ async def _retrieve_for_agent(query: str, source_ids: list[str] | None, agent_sl
         logger.warning("Agent[%s] retrieve: querying ALL knowledge sources (source_ids=None)", agent_slug)
     else:
         logger.warning("Agent[%s] retrieve: filtering to source_ids=%s (count=%d)", agent_slug, source_ids, len(source_ids))
+    
     rag = RAGService()
-    chunks = await rag.retrieve(query, source_ids=source_ids)
+    
+    chunks = await rag.retrieve(query, source_ids=source_ids, top_k=top_k)
     unique_sources = {c.source_id for c in chunks}
     source_summary = {c.source_id: c.source_title for c in chunks}
+    
     if not unique_sources:
         logger.warning(
             "Agent[%s] retrieve query=%r CONFIGURED=%s RESULT: 0 chunks (no matching documents)",
@@ -74,6 +78,7 @@ def make_agent_node(
     source_ids: list[str] | None = None,
     model: str | None = None,
     system_prompt: str | None = None,
+    retrieval_top_k: int = 5,
 ):
     """
     Build an agent node with adaptive token budget management.
@@ -114,7 +119,7 @@ def make_agent_node(
         context = ""
         sources: list[dict] = []
         if profile.retrieval_enabled and "retrieve" in spec.tools:
-            context, sources = await _retrieve_for_agent(last_user_msg, source_ids, agent_slug=spec.slug)
+            context, sources = await _retrieve_for_agent(last_user_msg, source_ids, agent_slug=spec.slug, top_k=retrieval_top_k)
             retrieval_budget = profile.effective_limits(context_window)["retrieval"]
             context = clamp_retrieval_context(context, retrieval_budget)
 
@@ -238,35 +243,26 @@ def make_router_node(
                 last_user_msg = str(getattr(m, "content", ""))
                 break
 
-        # Determine the orchestrator for this conversation
-        orchestrator = state.get("orchestrator_agent") or state.get("current_agent", default_agent)
-        if orchestrator in orchestrator_slugs:
-            # Orchestrator-managed conversation: restrict to routes_to + self
-            allowed_slugs = routes_map.get(orchestrator, [])
-            allowed_registry = {slug: registry[slug] for slug in allowed_slugs if slug in registry}
-            # Always allow routing back to the orchestrator itself
-            if orchestrator in registry and orchestrator not in allowed_registry:
-                allowed_registry[orchestrator] = registry[orchestrator]
-        else:
-            # Non-orchestrator agent: route across full registry
-            allowed_registry = registry
+        current_agent = state.get("current_agent", default_agent)
+        orchestrator = state.get("orchestrator_agent") or current_agent
+
+        if orchestrator not in orchestrator_slugs:
+            return {"current_agent": current_agent}
+
+        allowed_slugs = routes_map.get(orchestrator, [])
+        allowed_registry = {slug: registry[slug] for slug in allowed_slugs if slug in registry}
+
+        if orchestrator in registry and orchestrator not in allowed_registry:
+            allowed_registry[orchestrator] = registry[orchestrator]
 
         mention = _extract_mention(last_user_msg, allowed_registry)
         if mention:
             logger.info("Router: @mention detected -> %s", mention)
             return {"current_agent": mention}
 
-        current_agent = state.get("current_agent", default_agent)
-        if orchestrator in orchestrator_slugs:
-            # Orchestrator-managed: LLM restricted to allowed agents
-            routed = await _llm_route(last_user_msg, current_agent, allowed_registry)
-            if routed not in allowed_registry:
-                routed = orchestrator
-        else:
-            # Non-orchestrator: route across full registry
-            routed = await _llm_route(last_user_msg, current_agent, registry)
-            if routed not in registry:
-                routed = default_agent
+        routed = await _llm_route(last_user_msg, current_agent, allowed_registry)
+        if routed not in allowed_registry:
+            routed = orchestrator
 
         logger.info("Router: LLM routed -> %s (msg=%r)", routed, last_user_msg[:60])
         return {"current_agent": routed}
@@ -314,11 +310,12 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
             logger.warning("Agent[%s]: connected_sources was null, resolved to [] (no sources)", slug)
         model = cfg.get("model") or None
         system_prompt = cfg.get("system_prompt") or None
+        retrieval_top_k = cfg.get("retrieval_top_k", 5)
         logger.warning(
-            "Agent[%s] graph config: model=%s connected_sources=%s prompt_override=%s tools=%s",
-            slug, model, source_ids, bool(system_prompt), spec.tools,
+            "Agent[%s] graph config: model=%s connected_sources=%s retrieval_top_k=%s prompt_override=%s tools=%s",
+            slug, model, source_ids, retrieval_top_k, bool(system_prompt), spec.tools,
         )
-        builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt))
+        builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt, retrieval_top_k=retrieval_top_k))
         builder.add_edge(slug, END)
 
     builder.add_conditional_edges(
