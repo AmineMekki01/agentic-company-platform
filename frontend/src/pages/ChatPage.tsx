@@ -25,7 +25,8 @@ export default function ChatPage() {
     api.listAgents().then((loaded) => {
       setAgents(loaded);
       if (loaded.length && !selectedAgent) {
-        setSelectedAgent(loaded[0].slug);
+        const general = loaded.find((a) => a.slug === "general");
+        setSelectedAgent(general ? general.slug : loaded[0].slug);
       }
     }).catch(() => {});
   }, []);

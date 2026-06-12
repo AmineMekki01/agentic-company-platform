@@ -174,6 +174,107 @@ def make_agent_node(
     return node
 
 
+def _extract_mention(text: str, registry: dict[str, AgentSpec]) -> str | None:
+    """Look for @slug in user text and return the matched agent slug if valid."""
+    match = re.search(r"@(\w+)", text)
+    if match:
+        slug = match.group(1).lower()
+        if slug in registry:
+            return slug
+    return None
+
+
+async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, AgentSpec]) -> str:
+    """Use a lightweight LLM to classify intent and pick the best agent slug."""
+    agent_lines = "\n".join(
+        f"- {slug}: {spec.description}" for slug, spec in registry.items()
+    )
+    prompt = (
+        f"You are a routing assistant. Your ONLY job is to choose the best agent slug to handle a user query.\n\n"
+        f"Available agents:\n{agent_lines}\n\n"
+        f"Routing rules:\n"
+        f"1. If the user explicitly mentions an agent with @slug, route to that agent.\n"
+        f"2. If the query is a short follow-up (e.g. 'thanks', 'ok', 'and then?') to the current agent, stay with that agent.\n"
+        f"3. If the query is clearly about a specific domain, route to the matching specialist.\n"
+        f"4. If the query is general, ambiguous, spans multiple domains, or is a greeting, route to 'general'.\n"
+        f"5. Return ONLY the agent slug — one word, no punctuation, no explanation.\n\n"
+        f"Current conversation agent: {current_agent or 'none'}\n"
+        f"User message: {user_msg}\n\n"
+        f"Agent slug:"
+    )
+    llm = get_chat_model("gpt-5-nano", temperature=0.1)
+    response = await llm.ainvoke([SystemMessage(content=prompt)])
+    text = str(getattr(response, "content", response)).strip().lower()
+    text = re.sub(r"[^a-z0-9_]", "", text)
+    if text in registry:
+        return text
+    return ""
+
+
+def make_router_node(
+    registry: dict[str, AgentSpec],
+    routes_map: dict[str, list[str]],
+    orchestrator_slugs: set[str],
+    default_agent: str = "general",
+):
+    """Build the supervisor/router node that decides which agent handles the turn.
+
+    Args:
+        registry: Full agent registry
+        routes_map: Mapping of orchestrator slug -> list of slugs it can route to
+        orchestrator_slugs: Set of slugs that are orchestrators
+        default_agent: Fallback agent slug
+    """
+
+    async def node(state: AgentState) -> dict:
+        forced = state.get("forced_agent")
+        if forced and forced in registry:
+            logger.info("Router: forced_agent=%s", forced)
+            return {"current_agent": forced}
+
+        last_user_msg = ""
+        for m in reversed(state["messages"]):
+            if getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user":
+                last_user_msg = str(getattr(m, "content", ""))
+                break
+
+        # Determine the orchestrator for this conversation
+        orchestrator = state.get("orchestrator_agent") or state.get("current_agent", default_agent)
+        if orchestrator in orchestrator_slugs:
+            # Orchestrator-managed conversation: restrict to routes_to + self
+            allowed_slugs = routes_map.get(orchestrator, [])
+            allowed_registry = {slug: registry[slug] for slug in allowed_slugs if slug in registry}
+            # Always allow routing back to the orchestrator itself
+            if orchestrator in registry and orchestrator not in allowed_registry:
+                allowed_registry[orchestrator] = registry[orchestrator]
+        else:
+            # Non-orchestrator agent: route across full registry
+            allowed_registry = registry
+
+        mention = _extract_mention(last_user_msg, allowed_registry)
+        if mention:
+            logger.info("Router: @mention detected -> %s", mention)
+            return {"current_agent": mention}
+
+        current_agent = state.get("current_agent", default_agent)
+        if orchestrator in orchestrator_slugs:
+            # Orchestrator-managed: LLM restricted to allowed agents
+            routed = await _llm_route(last_user_msg, current_agent, allowed_registry)
+            if routed not in allowed_registry:
+                routed = orchestrator
+        else:
+            # Non-orchestrator: route across full registry
+            routed = await _llm_route(last_user_msg, current_agent, registry)
+            if routed not in registry:
+                routed = default_agent
+
+        logger.info("Router: LLM routed -> %s (msg=%r)", routed, last_user_msg[:60])
+        return {"current_agent": routed}
+
+    node.__name__ = "router"
+    return node
+
+
 def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None = None, agent_settings: dict[str, dict] | None = None):
     """
     Build the graph.
@@ -188,31 +289,40 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
     """
     registry = agent_registry or {}
     settings_map = agent_settings or {}
-    default_agent = next(iter(registry.keys()), "") if registry else ""
+    default_agent = "general" if "general" in registry else (next(iter(registry.keys()), "") if registry else "")
 
     builder = StateGraph(AgentState)
+
+    # Build routes_map from orchestrator agents (include empty routes_to)
+    routes_map: dict[str, list[str]] = {}
+    orchestrator_slugs: set[str] = set()
+    for slug, spec in registry.items():
+        if spec.is_orchestrator:
+            orchestrator_slugs.add(slug)
+            routes_map[slug] = spec.routes_to or []
+
+    # router / supervisor node
+    builder.add_node("router", make_router_node(registry, routes_map=routes_map, orchestrator_slugs=orchestrator_slugs, default_agent=default_agent))
+    builder.add_edge(START, "router")
+
     for slug, spec in registry.items():
         cfg = settings_map.get(slug, {})
         source_ids = cfg.get("connected_sources")
 
-        raw_cfg_sources = source_ids
         if source_ids is None:
-            source_ids = None if slug == default_agent else []
-            logger.warning("Agent[%s]: connected_sources was null, resolved to %s (first_agent=%s)", slug, source_ids, default_agent)
-        elif slug == default_agent and source_ids == []:
-            source_ids = None
-            logger.warning("Agent[%s]: first agent with empty connected_sources, resolved to None (all sources)", slug)
+            source_ids = []
+            logger.warning("Agent[%s]: connected_sources was null, resolved to [] (no sources)", slug)
         model = cfg.get("model") or None
         system_prompt = cfg.get("system_prompt") or None
         logger.warning(
-            "Agent[%s] graph config: model=%s connected_sources=%s (raw_cfg=%s) prompt_override=%s tools=%s",
-            slug, model, source_ids, raw_cfg_sources, bool(system_prompt), spec.tools,
+            "Agent[%s] graph config: model=%s connected_sources=%s prompt_override=%s tools=%s",
+            slug, model, source_ids, bool(system_prompt), spec.tools,
         )
         builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt))
         builder.add_edge(slug, END)
 
     builder.add_conditional_edges(
-        START,
+        "router",
         lambda state: state.get("current_agent", default_agent),
         {slug: slug for slug in registry},
     )

@@ -27,6 +27,8 @@ class AgentSettingOut(BaseModel):
     web_search_enabled: bool
     connected_sources: list[Any] | None
     tools: list[str] | None
+    is_orchestrator: bool
+    routes_to: list[str] | None
     mode_profile: dict[str, Any] | None
 
     model_config = ConfigDict(from_attributes=True)
@@ -52,6 +54,8 @@ class AgentSettingUpdate(BaseModel):
     web_search_enabled: bool = False
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
+    is_orchestrator: bool = False
+    routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
 
 
@@ -74,4 +78,6 @@ class AgentSettingCreate(BaseModel):
     web_search_enabled: bool = False
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
+    is_orchestrator: bool = False
+    routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None

@@ -13,5 +13,7 @@ class SourceInfo(TypedDict):
 class AgentState(TypedDict):
     messages: Annotated[list[AnyMessage], add_messages]
     current_agent: str
+    orchestrator_agent: str | None
+    forced_agent: str | None
     sources: list[SourceInfo] | None
     mode: str | None

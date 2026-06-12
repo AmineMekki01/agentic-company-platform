@@ -13,6 +13,8 @@ const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   retrieval_top_k: 5,
   connected_sources: [],
   tools: ["retrieve", "web_search"],
+  is_orchestrator: false,
+  routes_to: [],
 };
 
 export default function AdminAgents() {
@@ -69,6 +71,8 @@ export default function AdminAgents() {
         web_search_enabled: tools.includes("web_search"),
         connected_sources: selected.connected_sources || undefined,
         tools: tools,
+        is_orchestrator: selected.is_orchestrator,
+        routes_to: selected.routes_to || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
       await refresh();
@@ -97,6 +101,8 @@ export default function AdminAgents() {
         system_prompt: newAgent.system_prompt?.trim() || undefined,
         retrieval_enabled: tools.includes("retrieve"),
         web_search_enabled: tools.includes("web_search"),
+        is_orchestrator: newAgent.is_orchestrator,
+        routes_to: newAgent.routes_to || undefined,
       });
       setShowCreate(false);
       setNewAgent({ ...DEFAULT_NEW_AGENT });
@@ -131,6 +137,18 @@ export default function AdminAgents() {
       setSelected({ ...agent, tools: next });
     } else {
       setNewAgent({ ...agent, tools: next });
+    }
+  };
+
+  const toggleRoute = (agent: AgentSetting | AgentSettingCreate, slug: string) => {
+    const current = agent.routes_to || [];
+    const next = current.includes(slug)
+      ? current.filter((s) => s !== slug)
+      : [...current, slug];
+    if ("id" in agent) {
+      setSelected({ ...agent, routes_to: next });
+    } else {
+      setNewAgent({ ...agent, routes_to: next });
     }
   };
 
@@ -292,6 +310,42 @@ export default function AdminAgents() {
                 </div>
               </div>
 
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selected.is_orchestrator}
+                  onChange={(e) => setSelected({ ...selected, is_orchestrator: e.target.checked })}
+                />
+                <span className="text-sm">Is Orchestrator (routes queries to other agents)</span>
+              </label>
+
+              {selected.is_orchestrator && (
+                <div className="block">
+                  <span className="text-xs text-neutral-400">Routes To</span>
+                  <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2">
+                    {agents.length <= 1 && (
+                      <p className="text-xs text-neutral-500">No other agents available.</p>
+                    )}
+                    {agents
+                      .filter((a) => a.slug !== selected.slug)
+                      .map((a) => {
+                        const checked = (selected.routes_to || []).includes(a.slug);
+                        return (
+                          <label key={a.slug} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleRoute(selected, a.slug)}
+                            />
+                            <span>{a.name || a.slug}</span>
+                            <span className="text-xs text-neutral-500">@{a.slug}</span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               <div className="block">
                 <span className="text-xs text-neutral-400">Connected Knowledge Sources</span>
                 <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2">
@@ -411,6 +465,42 @@ export default function AdminAgents() {
                 ))}
               </div>
             </div>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={newAgent.is_orchestrator}
+                onChange={(e) => setNewAgent({ ...newAgent, is_orchestrator: e.target.checked })}
+              />
+              <span className="text-sm">Is Orchestrator (routes queries to other agents)</span>
+            </label>
+
+            {newAgent.is_orchestrator && (
+              <div className="block">
+                <span className="text-xs text-neutral-400">Routes To</span>
+                <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-neutral-950 border border-neutral-700 rounded-md px-3 py-2">
+                  {agents.length === 0 && (
+                    <p className="text-xs text-neutral-500">No other agents available.</p>
+                  )}
+                  {agents
+                    .filter((a) => a.slug !== newAgent.slug)
+                    .map((a) => {
+                      const checked = (newAgent.routes_to || []).includes(a.slug);
+                      return (
+                        <label key={a.slug} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleRoute(newAgent, a.slug)}
+                          />
+                          <span>{a.name || a.slug}</span>
+                          <span className="text-xs text-neutral-500">@{a.slug}</span>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <button

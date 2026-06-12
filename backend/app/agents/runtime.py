@@ -6,10 +6,10 @@ from fastapi import Depends, HTTPException, Request, status
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.agents.graph import build_graph
-from app.agents.registry import AGENT_REGISTRY, AgentSpec
+from app.agents.registry import AgentSpec
 from app.core.config import settings
 from app.db.session import async_session_factory
 from app.models import AgentSettings, KnowledgeSource
@@ -60,16 +60,15 @@ class AgentRuntime:
         registry: dict[str, AgentSpec] = {}
         result = await session.scalars(select(AgentSettings))
         for row in result.all():
-            db_tools = row.tools or []
-            if not db_tools and row.slug in AGENT_REGISTRY:
-                db_tools = AGENT_REGISTRY[row.slug].tools
             registry[row.slug] = AgentSpec(
                 slug=row.slug,
                 name=row.name or row.slug,
                 description=row.description or "",
                 system_prompt=row.system_prompt,
                 default_model=row.llm_model or "gpt-5-nano",
-                tools=db_tools or ["retrieve", "web_search"],
+                tools=row.tools or [],
+                is_orchestrator=row.is_orchestrator if row.is_orchestrator is not None else False,
+                routes_to=row.routes_to or [],
             )
         return registry
 
@@ -93,22 +92,6 @@ class AgentRuntime:
         await self._pool.open()
         checkpointer = AsyncPostgresSaver(self._pool)
         await checkpointer.setup()
-
-        try:
-            async with async_session_factory() as session:
-                count = await session.scalar(select(func.count()).select_from(AgentSettings))
-                if count == 0:
-                    for slug, spec in AGENT_REGISTRY.items():
-                        session.add(AgentSettings(
-                            slug=slug,
-                            name=spec.name,
-                            description=spec.description,
-                            tools=spec.tools,
-                        ))
-                    await session.commit()
-                    logger.info("Seeded default agent settings for %d agents", len(AGENT_REGISTRY))
-        except Exception:
-            logger.exception("Failed to seed default agent settings")
 
         agent_registry: dict[str, AgentSpec] = {}
         agent_settings: dict[str, dict] = {}

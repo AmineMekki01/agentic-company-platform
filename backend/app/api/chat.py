@@ -140,10 +140,15 @@ async def chat_stream(
             input_state = {
                 "messages": [HumanMessage(content=body.content)],
                 "current_agent": agent,
+                "orchestrator_agent": agent,
+                "forced_agent": None,
                 "mode": body.mode,
             }
             if body.force_agent:
-                input_state["current_agent"] = body.agent or default_agent
+                forced = body.agent or default_agent
+                input_state["forced_agent"] = forced
+                input_state["current_agent"] = forced
+                input_state["orchestrator_agent"] = forced
 
             logger.warning("Chat stream start conv=%s agent=%s mode=%s", conversation_id, agent, body.mode)
             result = await runtime.graph.ainvoke(input_state, config)

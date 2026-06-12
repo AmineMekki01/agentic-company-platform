@@ -126,3 +126,137 @@ async def test_chat_foreign_conversation_404(client, auth_headers, chat_env, cre
         json={"content": "hi"},
     )
     assert res.status_code == 404
+
+
+# ---- Router unit tests ----
+
+async def test_router_respects_forced_agent(monkeypatch):
+    from app.agents.graph import make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "general": AgentSpec(slug="general", name="General", description="General", tools=[]),
+        "hr": AgentSpec(slug="hr", name="HR", description="HR", tools=[]),
+    }
+    node = make_router_node(registry, routes_map={"general": ["hr"]}, orchestrator_slugs={"general"}, default_agent="general")
+    state = {
+        "messages": [],
+        "current_agent": "general",
+        "orchestrator_agent": "general",
+        "forced_agent": "hr",
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    assert result["current_agent"] == "hr"
+
+
+async def test_router_routes_at_mention():
+    from langchain_core.messages import HumanMessage
+
+    from app.agents.graph import make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "general": AgentSpec(slug="general", name="General", description="General", tools=[]),
+        "it": AgentSpec(slug="it", name="IT", description="IT", tools=[]),
+    }
+    node = make_router_node(registry, routes_map={"general": ["it"]}, orchestrator_slugs={"general"}, default_agent="general")
+    state = {
+        "messages": [HumanMessage(content="My laptop is broken @it")],
+        "current_agent": "general",
+        "orchestrator_agent": "general",
+        "forced_agent": None,
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    assert result["current_agent"] == "it"
+
+
+async def test_router_fallback_to_default_on_unknown_llm_slug(monkeypatch):
+    from app.agents.graph import _llm_route, make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "hr": AgentSpec(slug="hr", name="HR", description="HR", tools=[]),
+    }
+
+    async def fake_llm_route(user_msg, current_agent, registry):
+        return "nonexistent"
+
+    monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
+
+    node = make_router_node(registry, routes_map={}, orchestrator_slugs=set(), default_agent="hr")
+    state = {
+        "messages": [],
+        "current_agent": "hr",
+        "orchestrator_agent": "hr",
+        "forced_agent": None,
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    assert result["current_agent"] == "hr"
+
+
+async def test_router_restricts_to_orchestrator_routes(monkeypatch):
+    from app.agents.graph import _llm_route, make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "general": AgentSpec(slug="general", name="General", description="General", tools=[]),
+        "hr": AgentSpec(slug="hr", name="HR", description="HR", tools=[]),
+        "it": AgentSpec(slug="it", name="IT", description="IT", tools=[]),
+    }
+
+    captured_registry = {}
+
+    async def fake_llm_route(user_msg, current_agent, registry):
+        captured_registry["slugs"] = list(registry.keys())
+        return "hr"
+
+    monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
+
+    node = make_router_node(registry, routes_map={"general": ["hr"]}, orchestrator_slugs={"general"}, default_agent="general")
+    state = {
+        "messages": [],
+        "current_agent": "general",
+        "orchestrator_agent": "general",
+        "forced_agent": None,
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    assert result["current_agent"] == "hr"
+    assert captured_registry["slugs"] == ["hr", "general"]
+
+
+async def test_orchestrator_empty_routes_only_routes_to_self(monkeypatch):
+    from app.agents.graph import _llm_route, make_router_node
+    from app.agents.registry import AgentSpec
+
+    registry = {
+        "general": AgentSpec(slug="general", name="General", description="General", tools=[], is_orchestrator=True, routes_to=[]),
+        "hr": AgentSpec(slug="hr", name="HR", description="HR", tools=[]),
+    }
+
+    async def fake_llm_route(user_msg, current_agent, registry):
+        # If the router leaked to full registry, this would be called with "hr" as a valid option
+        # and might return "hr". With the fix, it should only be called with {"general"}.
+        return "hr"  # LLM tries to route to hr, but hr is not in allowed_registry
+
+    monkeypatch.setattr("app.agents.graph._llm_route", fake_llm_route)
+
+    node = make_router_node(registry, routes_map={"general": []}, orchestrator_slugs={"general"}, default_agent="general")
+    state = {
+        "messages": [],
+        "current_agent": "general",
+        "orchestrator_agent": "general",
+        "forced_agent": None,
+        "sources": None,
+        "mode": None,
+    }
+    result = await node(state)
+    # "hr" is not in allowed_registry (only "general"), so fallback to orchestrator itself
+    assert result["current_agent"] == "general"
