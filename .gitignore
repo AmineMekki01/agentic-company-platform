@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Node / frontend
+node_modules/
+frontend/dist/
+.vite/
+*.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# App data
+qdrant_storage/
+mock_agents.md
+
+# Env
+.env.local
+.env.*.local
