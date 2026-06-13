@@ -24,6 +24,7 @@ export default function AdminAgents() {
   const [agents, setAgents] = useState<AgentSetting[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [users, setUsers] = useState<DbUser[]>([]);
+  const [models, setModels] = useState<string[]>([]);
   const [selected, setSelected] = useState<AgentSetting | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,14 +38,16 @@ export default function AdminAgents() {
     setLoading(true);
     setError(null);
     try {
-      const [agentData, sourceData, userData] = await Promise.all([
+      const [agentData, sourceData, userData, modelData] = await Promise.all([
         api.listAgentSettings(),
         api.listKnowledgeSources(),
         api.listUsers(),
+        api.listModels(),
       ]);
       setAgents(agentData);
       setSources(sourceData);
       setUsers(userData);
+      setModels(modelData);
       if (selected) {
         const updated = agentData.find((a) => a.slug === selected.slug) ?? null;
         setSelected(updated);
@@ -294,12 +297,15 @@ export default function AdminAgents() {
                 </label>
                 <label className="block">
                   <span className="text-xs font-medium text-zinc-400">LLM Model</span>
-                  <input
-                    value={selected.llm_model || ""}
+                  <select
+                    value={selected.llm_model || "gpt-5.4-nano"}
                     onChange={(e) => setSelected({ ...selected, llm_model: e.target.value })}
-                    placeholder="gpt-5.4-nano"
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                  />
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                  >
+                    {models.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
                 </label>
               </div>
 
@@ -535,12 +541,15 @@ export default function AdminAgents() {
 
             <label className="block">
               <span className="text-xs font-medium text-zinc-400">LLM Model</span>
-              <input
-                value={newAgent.llm_model}
+              <select
+                value={newAgent.llm_model || "gpt-5.4-nano"}
                 onChange={(e) => setNewAgent({ ...newAgent, llm_model: e.target.value })}
-                placeholder="gpt-5.4-nano"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-              />
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+              >
+                {models.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
             </label>
 
             <label className="block">

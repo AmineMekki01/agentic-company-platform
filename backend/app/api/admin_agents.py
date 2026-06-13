@@ -3,11 +3,22 @@
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import select
 
+from app.agents.context import MODEL_CONTEXT_WINDOWS
 from app.api.deps import AdminUser, DbSession
 from app.models import AgentSettings
 from app.schemas.agent_settings import AgentSettingCreate, AgentSettingOut, AgentSettingUpdate
 
 router = APIRouter(prefix="/admin/agents", tags=["admin"])
+
+@router.get("/models", response_model=list[str])
+async def list_models(user: AdminUser) -> list[str]:
+    """Return available LLM model names."""
+    models = [k for k in MODEL_CONTEXT_WINDOWS.keys() if k != "default"]
+
+    if "gpt-5.4-nano" in models:
+        models.remove("gpt-5.4-nano")
+        models.insert(0, "gpt-5.4-nano")
+    return models
 
 @router.get("", response_model=list[AgentSettingOut])
 async def list_agent_settings(user: AdminUser, db: DbSession) -> list[AgentSettingOut]:
