@@ -179,11 +179,16 @@ export default function ChatPage() {
         <MessageList
           messages={messages}
           agents={agents}
-          renderAction={(msg) =>
-            activeId && msg.role === "assistant" && !msg.streaming && msg.agent_id === "it" ? (
-              <JiraTicketButton conversationId={activeId} />
-            ) : null
-          }
+          renderAction={(msg) => {
+            if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
+              return null;
+            }
+            const agent = agents.find((a) => a.slug === msg.agent_id);
+            if (!agent?.tools?.includes("create_jira_ticket")) {
+              return null;
+            }
+            return <JiraTicketButton conversationId={activeId} />;
+          }}
           emptyState={
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/20">

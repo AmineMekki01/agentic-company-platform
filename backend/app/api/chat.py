@@ -52,7 +52,7 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
     result = await db.scalars(sa_select(AgentSettings).order_by(AgentSettings.slug))
     rows = result.all()
     return [
-        AgentOut(slug=r.slug, name=r.name, description=r.description)
+        AgentOut(slug=r.slug, name=r.name, description=r.description, tools=r.tools or [])
         for r in rows
         if _agent_visible(r, user)
     ]

@@ -77,10 +77,12 @@ class AgentOut(BaseModel):
     - Agent slug
     - Agent name
     - Agent description
+    - Enabled tools
     """
     slug: str
     name: str | None = None
     description: str | None = None
+    tools: list[str] | None = None
 
 
 class JiraTicketDraft(BaseModel):
