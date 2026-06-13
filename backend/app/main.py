@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,9 +14,11 @@ from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.api.knowledge_sources import router as knowledge_sources_router
 from app.core.config import settings
+from app.core.logging import configure_logging, get_logger
 from app.services.rag import RAGService
 
-logger = logging.getLogger(__name__)
+configure_logging()
+logger = get_logger(__name__)
 
 
 @asynccontextmanager

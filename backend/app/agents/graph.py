@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 
@@ -21,6 +22,29 @@ logger = logging.getLogger(__name__)
 _TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket}
 
 _FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
+
+
+def _clean_citations(text: str) -> str:
+    """Deduplicate adjacent citations like [1][1] → [1] and [1][2][2] → [1][2]."""
+    text = re.sub(r"(\[(\d+)\])\s*\[(\d+)\]", lambda m: m.group(1) if m.group(2) == m.group(3) else m.group(0), text)
+    text = re.sub(r"(\[(\d+)\])\s*\[(\d+)\]", lambda m: m.group(1) if m.group(2) == m.group(3) else m.group(0), text)
+    return text
+
+
+async def _expand_query(query: str, model: str = "gpt-5-nano") -> str:
+    """Rewrite a vague/short user query into a precise search query for RAG."""
+    if not query or len(query.split()) < 3:
+        return query
+    llm = get_chat_model(model, temperature=0.1)
+    prompt = (
+        f"Rewrite the following user question into a concise, keyword-rich search query. "
+        f"Keep the original meaning but use specific keywords. "
+        f"Keep it under 15 words.\n\n"
+        f"User question: {query}\nSearch query:"
+    )
+    response = await llm.ainvoke([SystemMessage(content=prompt)])
+    expanded = str(getattr(response, "content", response)).strip()
+    return expanded if expanded else query
 
 
 def make_agent_node(
@@ -48,8 +72,11 @@ def make_agent_node(
     context_window = resolve_context_window(model_name)
 
     agent_tools = []
+
+    if source_ids:
+        agent_tools.append(_TOOL_REGISTRY["retrieve"])
     for t in (spec.tools or []):
-        if t in _TOOL_REGISTRY:
+        if t in _TOOL_REGISTRY and t != "retrieve":
             agent_tools.append(_TOOL_REGISTRY[t])
 
     llm_with_tools = llm.bind_tools(agent_tools) if agent_tools else llm
@@ -110,6 +137,10 @@ def make_agent_node(
         )
 
         response = await llm_with_tools.ainvoke(messages)
+        raw_text = str(getattr(response, "content", response))
+        cleaned_text = _clean_citations(raw_text)
+        if cleaned_text != raw_text and hasattr(response, "content"):
+            response.content = cleaned_text
         return {
             "messages": [response],
             "sources": state.get("sources"),
@@ -252,18 +283,29 @@ def make_tools_node(agent_settings: dict[str, dict]):
                 if source_ids == []:
                     results.append("No knowledge sources are configured for this agent.")
                 else:
-                    text, srcs = await _retrieve_and_format(query, source_ids=source_ids, top_k=top_k)
-                    results.append(text)
-                    new_sources.extend(srcs)
+                    expanded_query = await _expand_query(query)
+                    logger.info("Expanded query: %r -> %r", query, expanded_query)
+                    tool_fn = _TOOL_REGISTRY.get("retrieve")
+                    result = await tool_fn.ainvoke({"query": expanded_query, "sources": source_ids})
+                    parsed = json.loads(str(result))
+                    results.append(parsed["text"])
+                    new_sources.extend(parsed.get("sources", []))
+                    logger.info("retrieved results : %s", parsed["text"])
+                    
             elif name == "web_search":
-                result = await web_search(args.get("query", ""))
+                tool_fn = _TOOL_REGISTRY.get("web_search")
+                result = await tool_fn.ainvoke({"query": args.get("query", "")})
+                logger.info("Web search result: %s", result)
                 results.append(str(result))
+
             elif name == "create_jira_ticket":
-                result = await create_jira_ticket(
-                    summary=args.get("summary", ""),
-                    description=args.get("description", ""),
-                    issue_type=args.get("issue_type", "Task"),
-                )
+                tool_fn = _TOOL_REGISTRY.get("create_jira_ticket")
+                result = await tool_fn.ainvoke({
+                    "summary": args.get("summary", ""),
+                    "description": args.get("description", ""),
+                    "issue_type": args.get("issue_type", "Task"),
+                })
+                logger.info("Jira ticket result: %s", result)
                 results.append(str(result))
             else:
                 results.append(f"Error: unknown tool '{name}'")

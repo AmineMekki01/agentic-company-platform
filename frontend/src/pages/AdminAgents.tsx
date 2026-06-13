@@ -3,7 +3,7 @@ import { Loader2, Plus, RefreshCw, Save, Trash2, Bot } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 
-const AVAILABLE_TOOLS = ["retrieve", "web_search", "create_jira_ticket"];
+const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
 
 const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   slug: "",
@@ -13,7 +13,7 @@ const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   system_prompt: "",
   retrieval_top_k: 5,
   connected_sources: [],
-  tools: ["retrieve", "web_search"],
+  tools: ["web_search"],
   is_orchestrator: false,
   routes_to: [],
   visibility: "all",
@@ -69,14 +69,14 @@ export default function AdminAgents() {
     setSaving(true);
     setError(null);
     try {
-      const tools = selected.tools || [];
+      const tools = (selected.tools || []).filter((t) => t !== "retrieve");
       const payload: AgentSettingUpdate = {
         name: selected.name || undefined,
         description: selected.description || undefined,
         llm_model: selected.llm_model || undefined,
         system_prompt: selected.system_prompt || undefined,
         retrieval_top_k: selected.retrieval_top_k,
-        retrieval_enabled: tools.includes("retrieve"),
+        retrieval_enabled: (selected.connected_sources || []).length > 0,
         web_search_enabled: tools.includes("web_search"),
         connected_sources: selected.connected_sources || undefined,
         tools: tools,
@@ -103,14 +103,14 @@ export default function AdminAgents() {
     setCreating(true);
     setError(null);
     try {
-      const tools = newAgent.tools || [];
+      const tools = (newAgent.tools || []).filter((t) => t !== "retrieve");
       await api.createAgentSetting({
         ...newAgent,
         slug: newAgent.slug.trim(),
         name: newAgent.name?.trim() || undefined,
         description: newAgent.description?.trim() || undefined,
         system_prompt: newAgent.system_prompt?.trim() || undefined,
-        retrieval_enabled: tools.includes("retrieve"),
+        retrieval_enabled: (newAgent.connected_sources || []).length > 0,
         web_search_enabled: tools.includes("web_search"),
         is_orchestrator: newAgent.is_orchestrator,
         routes_to: newAgent.routes_to || undefined,
@@ -362,6 +362,11 @@ export default function AdminAgents() {
                       </label>
                     ))}
                   </div>
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    {(selected.connected_sources || []).length > 0
+                      ? "Retrieval is enabled automatically because knowledge sources are connected."
+                      : "Connect knowledge sources to enable retrieval."}
+                  </p>
                 </div>
               </div>
 
@@ -578,6 +583,11 @@ export default function AdminAgents() {
                   </label>
                 ))}
               </div>
+              <p className="text-xs text-zinc-500 mt-1.5">
+                {(newAgent.connected_sources || []).length > 0
+                  ? "Retrieval is enabled automatically because knowledge sources are connected."
+                  : "Connect knowledge sources to enable retrieval."}
+              </p>
             </div>
 
             <label className="block">

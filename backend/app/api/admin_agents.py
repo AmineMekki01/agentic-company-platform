@@ -81,7 +81,9 @@ async def create_agent_setting(
     existing = await db.scalar(select(AgentSettings).where(AgentSettings.slug == body.slug))
     if existing:
         raise HTTPException(status_code=409, detail="Agent slug already exists")
-    row = AgentSettings(**body.model_dump(exclude_unset=True))
+    data = body.model_dump(exclude_unset=True)
+    data["retrieval_enabled"] = bool(data.get("connected_sources"))
+    row = AgentSettings(**data)
     db.add(row)
     await db.commit()
     await db.refresh(row)
@@ -117,7 +119,11 @@ async def update_agent_setting(
     row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
-    for key, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    # retrieve is automatic when knowledge sources are attached
+    if "connected_sources" in data:
+        data["retrieval_enabled"] = bool(data["connected_sources"])
+    for key, value in data.items():
         setattr(row, key, value)
     await db.commit()
     await db.refresh(row)

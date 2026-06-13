@@ -1,5 +1,6 @@
 """Tools available to agents."""
 
+import json
 import logging
 from typing import Annotated
 
@@ -8,7 +9,6 @@ from langchain_core.tools import tool
 from app.services.rag import RAGService, RetrievedChunk
 
 logger = logging.getLogger(__name__)
-
 
 async def _retrieve_and_format(
     query: str,
@@ -35,7 +35,7 @@ async def _retrieve_and_format(
     sources = []
     for c in chunks:
         lines.append(
-            f"[{c.rank}] {c.source_title}\nScore: {c.score:.3f}\n{c.text[:800]}"
+            f"[{c.rank}] {c.source_title}\nScore: {c.score:.3f}\n{c.text}"
         )
         sources.append({"rank": c.rank, "title": c.source_title, "id": c.source_id, "url": c.source_url})
     return "\n\n---\n\n".join(lines), sources
@@ -60,8 +60,9 @@ async def retrieve(
     Returns:
         Top relevant passages with source titles and citation numbers
     """
-    text, _ = await _retrieve_and_format(query, source_ids=sources)
-    return text
+    text, srcs = await _retrieve_and_format(query, source_ids=sources)
+    logger.info("Retrieve tool called with query: %s, sources: %s", query, sources)
+    return json.dumps({"text": text, "sources": srcs})
 
 
 @tool
