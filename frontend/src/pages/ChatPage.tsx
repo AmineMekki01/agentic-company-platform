@@ -149,7 +149,7 @@ export default function ChatPage() {
       />
 
       <main className="flex min-w-0 flex-1 flex-col bg-zinc-900/50">
-        <header className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
+        <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-3 backdrop-blur-sm z-10">
           <div className="flex items-center gap-3">
             <AgentSwitcher
               agents={agents}
@@ -163,9 +163,17 @@ export default function ChatPage() {
             />
             <ModeSelector selected={mode} onSelect={setMode} />
           </div>
-          <span className="text-xs text-zinc-600">
-            {streaming ? "Agent is responding…" : ""}
-          </span>
+          <div className="flex items-center gap-2">
+            {streaming && (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                </span>
+                <span className="text-xs text-zinc-400">Agent is responding…</span>
+              </>
+            )}
+          </div>
         </header>
 
         <MessageList

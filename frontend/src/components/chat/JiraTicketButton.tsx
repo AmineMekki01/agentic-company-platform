@@ -46,7 +46,7 @@ export default function JiraTicketButton({ conversationId }: JiraTicketButtonPro
       <button
         onClick={handleGenerateDraft}
         disabled={loading}
-        className="flex items-center gap-1.5 bg-indigo-600/80 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg text-sm font-medium transition"
+        className="flex items-center gap-1.5 bg-indigo-600/90 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/10"
       >
         {loading ? (
           <>
@@ -60,7 +60,7 @@ export default function JiraTicketButton({ conversationId }: JiraTicketButtonPro
           </>
         )}
       </button>
-      {error && <span className="text-red-400 text-xs">{error}</span>}
+      {error && <span className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-md px-2 py-1">{error}</span>}
     </div>
   );
 }

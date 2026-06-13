@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Trash2, BookOpen } from "lucide-react";
 import {
   api,
   type Connector,
@@ -9,6 +9,32 @@ import {
   type S3Bucket,
 } from "@/lib/api";
 import ServiceIcon from "@/components/ServiceIcon";
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    ready: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    syncing: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    pending: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
+    error: "bg-red-500/10 text-red-400 border-red-500/20",
+  };
+  return (
+    <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[status] || styles.pending}`}>
+      {status}
+    </span>
+  );
+}
+
+function SourceBadge({ type }: { type: string }) {
+  const styles: Record<string, string> = {
+    notion: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    s3: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+  };
+  return (
+    <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[type] || "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
+      {type}
+    </span>
+  );
+}
 
 export default function AdminKnowledgeSources() {
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
@@ -165,38 +191,43 @@ export default function AdminKnowledgeSources() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Knowledge Sources</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Knowledge Sources</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">Manage data sources for agent retrieval</p>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="text-sm bg-blue-600 hover:bg-blue-500 px-3 py-1.5 rounded-md"
+            className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
           >
+            <Plus className="h-3.5 w-3.5" />
             {showForm ? "Cancel" : "Add Source"}
           </button>
           <button
             onClick={refresh}
-            className="text-sm bg-neutral-800 hover:bg-neutral-700 px-3 py-1.5 rounded-md"
+            className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
           >
+            <RefreshCw className="h-3.5 w-3.5" />
             Refresh
           </button>
         </div>
       </div>
 
       {showForm && (
-        <div className="bg-neutral-800/60 rounded-lg p-4 mb-4 space-y-2 max-w-lg">
-          <h2 className="font-medium mb-2">New Knowledge Source</h2>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6 space-y-3 max-w-lg shadow-sm">
+          <h2 className="font-medium text-zinc-200">New Knowledge Source</h2>
           <input
             value={form.slug}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
             placeholder="Slug (e.g. notion-hr)"
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           />
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Name"
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           />
           <select
             value={form.source_type}
@@ -215,12 +246,10 @@ export default function AdminKnowledgeSources() {
               setS3Buckets([]);
               setS3BrowseAttempted(false);
             }}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           >
             <option value="notion">Notion</option>
             <option value="s3">S3 Bucket</option>
-            <option value="upload">Upload</option>
-            <option value="web">Web</option>
           </select>
 
           {/* Connector selector */}
@@ -231,7 +260,7 @@ export default function AdminKnowledgeSources() {
               setS3Buckets([]);
               setS3BrowseAttempted(false);
             }}
-            className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           >
             <option value="">Select connector credential…</option>
             {connectorOptions.map((c) => (
@@ -252,7 +281,7 @@ export default function AdminKnowledgeSources() {
                     setBrowseItems([]);
                     setSelectedItem(null);
                   }}
-                  className="bg-neutral-900 border border-neutral-700 rounded-md px-2 py-1.5 text-sm"
+                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-sm text-zinc-200 focus:border-indigo-500/50 outline-none transition"
                 >
                   <option value="database">Browse Databases</option>
                   <option value="page">Browse Pages</option>
@@ -260,29 +289,29 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseNotion}
                   disabled={browseLoading}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-md"
+                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
                 >
                   {browseLoading ? "Browsing…" : "Browse Notion"}
                 </button>
               </div>
 
               {browseItems.length > 0 && (
-                <div className="border border-neutral-700 rounded-md p-2 space-y-1 max-h-40 overflow-y-auto">
-                  <div className="text-xs text-neutral-500 mb-1">
+                <div className="border border-zinc-800 rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto bg-zinc-950">
+                  <div className="text-xs text-zinc-500 mb-1">
                     Select a {browseMode === "database" ? "database" : "page"}:
                   </div>
                   {browseItems.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => selectItem(item)}
-                      className={`w-full text-left px-2 py-1 rounded text-sm ${
+                      className={`w-full text-left px-2 py-1 rounded-md text-sm transition ${
                         selectedItem?.id === item.id
-                          ? "bg-blue-900/50 text-blue-200"
-                          : "hover:bg-neutral-700 text-neutral-300"
+                          ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                          : "hover:bg-zinc-800 text-zinc-300"
                       }`}
                     >
                       {item.name}{" "}
-                      <span className="text-xs text-neutral-500">({item.id})</span>
+                      <span className="text-xs text-zinc-500">({item.id})</span>
                     </button>
                   ))}
                 </div>
@@ -315,7 +344,7 @@ export default function AdminKnowledgeSources() {
                   }
                 }}
                 placeholder={`Notion ${browseMode === "database" ? "Database" : "Page"} ID (or pick above)`}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
               />
             </div>
           )}
@@ -327,7 +356,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseS3}
                   disabled={s3BrowseLoading}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-md"
+                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
                 >
                   {s3BrowseLoading ? "Loading…" : "List Buckets"}
                 </button>
@@ -339,7 +368,7 @@ export default function AdminKnowledgeSources() {
                   onChange={(e) =>
                     setForm({ ...form, config: { ...form.config, bucket: e.target.value } })
                   }
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
                 >
                   <option value="">Select bucket…</option>
                   {s3Buckets.map((b) => (
@@ -362,7 +391,7 @@ export default function AdminKnowledgeSources() {
                   setForm({ ...form, config: { ...form.config, bucket: e.target.value } })
                 }
                 placeholder="Or enter bucket name manually"
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
               />
               <input
                 value={(form.config?.prefix as string) || ""}
@@ -370,7 +399,7 @@ export default function AdminKnowledgeSources() {
                   setForm({ ...form, config: { ...form.config, prefix: e.target.value } })
                 }
                 placeholder="Folder prefix (optional, e.g. docs/hr/)"
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
               />
             </div>
           )}
@@ -389,52 +418,46 @@ export default function AdminKnowledgeSources() {
 
           <button
             onClick={create}
-            className="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-md text-sm font-medium"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-emerald-500/15"
           >
+            <Plus className="h-4 w-4" />
             Create Source
           </button>
         </div>
       )}
 
-      {loading && <p className="text-neutral-400 text-sm">Loading…</p>}
+      {loading && (
+        <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading sources…
+        </div>
+      )}
       <div className="space-y-2">
         {sources.map((s) => {
           const conn = connectors.find((c) => c.id === s.connector_id);
           return (
             <div
               key={s.id}
-              className="flex items-center justify-between bg-neutral-800/60 rounded-lg px-4 py-3"
+              className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 transition hover:border-zinc-700"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-neutral-900/80 border border-neutral-700/50">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-950 border border-zinc-800">
                   <ServiceIcon type={s.source_type} size={22} />
                 </div>
                 <div>
-                  <div className="font-medium flex items-center gap-2">
+                  <div className="font-medium text-zinc-200 flex items-center gap-2">
                     {s.name}
-                    <span
-                      className={
-                        "text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 " +
-                        (s.source_type === "notion"
-                          ? "bg-indigo-500/15 text-indigo-400"
-                          : s.source_type === "upload"
-                            ? "bg-amber-500/15 text-amber-400"
-                            : s.source_type === "web"
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : "bg-neutral-700 text-neutral-400")
-                      }
-                    >
-                      {s.source_type}
-                    </span>
+                    <SourceBadge type={s.source_type} />
+                    <StatusBadge status={s.status} />
                   </div>
-                  <div className="text-xs text-neutral-400">
-                    {s.slug} - {s.status} - {s.chunk_count} chunks
+                  <div className="text-xs text-zinc-500">
+                    {s.slug} · {s.chunk_count} chunks
                   </div>
                   {conn && (
-                    <div className="text-xs text-neutral-500">Connector: {conn.name}</div>
+                    <div className="text-xs text-zinc-600">Connector: {conn.name}</div>
                   )}
                   {s.source_type === "notion" && (
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-zinc-600">
                       {(() => {
                         const cfg = s.config as Record<string, string> | null;
                         if (cfg?.database_id) return `DB: ${cfg.database_id}`;
@@ -449,14 +472,14 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={() => triggerSync(s.slug)}
                   disabled={syncingSlugs.has(s.slug)}
-                  className="text-sm bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-md flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${syncingSlugs.has(s.slug) ? "animate-spin" : ""}`} />
                   {syncingSlugs.has(s.slug) ? "Syncing…" : "Sync"}
                 </button>
                 <button
                   onClick={() => remove(s.slug)}
-                  className="text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-md px-2 py-1 transition"
+                  className="rounded-md p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -466,7 +489,10 @@ export default function AdminKnowledgeSources() {
           );
         })}
         {!loading && sources.length === 0 && (
-          <p className="text-neutral-400 text-sm">No knowledge sources configured.</p>
+          <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
+            <BookOpen className="h-10 w-10 text-zinc-700 mb-3" />
+            <p className="text-sm">No knowledge sources configured</p>
+          </div>
         )}
       </div>
     </div>

@@ -104,9 +104,9 @@ function AssistantMessage({
         <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-indigo-400 align-text-bottom" />
       )}
       {dedupedSources.length > 0 && (
-        <div className="mt-3 rounded-lg border border-zinc-700/50 bg-zinc-800/40 px-3 py-2">
-          <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-zinc-400">
-            <FileText className="h-3 w-3" />
+        <div className="mt-4 rounded-xl border border-zinc-700/40 bg-zinc-800/30 px-4 py-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+            <FileText className="h-3.5 w-3.5" />
             Sources
           </div>
           <ul className="space-y-0.5">
@@ -120,10 +120,10 @@ function AssistantMessage({
               return (
                 <li
                   key={s.id}
-                  className={`text-xs rounded px-1 py-0.5 transition ${
+                  className={`text-xs rounded-md px-2 py-1 transition ${
                     highlightedRank === s.rank
-                      ? "bg-indigo-600/20 text-indigo-300"
-                      : "text-zinc-500"
+                      ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                      : "text-zinc-500 border border-transparent hover:bg-zinc-700/30"
                   }`}
                 >
                   {s.url ? (
@@ -165,12 +165,14 @@ export default function MessageList({ messages, agents, emptyState, renderAction
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
         {messages.map((m) => (
-          <div key={m.id} className="flex gap-3">
+          <div key={m.id} className="flex gap-3.5 group">
             <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                m.role === "user" ? "bg-zinc-700" : "bg-indigo-600"
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                m.role === "user"
+                  ? "bg-gradient-to-br from-zinc-600 to-zinc-700"
+                  : "bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15"
               }`}
             >
               {m.role === "user" ? (
@@ -180,13 +182,13 @@ export default function MessageList({ messages, agents, emptyState, renderAction
               )}
             </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 flex items-baseline gap-2">
+            <div className="min-w-0 flex-1 pt-0.5">
+              <div className="mb-1.5 flex items-baseline gap-2">
                 <span className="text-xs font-semibold text-zinc-300">
                   {m.role === "user" ? "You" : agentName(agents, m.agent_id)}
                 </span>
                 {m.role === "assistant" && m.agent_id && (
-                  <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-400">
+                  <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
                     @{m.agent_id}
                   </span>
                 )}

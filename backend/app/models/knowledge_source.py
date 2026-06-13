@@ -14,7 +14,7 @@ class KnowledgeSource(Base):
     
     This model stores configuration for knowledge sources that can be used by agents,
     including:
-    - Source type (notion, s3, upload, web)
+    - Source type (notion, s3)
     - Configuration settings
     - Sync status
     - Connection to external connectors
@@ -25,7 +25,7 @@ class KnowledgeSource(Base):
     slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     source_type: Mapped[str] = mapped_column(
-        Enum("notion", "s3", "upload", "web", name="knowledge_source_type"),
+        Enum("notion", "s3", name="knowledge_source_type"),
         nullable=False,
     )
     config: Mapped[dict[str, Any] | None] = mapped_column(

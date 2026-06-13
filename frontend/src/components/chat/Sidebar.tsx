@@ -22,12 +22,12 @@ export default function Sidebar({
   const { user, logout, isAdmin } = useAuth();
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
-      <div className="flex items-center gap-2 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-          <Bot className="h-4.5 w-4.5 text-white" />
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800/70 bg-zinc-950">
+      <div className="flex items-center gap-2.5 px-4 py-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
+          <Bot className="h-4 w-4 text-white" />
         </div>
-        <span className="text-sm font-semibold tracking-tight">
+        <span className="text-sm font-semibold tracking-tight text-zinc-100">
           Company Platform
         </span>
       </div>
@@ -35,37 +35,38 @@ export default function Sidebar({
       <div className="px-3">
         <button
           onClick={onNew}
-          className="flex w-full items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium transition hover:bg-zinc-900"
+          className="flex w-full items-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/60 px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800/80 hover:text-zinc-100 hover:border-zinc-600"
         >
           <Plus className="h-4 w-4" />
           New chat
         </button>
       </div>
 
-      <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
+      <nav className="mt-3 flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">
         {conversations.length === 0 && (
-          <p className="px-3 py-6 text-center text-xs text-zinc-600">
-            No conversations yet
-          </p>
+          <div className="px-3 py-8 text-center">
+            <MessageSquare className="mx-auto mb-2 h-5 w-5 text-zinc-700" />
+            <p className="text-xs text-zinc-600">No conversations yet</p>
+          </div>
         )}
         {conversations.map((c) => (
           <div
             key={c.id}
             className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
               c.id === activeId
-                ? "bg-zinc-800 text-zinc-100"
+                ? "bg-zinc-800/80 text-zinc-100"
                 : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
             }`}
             onClick={() => onSelect(c.id)}
           >
-            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
+            <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
             <span className="flex-1 truncate">{c.title ?? "New conversation"}</span>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(c.id);
               }}
-              className="hidden shrink-0 text-zinc-500 hover:text-red-400 group-hover:block"
+              className="hidden shrink-0 text-zinc-500 hover:text-red-400 group-hover:block transition"
               aria-label="Delete conversation"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -85,8 +86,8 @@ export default function Sidebar({
           </Link>
         </div>
       )}
-      <div className="flex items-center gap-2 border-t border-zinc-800 px-4 py-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-700 text-xs font-semibold uppercase">
+      <div className="flex items-center gap-2.5 border-t border-zinc-800/50 px-4 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-600 text-xs font-semibold uppercase text-zinc-200 ring-2 ring-zinc-800">
           {user?.email[0] ?? "?"}
         </div>
         <div className="min-w-0 flex-1">
@@ -97,7 +98,7 @@ export default function Sidebar({
         </div>
         <button
           onClick={logout}
-          className="text-zinc-500 transition hover:text-zinc-200"
+          className="rounded-md p-1 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200"
           aria-label="Log out"
         >
           <LogOut className="h-4 w-4" />

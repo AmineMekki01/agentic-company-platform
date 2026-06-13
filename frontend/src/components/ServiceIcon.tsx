@@ -1,4 +1,4 @@
-import { FileText, Globe, Upload } from "lucide-react";
+import { FileText } from "lucide-react";
 
 const ICON_MAP: Record<string, string> = {
   notion: "/icons/notion.svg",
@@ -24,20 +24,11 @@ export default function ServiceIcon({ type, size = 24, className = "" }: Service
         height={size}
         className={`inline-block object-contain ${className}`}
         onError={(e) => {
-          // If the image fails to load, hide it so the fallback isn't duplicated
           (e.target as HTMLImageElement).style.display = "none";
         }}
       />
     );
   }
 
-  // Fallback Lucide icons for types without a downloaded logo
-  switch (type.toLowerCase()) {
-    case "upload":
-      return <Upload className={`text-amber-400 ${className}`} style={{ width: size, height: size }} />;
-    case "web":
-      return <Globe className={`text-emerald-400 ${className}`} style={{ width: size, height: size }} />;
-    default:
-      return <FileText className={`text-neutral-400 ${className}`} style={{ width: size, height: size }} />;
-  }
+  return <FileText className={`text-zinc-400 ${className}`} style={{ width: size, height: size }} />;
 }

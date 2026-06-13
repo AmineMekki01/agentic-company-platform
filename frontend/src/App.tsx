@@ -12,8 +12,13 @@ import { useAuth } from "@/stores/auth";
 
 function FullScreenSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative flex h-10 w-10 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+        </div>
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </div>
     </div>
   );
 }

@@ -126,7 +126,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column(
             "source_type",
-            sa.Enum("notion", "web", "s3", "jira", name="knowledge_source_type"),
+            sa.Enum("notion", "s3", name="knowledge_source_type"),
             nullable=False,
         ),
         sa.Column("config", sa.JSON(), nullable=True, server_default="{}"),

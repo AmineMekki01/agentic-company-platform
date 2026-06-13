@@ -17,39 +17,49 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-neutral-900 text-white">
-      <aside className="w-56 border-r border-neutral-800 p-4 flex flex-col gap-1">
-        <div className="font-bold text-lg mb-3 px-3">Admin</div>
-        {links.map((l) => {
-          const Icon = l.icon;
-          const active = location.pathname === l.to;
-          return (
-            <Link
-              key={l.to}
-              to={l.to}
-              className={
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition " +
-                (active
-                  ? "bg-neutral-800 font-medium text-white"
-                  : "hover:bg-neutral-800/60 text-neutral-300")
-              }
-            >
-              <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-neutral-400"}`} />
-              {l.label}
-            </Link>
-          );
-        })}
-        <div className="mt-auto pt-4 border-t border-neutral-800">
+    <div className="flex h-screen bg-zinc-950 text-zinc-100">
+      <aside className="w-60 border-r border-zinc-800/80 bg-zinc-950 p-4 flex flex-col gap-0.5">
+        <div className="flex items-center gap-2.5 px-3 py-3 mb-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+            <Bot className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-semibold text-sm tracking-tight">Admin Panel</span>
+        </div>
+        <div className="space-y-0.5">
+          {links.map((l) => {
+            const Icon = l.icon;
+            const active = location.pathname === l.to;
+            return (
+              <Link
+                key={l.to}
+                to={l.to}
+                className={
+                  "relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition " +
+                  (active
+                    ? "bg-zinc-900 font-medium text-zinc-100"
+                    : "hover:bg-zinc-900/60 text-zinc-400 hover:text-zinc-200")
+                }
+              >
+                {active && (
+                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-indigo-500" />
+                )}
+                <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-500"}`} />
+                {l.label}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="mt-auto pt-4 border-t border-zinc-800/60">
           <Link
             to="/"
-            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-indigo-400 hover:bg-neutral-800/60 transition"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 transition"
           >
             <MessageSquare className="h-4 w-4" />
             Back to Chat
           </Link>
         </div>
       </aside>
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto bg-zinc-950 p-6">
         <Outlet />
       </main>
     </div>
