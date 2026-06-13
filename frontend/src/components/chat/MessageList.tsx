@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, FileText, User as UserIcon } from "lucide-react";
+import { Bot, FileText, Loader2, User as UserIcon } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 
@@ -19,6 +19,7 @@ export interface DisplayMessage {
   agent_id: string | null;
   streaming?: boolean;
   sources?: SourceInfo[];
+  step?: string;
 }
 
 interface MessageListProps {
@@ -101,7 +102,14 @@ function AssistantMessage({
         {processed || (m.streaming ? "…" : "")}
       </ReactMarkdown>
       {m.streaming && (
-        <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-indigo-400 align-text-bottom" />
+        <span className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-medium text-indigo-300 border border-indigo-500/20">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {m.step === "routing" && "Routing…"}
+          {m.step === "searching" && "Searching sources…"}
+          {m.step === "thinking" && "Thinking…"}
+          {m.step === "verifying" && "Verifying answer…"}
+          {(!m.step || m.step === "generating") && "Generating…"}
+        </span>
       )}
       {dedupedSources.length > 0 && (
         <div className="mt-4 rounded-xl border border-zinc-700/40 bg-zinc-800/30 px-4 py-3">

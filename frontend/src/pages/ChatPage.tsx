@@ -95,7 +95,7 @@ export default function ChatPage() {
     setMessages((ms) => [
       ...ms,
       userMsg,
-      { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true },
+      { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true, step: "routing" },
     ]);
 
     await send(conversationId, content, agent, isForced, mode, {
@@ -109,6 +109,12 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, content: m.content + delta } : m
           )
         ),
+      onStep: (step) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, step } : m
+          )
+        ),
       onSources: (sources) =>
         setMessages((ms) =>
           ms.map((m) =>
@@ -118,7 +124,7 @@ export default function ChatPage() {
       onDone: ({ message_id, title }) => {
         setMessages((ms) =>
           ms.map((m) =>
-            m.id === placeholderId ? { ...m, id: message_id, streaming: false } : m
+            m.id === placeholderId ? { ...m, id: message_id, streaming: false, step: undefined } : m
           )
         );
         setConversations((cs) =>
@@ -131,7 +137,7 @@ export default function ChatPage() {
         setMessages((ms) =>
           ms.map((m) =>
             m.id === placeholderId
-              ? { ...m, content: `⚠️ ${detail}`, streaming: false }
+              ? { ...m, content: `⚠️ ${detail}`, streaming: false, step: undefined }
               : m
           )
         ),

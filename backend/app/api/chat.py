@@ -155,7 +155,7 @@ async def chat_stream(
     async def event_generator():
         """
         Generate SSE events for the chat stream.
-        
+
         Yields:
             SSE events with chat response chunks
         """
@@ -179,14 +179,40 @@ async def chat_stream(
                 input_state["orchestrator_agent"] = forced
 
             logger.warning("Chat stream start conv=%s agent=%s mode=%s", conversation_id, agent, body.mode)
-            result = await runtime.graph.ainvoke(input_state, config)
-            logger.warning("Graph ainvoke done, result keys=%s", list(result.keys()) if hasattr(result, "keys") else type(result))
-            routed_agent = result.get("current_agent", agent)
-            yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
-            final_messages = result.get("messages", [])
-            logger.warning("Final messages count=%d", len(final_messages))
 
             assistant_text = ""
+            routed_agent = agent
+            sources: list[dict] = []
+            message_id = str(uuid.uuid4())
+            title: str | None = None
+            agent_slugs = set(runtime.agent_registry.keys())
+
+            async for event in runtime.graph.astream_events(input_state, config, version="v2"):
+                kind = event.get("event")
+                name = event.get("name", "")
+                tags = event.get("tags") or []
+
+                if kind == "on_chain_start" and name == "router":
+                    yield {"event": "step", "data": json.dumps({"step": "routing"})}
+                elif kind == "on_chain_start" and name == "tools":
+                    yield {"event": "step", "data": json.dumps({"step": "searching"})}
+                elif kind == "on_chain_start" and name == "reflect":
+                    yield {"event": "step", "data": json.dumps({"step": "verifying"})}
+                elif kind in ("on_chain_start", "on_chain_stream") and name in agent_slugs:
+                    yield {"event": "step", "data": json.dumps({"step": "thinking"})}
+                elif kind == "on_chain_end":
+                    output = event.get("data", {}).get("output", {})
+                    if isinstance(output, dict):
+                        if output.get("current_agent"):
+                            routed_agent = output["current_agent"]
+                        if output.get("sources"):
+                            sources = output["sources"]
+
+            yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
+
+            final_state = await runtime.graph.aget_state(config)
+            final_messages = final_state.values.get("messages", []) if final_state else []
+
             for m in reversed(final_messages):
                 if getattr(m, "type", None) in ("ai", "assistant"):
                     text = _chunk_text(m)
@@ -199,11 +225,14 @@ async def chat_stream(
                 collected.append(assistant_text)
                 yield {"event": "token", "data": json.dumps({"delta": assistant_text})}
 
-            sources = result.get("sources") or []
             if sources:
                 yield {"event": "sources", "data": json.dumps({"sources": sources})}
-            message_id = str(uuid.uuid4())
-            title: str | None = None
+
+            logger.warning("Streaming done for conv=%s", conversation_id)
+            yield {
+                "event": "done",
+                "data": json.dumps({"message_id": message_id, "title": title}),
+            }
 
             try:
                 async with async_session_factory() as session:
@@ -234,12 +263,6 @@ async def chat_stream(
                     logger.warning("Message persisted, id=%s", message_id)
             except Exception:
                 logger.exception("Persistence failed for conv=%s", conversation_id)
-
-            logger.warning("Streaming done for conv=%s", conversation_id)
-            yield {
-                "event": "done",
-                "data": json.dumps({"message_id": message_id, "title": title}),
-            }
         except Exception:
             logger.exception("Chat stream failed for conversation %s", conversation_id)
             yield {

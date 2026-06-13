@@ -13,11 +13,11 @@ export interface StreamCallbacks {
   onAgent?: (agent: string) => void;
   onToken: (delta: string) => void;
   onSources?: (sources: SourceInfo[]) => void;
+  onStep?: (step: string) => void;
   onDone?: (payload: { message_id: string; title: string | null }) => void;
   onError?: (detail: string) => void;
 }
 
-/** Parses an SSE stream from a fetch POST (EventSource is GET-only). */
 export function useChatStream() {
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -58,7 +58,6 @@ export function useChatStream() {
             const body = await res.json();
             if (typeof body.detail === "string") detail = body.detail;
           } catch {
-            // keep default
           }
           callbacks.onError?.(detail);
           return;
@@ -73,7 +72,6 @@ export function useChatStream() {
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
 
-          // SSE frames may use \r\n (sse-starlette's default) or \n line endings.
           const blocks = buffer.split(/\r?\n\r?\n/);
           buffer = blocks.pop() ?? "";
 
@@ -91,10 +89,10 @@ export function useChatStream() {
               if (event === "agent") callbacks.onAgent?.(payload.agent);
               else if (event === "token") callbacks.onToken(payload.delta);
               else if (event === "sources") callbacks.onSources?.(payload.sources);
+              else if (event === "step") callbacks.onStep?.(payload.step);
               else if (event === "done") callbacks.onDone?.(payload);
               else if (event === "error") callbacks.onError?.(payload.detail);
             } catch {
-              // ignore malformed frames (e.g. pings)
             }
           }
         }
