@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AtSign, SendHorizonal, Square, X } from "lucide-react";
+import { AtSign, Paperclip, SendHorizonal, Square, X } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 
@@ -8,7 +8,7 @@ interface ComposerProps {
   disabled: boolean;
   streaming: boolean;
   focusKey: number;
-  onSend: (content: string, agent: string | null) => void;
+  onSend: (content: string, agent: string | null, files: File[]) => void;
   onStop: () => void;
 }
 
@@ -24,7 +24,9 @@ export default function Composer({
   const [forcedAgent, setForcedAgent] = useState<string | null>(null);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [highlighted, setHighlighted] = useState(0);
+  const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const suggestions =
     mentionQuery !== null
@@ -59,11 +61,23 @@ export default function Composer({
     textareaRef.current?.focus();
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFiles((prev) => [...prev, file]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
   function submit() {
     const content = value.trim();
-    if (!content || disabled) return;
-    onSend(content, forcedAgent);
+    if ((!content && files.length === 0) || disabled) return;
+    onSend(content, forcedAgent, files);
     setValue("");
+    setFiles([]);
     setMentionQuery(null);
   }
 
@@ -145,7 +159,45 @@ export default function Composer({
             </div>
           )}
 
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-2.5">
+              {files.map((file, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-xs text-zinc-300"
+                >
+                  <Paperclip className="h-3 w-3 text-zinc-500" />
+                  {file.name}
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="ml-0.5 text-zinc-500 hover:text-zinc-300"
+                    aria-label="Remove file"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-end gap-2 px-3 py-2.5">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.md"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+              aria-label="Attach file"
+              title="Attach file"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+
             <textarea
               ref={textareaRef}
               rows={1}

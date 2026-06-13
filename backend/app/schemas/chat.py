@@ -8,18 +8,20 @@ from pydantic import BaseModel, ConfigDict, Field
 class ChatRequest(BaseModel):
     """
     Chat request schema.
-    
+
     This schema represents the chat request data that can be sent
     by clients, including:
     - User content
     - Agent selection
     - Force agent flag
     - Mode selection
+    - Linked attachment IDs (uploaded files whose text is injected into context)
     """
     content: str = Field(min_length=1, max_length=8000)
     agent: str | None = None
     force_agent: bool = False
     mode: Literal["auto", "quick", "mid", "deep"] = "auto"
+    attachment_ids: list[uuid.UUID] | None = None
 
 
 class ConversationOut(BaseModel):
@@ -41,10 +43,22 @@ class ConversationOut(BaseModel):
     updated_at: datetime
 
 
+class AttachmentOut(BaseModel):
+    """Attachment output schema for messages."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    filename: str
+    mime_type: str | None
+    file_size: int
+    extracted_text: str | None
+    created_at: datetime
+
+
 class MessageOut(BaseModel):
     """
     Message output schema.
-    
+
     This schema represents the message data that can be returned to clients,
     including:
     - Message ID
@@ -52,6 +66,7 @@ class MessageOut(BaseModel):
     - Message content
     - Agent ID
     - Citations
+    - Attachments
     - Message creation timestamp
     """
     model_config = ConfigDict(from_attributes=True)
@@ -61,6 +76,7 @@ class MessageOut(BaseModel):
     content: str
     agent_id: str | None
     citations: list[Any] | None
+    attachments: list[AttachmentOut] = []
     created_at: datetime
 
 
@@ -83,6 +99,22 @@ class AgentOut(BaseModel):
     name: str | None = None
     description: str | None = None
     tools: list[str] | None = None
+
+
+class ChatAttachmentOut(BaseModel):
+    """
+    Chat attachment output schema.
+
+    Returned after a file is uploaded to a conversation.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    filename: str
+    mime_type: str | None
+    file_size: int
+    extracted_text: str | None
+    created_at: datetime
 
 
 class JiraTicketDraft(BaseModel):

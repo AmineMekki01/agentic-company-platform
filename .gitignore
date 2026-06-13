@@ -229,6 +229,7 @@ frontend/dist/
 # App data
 qdrant_storage/
 mock_agents.md
+possible_features.md
 
 # Env
 .env.local

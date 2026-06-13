@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -11,7 +11,7 @@ from app.db.base import Base
 class Message(Base):
     """
     Chat message model.
-    
+
     This model stores individual messages in conversations, including:
     - Message content
     - Message role (user, assistant, system)
@@ -33,4 +33,11 @@ class Message(Base):
         default=lambda: datetime.now(UTC),
         server_default=func.now(),
         nullable=False,
+    )
+
+    attachments: Mapped[list["ChatAttachment"]] = relationship(
+        "ChatAttachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )

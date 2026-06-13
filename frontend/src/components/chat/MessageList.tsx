@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, FileText, Loader2, User as UserIcon } from "lucide-react";
+import { Bot, FileText, Loader2, Paperclip, User as UserIcon } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 
@@ -12,6 +12,11 @@ export interface SourceInfo {
   url: string | null;
 }
 
+export interface AttachmentInfo {
+  filename: string;
+  extractedText?: string | null;
+}
+
 export interface DisplayMessage {
   id: string;
   role: "user" | "assistant";
@@ -20,6 +25,7 @@ export interface DisplayMessage {
   streaming?: boolean;
   sources?: SourceInfo[];
   step?: string;
+  attachments?: AttachmentInfo[];
 }
 
 interface MessageListProps {
@@ -34,8 +40,7 @@ function agentName(agents: Agent[], slug: string | null): string {
   return agents.find((a) => a.slug === slug)?.name ?? slug;
 }
 
-/** Convert inline citation markers [1] … [N] into markdown links.
- *  rankMap maps original rank -> canonical rank; if absent, citations are linked directly. */
+
 function linkifyCitations(content: string, rankMap: Map<number, number>): string {
   return content.replace(/\[(\d+)\]/g, (_, n) => {
     const rank = parseInt(n, 10);
@@ -54,11 +59,11 @@ function AssistantMessage({
 }) {
   const [highlightedRank, setHighlightedRank] = useState<number | null>(null);
 
-  // Deduplicate sources by title - keep first occurrence and remap later ranks
+
   const seenTitles = new Set<string>();
   const dedupedSources: SourceInfo[] = [];
-  const rankMap = new Map<number, number>(); // original rank -> canonical rank
-
+  const rankMap = new Map<number, number>(); 
+  
   for (const s of m.sources ?? []) {
     if (!seenTitles.has(s.title)) {
       seenTitles.add(s.title);
@@ -203,9 +208,24 @@ export default function MessageList({ messages, agents, emptyState, renderAction
               </div>
 
               {m.role === "user" ? (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-                  {m.content}
-                </p>
+                <div>
+                  {m.attachments && m.attachments.length > 0 && (
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      {m.attachments.map((att, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-xs text-zinc-300"
+                        >
+                          <Paperclip className="h-3 w-3 text-zinc-500" />
+                          {att.filename}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                    {m.content}
+                  </p>
+                </div>
               ) : (
                 <AssistantMessage m={m} renderAction={renderAction} />
               )}

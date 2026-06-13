@@ -1,11 +1,12 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, MessageSquare, Plug } from "lucide-react";
+import { Bot, BookOpen, HardDrive, MessageSquare, Plug } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 
 const links = [
   { to: "/admin/agents", label: "Agents", icon: Bot },
   { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
   { to: "/admin/connectors", label: "Connectors", icon: Plug },
+  { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
 ];
 
 export default function AdminLayout() {

@@ -36,7 +36,8 @@ export function useChatStream() {
       agent: string | null,
       forceAgent: boolean,
       mode: string,
-      callbacks: StreamCallbacks
+      callbacks: StreamCallbacks,
+      attachmentIds: string[] = []
     ) => {
       const controller = new AbortController();
       abortRef.current = controller;
@@ -49,7 +50,13 @@ export function useChatStream() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getToken()}`,
           },
-          body: JSON.stringify({ content, agent, force_agent: forceAgent, mode }),
+          body: JSON.stringify({
+            content,
+            agent,
+            force_agent: forceAgent,
+            mode,
+            attachment_ids: attachmentIds,
+          }),
           signal: controller.signal,
         });
 

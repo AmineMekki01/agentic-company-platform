@@ -34,9 +34,8 @@ export default function ChatPage() {
   const openConversation = useCallback(async (id: string) => {
     setActiveId(id);
     setFocusKey((k) => k + 1);
-    setMessages([]); // clear immediately so old messages don't linger
+    setMessages([]);
     const detail = await api.getConversation(id);
-    // Simple race guard: if we navigated away while fetching, activeId will differ
     setActiveId((current) => {
       if (current === id) {
         setMessages(
@@ -46,9 +45,12 @@ export default function ChatPage() {
             content: m.content,
             agent_id: m.agent_id,
             sources: (m.citations as SourceInfo[] | undefined) ?? undefined,
+            attachments: m.attachments?.map((att) => ({
+              filename: att.filename,
+              extractedText: att.extracted_text,
+            })),
           }))
         );
-        // Restore the conversation's last agent so follow-ups stay routed correctly
         const lastAgentMsg = [...detail.messages]
           .reverse()
           .find((m) => m.role === "assistant" && m.agent_id);
@@ -74,7 +76,7 @@ export default function ChatPage() {
     if (id === activeId) newChat();
   }
 
-  async function handleSend(content: string, forcedAgent: string | null) {
+  async function handleSend(content: string, forcedAgent: string | null, files: File[] = []) {
     let conversationId = activeId;
     if (!conversationId) {
       const created = await api.createConversation();
@@ -83,13 +85,31 @@ export default function ChatPage() {
       setConversations((cs) => [created, ...cs]);
     }
 
+    const attachmentIds: string[] = [];
+    const uploadedAttachments: { filename: string; extractedText: string | null }[] = [];
+    for (const file of files) {
+      try {
+        const att = await api.uploadChatFile(conversationId, file);
+        attachmentIds.push(att.id);
+        uploadedAttachments.push({
+          filename: att.filename,
+          extractedText: att.extracted_text,
+        });
+      } catch (err: unknown) {
+        const detail = err instanceof Error ? err.message : "Upload failed";
+        uploadedAttachments.push({ filename: file.name, extractedText: null });
+        console.warn("File upload failed:", detail);
+      }
+    }
+
     const agent = forcedAgent ?? selectedAgent;
     const isForced = !!forcedAgent;
     const userMsg: DisplayMessage = {
       id: `local-user-${Date.now()}`,
       role: "user",
-      content,
+      content: content.trim(),
       agent_id: null,
+      attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
     };
     const placeholderId = `local-assistant-${Date.now()}`;
     setMessages((ms) => [
@@ -98,7 +118,7 @@ export default function ChatPage() {
       { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true, step: "routing" },
     ]);
 
-    await send(conversationId, content, agent, isForced, mode, {
+    await send(conversationId, content.trim(), agent, isForced, mode, {
       onAgent: (slug) =>
         setMessages((ms) =>
           ms.map((m) => (m.id === placeholderId ? { ...m, agent_id: slug } : m))
@@ -147,7 +167,7 @@ export default function ChatPage() {
               : m
           )
         ),
-    });
+    }, attachmentIds);
   }
 
   return (

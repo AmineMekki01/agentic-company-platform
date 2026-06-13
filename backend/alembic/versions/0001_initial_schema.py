@@ -150,8 +150,85 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
 
+    # upload_settings
+    op.create_table(
+        "upload_settings",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column("s3_connector_id", sa.Uuid(), nullable=True),
+        sa.Column("s3_bucket", sa.String(length=255), nullable=False, server_default=""),
+        sa.Column("s3_base_prefix", sa.String(length=500), nullable=False, server_default="uploads/"),
+        sa.Column("retention_days", sa.Integer(), nullable=False, server_default="30"),
+        sa.Column("max_file_size_mb", sa.Integer(), nullable=False, server_default="50"),
+        sa.Column("encryption", sa.String(length=20), nullable=False, server_default="AES256"),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_foreign_key(
+        "fk_upload_settings_connector",
+        "upload_settings",
+        "connectors",
+        ["s3_connector_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+
+    # chat_attachments
+    op.create_table(
+        "chat_attachments",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "conversation_id",
+            sa.Uuid(),
+            sa.ForeignKey("conversations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "user_id",
+            sa.Uuid(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("message_id", sa.Uuid(), nullable=True),
+        sa.Column("filename", sa.String(length=255), nullable=False),
+        sa.Column("mime_type", sa.String(length=100), nullable=True),
+        sa.Column("file_size", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("s3_bucket", sa.String(length=255), nullable=False),
+        sa.Column("s3_key", sa.Text(), nullable=False),
+        sa.Column("extracted_text", sa.Text(), nullable=True),
+        sa.Column("retention_until", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_index("ix_chat_attachments_conversation_id", "chat_attachments", ["conversation_id"])
+    op.create_index("ix_chat_attachments_user_id", "chat_attachments", ["user_id"])
+    op.create_index("ix_chat_attachments_message_id", "chat_attachments", ["message_id"])
+    op.create_foreign_key(
+        "fk_chat_attachments_message",
+        "chat_attachments",
+        "messages",
+        ["message_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+
 
 def downgrade() -> None:
+    op.drop_constraint("fk_chat_attachments_message", "chat_attachments", type_="foreignkey")
+    op.drop_index("ix_chat_attachments_message_id", table_name="chat_attachments")
+    op.drop_index("ix_chat_attachments_user_id", table_name="chat_attachments")
+    op.drop_index("ix_chat_attachments_conversation_id", table_name="chat_attachments")
+    op.drop_table("chat_attachments")
+    op.drop_constraint("fk_upload_settings_connector", "upload_settings", type_="foreignkey")
+    op.drop_table("upload_settings")
     op.drop_table("knowledge_sources")
     op.execute("DROP TYPE IF EXISTS knowledge_source_status")
     op.execute("DROP TYPE IF EXISTS knowledge_source_type")

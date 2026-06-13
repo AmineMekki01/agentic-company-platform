@@ -20,3 +20,4 @@ class AgentState(TypedDict):
     reflection_done: bool | None
     step_count: int | None
     _needs_rethink: bool | None
+    source_offset: int | None

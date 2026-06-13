@@ -6,6 +6,7 @@ import AdminLayout from "@/components/AdminLayout";
 import AdminAgents from "@/pages/AdminAgents";
 import AdminConnectors from "@/pages/AdminConnectors";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
+import AdminUploadSettings from "@/pages/AdminUploadSettings";
 import ChatPage from "@/pages/ChatPage";
 import LoginPage from "@/pages/LoginPage";
 import { useAuth } from "@/stores/auth";
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="agents" element={<AdminAgents />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="connectors" element={<AdminConnectors />} />
+        <Route path="upload-settings" element={<AdminUploadSettings />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

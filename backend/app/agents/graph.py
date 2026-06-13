@@ -25,9 +25,12 @@ _FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform
 
 
 def _clean_citations(text: str) -> str:
-    """Deduplicate adjacent citations like [1][1] → [1] and [1][2][2] → [1][2]."""
-    text = re.sub(r"(\[(\d+)\])\s*\[(\d+)\]", lambda m: m.group(1) if m.group(2) == m.group(3) else m.group(0), text)
-    text = re.sub(r"(\[(\d+)\])\s*\[(\d+)\]", lambda m: m.group(1) if m.group(2) == m.group(3) else m.group(0), text)
+    """Deduplicate adjacent duplicate citations like [1][1] → [1] and [1], [1] → [1]."""
+    while True:
+        new_text = re.sub(r"(\[\d+\])(?:\s*,\s*|\s*)\1", r"\1", text)
+        if new_text == text:
+            break
+        text = new_text
     return text
 
 
@@ -140,7 +143,12 @@ def make_agent_node(
         raw_text = str(getattr(response, "content", response))
         cleaned_text = _clean_citations(raw_text)
         if cleaned_text != raw_text and hasattr(response, "content"):
-            response.content = cleaned_text
+            msg_cls = response.__class__
+            kwargs: dict = {"content": cleaned_text}
+            for attr in ("tool_calls", "response_metadata", "usage_metadata", "id", "name"):
+                if hasattr(response, attr):
+                    kwargs[attr] = getattr(response, attr)
+            response = msg_cls(**kwargs)
         return {
             "messages": [response],
             "sources": state.get("sources"),
@@ -288,6 +296,17 @@ def make_tools_node(agent_settings: dict[str, dict]):
                     tool_fn = _TOOL_REGISTRY.get("retrieve")
                     result = await tool_fn.ainvoke({"query": expanded_query, "sources": source_ids})
                     parsed = json.loads(str(result))
+
+                    offset = state.get("source_offset") or 0
+                    if offset:
+                        for src in parsed.get("sources", []):
+                            src["rank"] = src.get("rank", 0) + offset
+
+                        text = parsed["text"]
+                        for src in reversed(parsed.get("sources", [])):
+                            old_rank = src["rank"] - offset
+                            text = text.replace(f"[{old_rank}]", f"[{src['rank']}]", 1)
+                        parsed["text"] = text
                     results.append(parsed["text"])
                     new_sources.extend(parsed.get("sources", []))
                     logger.info("retrieved results : %s", parsed["text"])

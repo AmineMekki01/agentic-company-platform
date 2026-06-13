@@ -2,6 +2,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import Conversation, Message
@@ -97,6 +98,7 @@ async def get_conversation(
         select(Message)
         .where(Message.conversation_id == conversation.id)
         .order_by(Message.created_at.asc(), Message.id.asc())
+        .options(selectinload(Message.attachments))
     )
     messages = [MessageOut.model_validate(m) for m in result.all()]
     return ConversationDetail(

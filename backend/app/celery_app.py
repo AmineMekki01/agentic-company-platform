@@ -8,7 +8,7 @@ celery_app = Celery(
     "app",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.services.notion", "app.services.s3"],
+    include=["app.services.notion", "app.services.s3", "app.tasks.retention"],
 )
 
 celery_app.conf.update(

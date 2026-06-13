@@ -8,11 +8,12 @@ from langchain_core.messages import HumanMessage
 from sqlalchemy import func, select, update
 from sse_starlette.sse import EventSourceResponse
 
+from app.agents.graph import _clean_citations
 from app.agents.runtime import RuntimeDep
 from app.api.conversations import get_owned_conversation
 from app.api.deps import CurrentUser, DbSession
 from app.db.session import async_session_factory
-from app.models import AgentSettings, Conversation, Message, UserRole
+from app.models import AgentSettings, ChatAttachment, Conversation, Message, UserRole
 from app.schemas.chat import AgentOut, ChatRequest, JiraTicketDraft, JiraTicketCreateRequest, JiraTicketOut
 from app.services.jira import get_first_jira_connector, get_jira_service_from_connector
 from app.services.titles import generate_title
@@ -138,19 +139,62 @@ async def chat_stream(
 
     needs_title = conversation.title is None
 
-    db.add(
-        Message(
-            conversation_id=conversation.id,
-            role="user",
-            content=body.content,
-        )
+    msg = Message(
+        conversation_id=conversation.id,
+        role="user",
+        content=body.content,
     )
+    db.add(msg)
     await db.execute(
         update(Conversation)
         .where(Conversation.id == conversation.id)
         .values(updated_at=func.now())
     )
     await db.commit()
+    await db.refresh(msg)
+
+    if body.attachment_ids:
+        await db.execute(
+            update(ChatAttachment)
+            .where(ChatAttachment.id.in_(body.attachment_ids))
+            .values(message_id=msg.id)
+        )
+        await db.commit()
+
+    all_attachments_result = await db.execute(
+        select(ChatAttachment).where(
+            ChatAttachment.conversation_id == conversation.id
+        ).order_by(ChatAttachment.created_at.asc())
+    )
+    all_attachments = all_attachments_result.scalars().all()
+
+    all_sources: list[dict] = []
+    for i, att in enumerate(all_attachments, start=1):
+        all_sources.append({
+            "rank": i,
+            "title": att.filename,
+            "id": str(att.id),
+            "url": None,
+        })
+
+    llm_content = body.content
+    if body.attachment_ids:
+        new_attachments = [att for att in all_attachments if att.id in body.attachment_ids]
+        file_blocks = []
+        for i, att in enumerate(new_attachments, start=1):
+            header = f"[{i}] {att.filename}"
+            if att.extracted_text:
+                file_blocks.append(f"{header}\n{att.extracted_text}")
+            else:
+                file_blocks.append(f"{header}\n(No text extracted)")
+        if file_blocks:
+            docs_section = "\n\n---\n\n".join(file_blocks)
+            llm_content = (
+                f"The user uploaded the following document(s).\n\n"
+                f"{docs_section}\n\n"
+                f"---\n\n"
+                f"User question: {body.content}"
+            )
 
     async def event_generator():
         """
@@ -163,7 +207,7 @@ async def chat_stream(
         try:
             config = {"configurable": {"thread_id": str(conversation_id)}}
             input_state = {
-                "messages": [HumanMessage(content=body.content)],
+                "messages": [HumanMessage(content=llm_content)],
                 "current_agent": agent,
                 "orchestrator_agent": agent,
                 "forced_agent": None,
@@ -171,6 +215,8 @@ async def chat_stream(
                 "step_count": 0,
                 "reflection_done": False,
                 "_needs_rethink": False,
+                "sources": all_sources,
+                "source_offset": len(all_sources),
             }
             if body.force_agent:
                 forced = body.agent or default_agent
@@ -217,7 +263,7 @@ async def chat_stream(
                 if getattr(m, "type", None) in ("ai", "assistant"):
                     text = _chunk_text(m)
                     if text:
-                        assistant_text = text
+                        assistant_text = _clean_citations(text)
                         break
 
             if assistant_text:
