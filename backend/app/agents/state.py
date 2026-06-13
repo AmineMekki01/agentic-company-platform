@@ -17,3 +17,6 @@ class AgentState(TypedDict):
     forced_agent: str | None
     sources: list[SourceInfo] | None
     mode: str | None
+    reflection_done: bool | None
+    step_count: int | None
+    _needs_rethink: bool | None

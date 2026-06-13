@@ -1,12 +1,11 @@
 import logging
 import re
 
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.context import (
     auto_select_mode,
-    clamp_retrieval_context,
     get_mode_profile,
     resolve_context_window,
     trim_history,
@@ -14,61 +13,12 @@ from app.agents.context import (
 from app.agents.llm import get_chat_model
 from app.agents.registry import AgentSpec
 from app.agents.state import AgentState
-from app.agents.tools import retrieve, web_search
+from app.agents.tools import retrieve, web_search, _retrieve_and_format
 from app.agents.tools_jira import create_jira_ticket
-from app.services.rag import RAGService
 
 logger = logging.getLogger(__name__)
 
 _TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket}
-
-
-async def _retrieve_for_agent(query: str, source_ids: list[str] | None, agent_slug: str = "unknown", top_k: int = 5) -> tuple[str, list[dict]]:
-    """Fetch relevant documents for an agent.
-
-    Args:
-        query: The search query
-        source_ids: List of source IDs to filter by, or None for all sources
-        agent_slug: The agent slug for logging
-        top_k: Number of top chunks to return after reranking
-    
-    Returns:
-        Tuple of (formatted_context, source_metadata_list)
-    """
-    if source_ids == []:
-        logger.warning("Agent[%s] retrieve skipped: connected_sources is empty list (no sources configured)", agent_slug)
-        return "", []
-    if source_ids is None:
-        logger.warning("Agent[%s] retrieve: querying ALL knowledge sources (source_ids=None)", agent_slug)
-    else:
-        logger.warning("Agent[%s] retrieve: filtering to source_ids=%s (count=%d)", agent_slug, source_ids, len(source_ids))
-    
-    rag = RAGService()
-    
-    chunks = await rag.retrieve(query, source_ids=source_ids, top_k=top_k)
-    unique_sources = {c.source_id for c in chunks}
-    source_summary = {c.source_id: c.source_title for c in chunks}
-    
-    if not unique_sources:
-        logger.warning(
-            "Agent[%s] retrieve query=%r CONFIGURED=%s RESULT: 0 chunks (no matching documents)",
-            agent_slug, query, source_ids,
-        )
-    else:
-        logger.warning(
-            "Agent[%s] retrieve query=%r CONFIGURED=%s RESULT: %d chunks from %d source(s): %s",
-            agent_slug, query, source_ids, len(chunks), len(unique_sources),
-            ", ".join(f"{sid[:8]}...={title}" for sid, title in sorted(source_summary.items())),
-        )
-    if not chunks:
-        return "", []
-    lines = ["### Retrieved Context\n"]
-    sources = []
-    for c in chunks:
-        lines.append(f"[{c.rank}] {c.source_title}\n{c.text[:1000]}")
-        sources.append({"rank": c.rank, "title": c.source_title, "id": c.source_id, "url": c.source_url})
-    return "\n\n---\n\n".join(lines), sources
-
 
 _FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
 
@@ -80,15 +30,15 @@ def make_agent_node(
     system_prompt: str | None = None,
     retrieval_top_k: int = 5,
 ):
-    """
-    Build an agent node with adaptive token budget management.
-    
+    """Build an agent node that reasons and may emit tool_calls (ReAct pattern).
+
     Args:
         spec: Agent specification
         source_ids: List of source IDs to filter by, or None for all sources
         model: Model to use, or None for default
         system_prompt: System prompt to use, or None for default
-    
+        retrieval_top_k: Number of chunks to retrieve (unused here, passed to tools_node)
+
     Returns:
         Agent node function
     """
@@ -97,16 +47,14 @@ def make_agent_node(
     model_name = model or spec.default_model
     context_window = resolve_context_window(model_name)
 
+    agent_tools = []
+    for t in (spec.tools or []):
+        if t in _TOOL_REGISTRY:
+            agent_tools.append(_TOOL_REGISTRY[t])
+
+    llm_with_tools = llm.bind_tools(agent_tools) if agent_tools else llm
+
     async def node(state: AgentState) -> dict:
-        """
-        Agent node function that processes messages and returns a response.
-        
-        Args:
-            state: The current state of the graph
-            
-        Returns:
-            A dictionary containing the response and sources
-        """
         mode = state.get("mode") or "auto"
         profile = get_mode_profile(mode)
 
@@ -115,13 +63,6 @@ def make_agent_node(
             if getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user":
                 last_user_msg = str(getattr(m, "content", ""))
                 break
-
-        context = ""
-        sources: list[dict] = []
-        if profile.retrieval_enabled and "retrieve" in spec.tools:
-            context, sources = await _retrieve_for_agent(last_user_msg, source_ids, agent_slug=spec.slug, top_k=retrieval_top_k)
-            retrieval_budget = profile.effective_limits(context_window)["retrieval"]
-            context = clamp_retrieval_context(context, retrieval_budget)
 
         system_msg = SystemMessage(content=prompt)
         system_tokens = llm.get_num_tokens(system_msg.content or "")
@@ -150,7 +91,7 @@ def make_agent_node(
             system_msg = SystemMessage(content=prompt + mode_suffix)
             system_tokens = llm.get_num_tokens(system_msg.content or "")
 
-        retrieval_tokens = llm.get_num_tokens(context) if context else 0
+        retrieval_tokens = 0
         history_budget = profile.history_budget_after(
             context_window, system_tokens, retrieval_tokens
         )
@@ -158,25 +99,35 @@ def make_agent_node(
         trimmed_history = trim_history(state["messages"], history_budget, llm)
 
         messages = [system_msg]
-        if context:
-            messages.append(SystemMessage(content=context))
         messages.extend(trimmed_history)
 
         logger.info(
-            "mode=%s agent=%s model=%s window=%s history=%d->%d sys=%d ctx=%d hist_budget=%d",
+            "mode=%s agent=%s model=%s window=%s history=%d->%d sys=%d ctx=%d hist_budget=%d step=%s",
             mode, spec.slug, model_name, context_window,
             len(state["messages"]), len(trimmed_history),
             system_tokens, retrieval_tokens, history_budget,
+            state.get("step_count", 0),
         )
 
-        response = await llm.ainvoke(messages)
-        response_text = str(getattr(response, "content", response))
-        cited_ranks = {int(m) for m in re.findall(r"\[(\d+)\]", response_text)}
-        filtered_sources = [s for s in sources if s["rank"] in cited_ranks] if cited_ranks else sources
-        return {"messages": [response], "sources": filtered_sources}
+        response = await llm_with_tools.ainvoke(messages)
+        return {
+            "messages": [response],
+            "sources": state.get("sources"),
+            "step_count": (state.get("step_count") or 0) + 1,
+            "mode": mode,
+        }
 
     node.__name__ = f"{spec.slug}_agent"
     return node
+
+
+def _has_tool_calls(state: AgentState) -> bool:
+    """Check if the last message contains tool calls."""
+    if not state["messages"]:
+        return False
+    last = state["messages"][-1]
+    tc = getattr(last, "tool_calls", None)
+    return bool(tc)
 
 
 def _extract_mention(text: str, registry: dict[str, AgentSpec]) -> str | None:
@@ -271,6 +222,140 @@ def make_router_node(
     return node
 
 
+def make_tools_node(agent_settings: dict[str, dict]):
+    """Build the shared tools executor node.
+
+    Executes tool calls from the last AI message and returns tool results.
+    For retrieve, uses per-agent source_ids from agent_settings.
+    """
+    async def node(state: AgentState) -> dict:
+        last_msg = state["messages"][-1]
+        tool_calls = getattr(last_msg, "tool_calls", [])
+
+        if not tool_calls:
+            return {}
+
+        current_agent = state.get("current_agent", "general")
+        cfg = agent_settings.get(current_agent, {})
+        source_ids = cfg.get("connected_sources")
+        top_k = cfg.get("retrieval_top_k", 5)
+
+        results: list[str] = []
+        new_sources = list(state.get("sources") or [])
+
+        for tc in tool_calls:
+            name = tc.get("name")
+            args = tc.get("args", {})
+
+            if name == "retrieve":
+                query = args.get("query", "")
+                if source_ids == []:
+                    results.append("No knowledge sources are configured for this agent.")
+                else:
+                    text, srcs = await _retrieve_and_format(query, source_ids=source_ids, top_k=top_k)
+                    results.append(text)
+                    new_sources.extend(srcs)
+            elif name == "web_search":
+                result = await web_search(args.get("query", ""))
+                results.append(str(result))
+            elif name == "create_jira_ticket":
+                result = await create_jira_ticket(
+                    summary=args.get("summary", ""),
+                    description=args.get("description", ""),
+                    issue_type=args.get("issue_type", "Task"),
+                )
+                results.append(str(result))
+            else:
+                results.append(f"Error: unknown tool '{name}'")
+
+        tool_messages = []
+        for i, tc in enumerate(tool_calls):
+            tool_messages.append(ToolMessage(
+                content=str(results[i]),
+                tool_call_id=tc["id"],
+                name=tc["name"],
+            ))
+
+        seen = set()
+        deduped = []
+        for s in new_sources:
+            key = (s.get("rank"), s.get("id"))
+            if key not in seen:
+                seen.add(key)
+                deduped.append(s)
+
+        return {"messages": tool_messages, "sources": deduped}
+
+    node.__name__ = "tools"
+    return node
+
+
+def make_reflect_node():
+    """Build the reflection/verification node for deep mode."""
+    async def node(state: AgentState) -> dict:
+        last_assistant = None
+        for m in reversed(state["messages"]):
+            if getattr(m, "type", None) in ("ai", "assistant"):
+                last_assistant = m
+                break
+
+        if last_assistant is None:
+            return {"reflection_done": True, "_needs_rethink": False}
+
+        sources = state.get("sources", [])
+        source_text = "\n".join(
+            f"[{s.get('rank')}] {s.get('title')}" for s in sources
+        ) if sources else "No sources retrieved."
+
+        prompt = f"""
+            You are a verifier. Review this answer and its sources.
+            Answer: {last_assistant.content}
+            Sources: {source_text}
+
+            Is this answer:
+            1. Fully supported by the sources (if sources exist)?
+            2. Complete (no missing key information)?
+            3. Correctly cited?
+
+            Return ONLY one word: SATISFACTORY or INCOMPLETE.
+        """
+
+        llm = get_chat_model("gpt-5-nano", temperature=0.1)
+        verdict = await llm.ainvoke([SystemMessage(content=prompt)])
+        text = str(getattr(verdict, "content", verdict)).strip().upper()
+
+        if "INCOMPLETE" in text:
+            return {
+                "messages": [SystemMessage(
+                    content="The previous answer was flagged as incomplete. Search for more information and provide a more thorough response with better citations."
+                )],
+                "reflection_done": True,
+                "_needs_rethink": True,
+            }
+
+        return {"reflection_done": True, "_needs_rethink": False}
+
+    node.__name__ = "reflect"
+    return node
+
+
+def _route_from_agent(state: AgentState) -> str:
+    """Route from an agent node to tools, reflect, or END."""
+    if _has_tool_calls(state):
+        return "tools"
+
+    mode = state.get("mode") or "auto"
+    step_count = state.get("step_count") or 0
+    if step_count > 5:
+        logger.warning("Max steps reached, ending turn")
+        return END
+
+    if mode == "deep" and not state.get("reflection_done"):
+        return "reflect"
+
+    return END
+
+
 def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None = None, agent_settings: dict[str, dict] | None = None):
     """
     Build the graph.
@@ -289,7 +374,6 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
 
     builder = StateGraph(AgentState)
 
-    # Build routes_map from orchestrator agents (include empty routes_to)
     routes_map: dict[str, list[str]] = {}
     orchestrator_slugs: set[str] = set()
     for slug, spec in registry.items():
@@ -297,9 +381,11 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
             orchestrator_slugs.add(slug)
             routes_map[slug] = spec.routes_to or []
 
-    # router / supervisor node
     builder.add_node("router", make_router_node(registry, routes_map=routes_map, orchestrator_slugs=orchestrator_slugs, default_agent=default_agent))
     builder.add_edge(START, "router")
+
+    builder.add_node("tools", make_tools_node(settings_map))
+    builder.add_node("reflect", make_reflect_node())
 
     for slug, spec in registry.items():
         cfg = settings_map.get(slug, {})
@@ -316,7 +402,24 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
             slug, model, source_ids, retrieval_top_k, bool(system_prompt), spec.tools,
         )
         builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt, retrieval_top_k=retrieval_top_k))
-        builder.add_edge(slug, END)
+
+        builder.add_conditional_edges(
+            slug,
+            _route_from_agent,
+            {"tools": "tools", "reflect": "reflect", END: END}
+        )
+
+    builder.add_conditional_edges(
+        "tools",
+        lambda state: state.get("current_agent", default_agent),
+        {slug: slug for slug in registry}
+    )
+
+    builder.add_conditional_edges(
+        "reflect",
+        lambda state: state.get("current_agent", default_agent) if state.get("_needs_rethink") else END,
+        {**{slug: slug for slug in registry}, END: END}
+    )
 
     builder.add_conditional_edges(
         "router",

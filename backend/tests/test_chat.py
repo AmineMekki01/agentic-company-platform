@@ -26,13 +26,14 @@ async def chat_env(monkeypatch, session_factory):
     monkeypatch.setattr(graph_module, "get_chat_model", fake_chat_model)
     monkeypatch.setattr(llm_module, "get_chat_model", fake_chat_model)
 
-    async def _fake_retrieve(query, source_ids, agent_slug="", top_k=5):
-        return "", []
-
-    monkeypatch.setattr(graph_module, "_retrieve_for_agent", _fake_retrieve)
-
     from langchain_core.language_models.base import BaseLanguageModel
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
     monkeypatch.setattr(BaseLanguageModel, "get_num_tokens", lambda self, text: len(text.split()))
+
+    # Ensure fake model supports bind_tools for ReAct agent nodes
+    def _bind_tools(self, tools, **kwargs):
+        return self
+    monkeypatch.setattr(GenericFakeChatModel, "bind_tools", _bind_tools)
 
     async with session_factory() as session:
         session.add(AgentSettings(

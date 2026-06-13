@@ -168,6 +168,9 @@ async def chat_stream(
                 "orchestrator_agent": agent,
                 "forced_agent": None,
                 "mode": body.mode,
+                "step_count": 0,
+                "reflection_done": False,
+                "_needs_rethink": False,
             }
             if body.force_agent:
                 forced = body.agent or default_agent
@@ -182,18 +185,23 @@ async def chat_stream(
             yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
             final_messages = result.get("messages", [])
             logger.warning("Final messages count=%d", len(final_messages))
-            if final_messages:
-                text = _chunk_text(final_messages[-1])
-                logger.warning("Final message text len=%d", len(text))
-                if text:
-                    collected.append(text)
-                    yield {"event": "token", "data": json.dumps({"delta": text})}
+
+            assistant_text = ""
+            for m in reversed(final_messages):
+                if getattr(m, "type", None) in ("ai", "assistant"):
+                    text = _chunk_text(m)
+                    if text:
+                        assistant_text = text
+                        break
+
+            if assistant_text:
+                logger.warning("Final assistant text len=%d", len(assistant_text))
+                collected.append(assistant_text)
+                yield {"event": "token", "data": json.dumps({"delta": assistant_text})}
 
             sources = result.get("sources") or []
             if sources:
                 yield {"event": "sources", "data": json.dumps({"sources": sources})}
-
-            assistant_text = "".join(collected)
             message_id = str(uuid.uuid4())
             title: str | None = None
 

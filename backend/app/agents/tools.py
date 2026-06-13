@@ -10,6 +10,37 @@ from app.services.rag import RAGService, RetrievedChunk
 logger = logging.getLogger(__name__)
 
 
+async def _retrieve_and_format(
+    query: str,
+    source_ids: list[str] | None = None,
+    top_k: int = 5,
+) -> tuple[str, list[dict]]:
+    """Retrieve chunks and return both formatted text and structured sources.
+
+    Args:
+        query: The search query
+        source_ids: Optional list of source IDs to filter by
+        top_k: Number of chunks to retrieve
+
+    Returns:
+        Tuple of (formatted_text, source_metadata_list)
+    """
+    rag = RAGService()
+    chunks: list[RetrievedChunk] = await rag.retrieve(query, source_ids=source_ids, top_k=top_k)
+
+    if not chunks:
+        return "No relevant documents found in the knowledge base.", []
+
+    lines = []
+    sources = []
+    for c in chunks:
+        lines.append(
+            f"[{c.rank}] {c.source_title}\nScore: {c.score:.3f}\n{c.text[:800]}"
+        )
+        sources.append({"rank": c.rank, "title": c.source_title, "id": c.source_id, "url": c.source_url})
+    return "\n\n---\n\n".join(lines), sources
+
+
 @tool
 async def retrieve(
     query: Annotated[str, "The search query"],
@@ -29,18 +60,8 @@ async def retrieve(
     Returns:
         Top relevant passages with source titles and citation numbers
     """
-    rag = RAGService()
-    chunks: list[RetrievedChunk] = await rag.retrieve(query, source_ids=sources)
-
-    if not chunks:
-        return "No relevant documents found in the knowledge base."
-
-    lines = []
-    for c in chunks:
-        lines.append(
-            f"[{c.rank}] {c.source_title}\nScore: {c.score:.3f}\n{c.text[:800]}"
-        )
-    return "\n\n---\n\n".join(lines)
+    text, _ = await _retrieve_and_format(query, source_ids=sources)
+    return text
 
 
 @tool
