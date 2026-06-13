@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
+
+type TabKey = "overview" | "tools" | "knowledge" | "orchestration" | "deploy";
+
+const TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
+  { key: "overview", label: "Overview", icon: Settings },
+  { key: "tools", label: "Tools", icon: Wrench },
+  { key: "knowledge", label: "Knowledge", icon: BookOpen },
+  { key: "orchestration", label: "Orchestration", icon: Rocket },
+  { key: "deploy", label: "Deploy", icon: Globe },
+];
 
 const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
 
@@ -33,6 +43,7 @@ export default function AdminAgents() {
   const [newAgent, setNewAgent] = useState<AgentSettingCreate>({ ...DEFAULT_NEW_AGENT });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("overview");
 
   const refresh = async () => {
     setLoading(true);
@@ -229,7 +240,7 @@ export default function AdminAgents() {
                     ? "bg-zinc-900 font-medium border border-zinc-800"
                     : "hover:bg-zinc-900/60 text-zinc-400 cursor-pointer border border-transparent")
                 }
-                onClick={() => setSelected(a)}
+                onClick={() => { setSelected(a); setActiveTab("overview"); }}
               >
                 <div
                   className={
@@ -273,8 +284,9 @@ export default function AdminAgents() {
         {/* Detail panel */}
         <div className="flex-1 min-w-0">
           {selected ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-sm flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
                     <AgentIcon slug={selected.slug} size={18} />
@@ -286,201 +298,257 @@ export default function AdminAgents() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-xs font-medium text-zinc-400">Name</span>
-                  <input
-                    value={selected.name || ""}
-                    onChange={(e) => setSelected({ ...selected, name: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium text-zinc-400">LLM Model</span>
-                  <select
-                    value={selected.llm_model || "gpt-5.4-nano"}
-                    onChange={(e) => setSelected({ ...selected, llm_model: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                  >
-                    {models.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </label>
+              {/* Tabs */}
+              <div className="flex gap-1 px-5 pt-3 border-b border-zinc-800">
+                {TABS.map((t) => {
+                  const Icon = t.icon;
+                  const active = activeTab === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setActiveTab(t.key)}
+                      className={
+                        "flex items-center gap-1.5 text-sm px-3 py-2 rounded-t-lg transition border-b-2 " +
+                        (active
+                          ? "text-zinc-100 border-indigo-500 font-medium"
+                          : "text-zinc-500 border-transparent hover:text-zinc-300")
+                      }
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {t.label}
+                    </button>
+                  );
+                })}
               </div>
 
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Description</span>
-                <textarea
-                  value={selected.description || ""}
-                  onChange={(e) => setSelected({ ...selected, description: e.target.value })}
-                  rows={2}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-400">System Prompt</span>
-                <textarea
-                  value={selected.system_prompt || ""}
-                  onChange={(e) => setSelected({ ...selected, system_prompt: e.target.value })}
-                  rows={4}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
-                  placeholder="Define how this agent behaves..."
-                />
-              </label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-xs font-medium text-zinc-400">Retrieval Top-K (1-20)</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={selected.retrieval_top_k}
-                    onChange={(e) =>
-                      setSelected({
-                        ...selected,
-                        retrieval_top_k: Math.min(20, Math.max(1, parseInt(e.target.value || "5", 10))),
-                      })
-                    }
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                  />
-                </label>
-                <div className="block">
-                  <span className="text-xs font-medium text-zinc-400">Tools</span>
-                  <div className="mt-2 flex flex-wrap gap-3">
-                    {AVAILABLE_TOOLS.map((tool) => (
-                      <label key={tool} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+              {/* Tab content */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {activeTab === "overview" && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="block">
+                        <span className="text-xs font-medium text-zinc-400">Name</span>
                         <input
-                          type="checkbox"
-                          checked={(selected.tools || []).includes(tool)}
-                          onChange={() => toggleTool(selected, tool)}
-                          className="accent-indigo-500"
+                          value={selected.name || ""}
+                          onChange={(e) => setSelected({ ...selected, name: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
                         />
-                        <span className="capitalize">{tool.replace(/_/g, " ")}</span>
                       </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-zinc-500 mt-1.5">
-                    {(selected.connected_sources || []).length > 0
-                      ? "Retrieval is enabled automatically because knowledge sources are connected."
-                      : "Connect knowledge sources to enable retrieval."}
-                  </p>
-                </div>
-              </div>
+                      <label className="block">
+                        <span className="text-xs font-medium text-zinc-400">LLM Model</span>
+                        <select
+                          value={selected.llm_model || "gpt-5.4-nano"}
+                          onChange={(e) => setSelected({ ...selected, llm_model: e.target.value })}
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                        >
+                          {models.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-xs font-medium text-zinc-400">Visibility</span>
-                  <select
-                    value={selected.visibility || "all"}
-                    onChange={(e) => setSelected({ ...selected, visibility: e.target.value })}
-                    className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                  >
-                    <option value="all">All users</option>
-                    <option value="admin_only">Admins only</option>
-                    <option value="restricted">Restricted to specific users</option>
-                  </select>
-                </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-zinc-400">Description</span>
+                      <textarea
+                        value={selected.description || ""}
+                        onChange={(e) => setSelected({ ...selected, description: e.target.value })}
+                        rows={2}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                      />
+                    </label>
 
-                {selected.visibility === "restricted" && (
-                  <div className="block">
-                    <span className="text-xs font-medium text-zinc-400">Allowed Users</span>
-                    <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                      {users.length === 0 && (
-                        <p className="text-xs text-zinc-500">No users found.</p>
-                      )}
-                      {users.map((u) => {
-                        const checked = (selected.allowed_users || []).includes(u.email);
-                        const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
-                        return (
-                          <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                    <label className="block">
+                      <span className="text-xs font-medium text-zinc-400">Instructions (System Prompt)</span>
+                      <textarea
+                        value={selected.system_prompt || ""}
+                        onChange={(e) => setSelected({ ...selected, system_prompt: e.target.value })}
+                        rows={5}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                        placeholder="Define how this agent behaves, what it can do, and how it should respond..."
+                      />
+                    </label>
+
+                  </>
+                )}
+
+                {activeTab === "tools" && (
+                  <div className="space-y-4">
+                    <div className="block">
+                      <span className="text-xs font-medium text-zinc-400">Enabled Tools</span>
+                      <div className="mt-2 flex flex-wrap gap-3">
+                        {AVAILABLE_TOOLS.map((tool) => (
+                          <label key={tool} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleAllowedUser(selected, u.email)}
+                              checked={(selected.tools || []).includes(tool)}
+                              onChange={() => toggleTool(selected, tool)}
                               className="accent-indigo-500"
                             />
-                            <span>{display}</span>
-                            <span className="text-xs text-zinc-500">{u.email}</span>
+                            <span className="capitalize">{tool.replace(/_/g, " ")}</span>
                           </label>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
+                  </div>
+                )}
+
+                {activeTab === "orchestration" && (
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selected.is_orchestrator}
+                        onChange={(e) => setSelected({ ...selected, is_orchestrator: e.target.checked })}
+                        className="accent-indigo-500"
+                      />
+                      <span className="text-sm text-zinc-300">Is Orchestrator (routes queries to other agents)</span>
+                    </label>
+
+                    {selected.is_orchestrator && (
+                      <div className="block">
+                        <span className="text-xs font-medium text-zinc-400">Routes To</span>
+                        <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                          {agents.length <= 1 && (
+                            <p className="text-xs text-zinc-500">No other agents available.</p>
+                          )}
+                          {agents
+                            .filter((a) => a.slug !== selected.slug)
+                            .map((a) => {
+                              const checked = (selected.routes_to || []).includes(a.slug);
+                              return (
+                                <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleRoute(selected, a.slug)}
+                                    className="accent-indigo-500"
+                                  />
+                                  <span>{a.name || a.slug}</span>
+                                  <span className="text-xs text-zinc-500">@{a.slug}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "knowledge" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <label className="block">
+                        <span className="text-xs font-medium text-zinc-400">Retrieval Top-K (1-20)</span>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={selected.retrieval_top_k}
+                          onChange={(e) =>
+                            setSelected({
+                              ...selected,
+                              retrieval_top_k: Math.min(20, Math.max(1, parseInt(e.target.value || "5", 10))),
+                            })
+                          }
+                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                        />
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Number of chunks retrieved per query.
+                        </p>
+                      </label>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-zinc-300 mb-1">Connected Knowledge Sources</h3>
+                      <p className="text-xs text-zinc-500 mb-3">
+                        Select the knowledge sources this agent can retrieve from. Retrieval is automatically enabled when at least one source is connected.
+                      </p>
+                      <div className="space-y-1 max-h-64 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        {sources.length === 0 && (
+                          <p className="text-xs text-zinc-500">No sources configured. Go to Knowledge Sources to add documents.</p>
+                        )}
+                        {sources.map((s) => {
+                          const checked = (selected.connected_sources || []).includes(s.id);
+                          return (
+                            <label key={s.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const current = selected.connected_sources || [];
+                                  const next = checked
+                                    ? current.filter((x) => x !== s.id)
+                                    : [...current, s.id];
+                                  setSelected({ ...selected, connected_sources: next });
+                                }}
+                                className="accent-indigo-500"
+                              />
+                              <span>{s.name}</span>
+                              <span className="text-xs text-zinc-500">({s.slug})</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {(selected.connected_sources || []).length > 0 && (
+                      <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg px-3 py-2">
+                        <p className="text-xs text-indigo-300">
+                          <strong>{(selected.connected_sources || []).length}</strong> source(s) connected. Retrieval is active.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "deploy" && (
+                  <div className="space-y-4">
+                    <label className="block">
+                      <span className="text-xs font-medium text-zinc-400">Visibility</span>
+                      <select
+                        value={selected.visibility || "all"}
+                        onChange={(e) => setSelected({ ...selected, visibility: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                      >
+                        <option value="all">All users</option>
+                        <option value="admin_only">Admins only</option>
+                        <option value="restricted">Restricted to specific users</option>
+                      </select>
+                    </label>
+
+                    {selected.visibility === "restricted" && (
+                      <div className="block">
+                        <span className="text-xs font-medium text-zinc-400">Allowed Users</span>
+                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                          {users.length === 0 && (
+                            <p className="text-xs text-zinc-500">No users found.</p>
+                          )}
+                          {users.map((u) => {
+                            const checked = (selected.allowed_users || []).includes(u.email);
+                            const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                            return (
+                              <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggleAllowedUser(selected, u.email)}
+                                  className="accent-indigo-500"
+                                />
+                                <span>{display}</span>
+                                <span className="text-xs text-zinc-500">{u.email}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selected.is_orchestrator}
-                  onChange={(e) => setSelected({ ...selected, is_orchestrator: e.target.checked })}
-                  className="accent-indigo-500"
-                />
-                <span className="text-sm text-zinc-300">Is Orchestrator (routes queries to other agents)</span>
-              </label>
-
-              {selected.is_orchestrator && (
-                <div className="block">
-                  <span className="text-xs font-medium text-zinc-400">Routes To</span>
-                  <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                    {agents.length <= 1 && (
-                      <p className="text-xs text-zinc-500">No other agents available.</p>
-                    )}
-                    {agents
-                      .filter((a) => a.slug !== selected.slug)
-                      .map((a) => {
-                        const checked = (selected.routes_to || []).includes(a.slug);
-                        return (
-                          <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleRoute(selected, a.slug)}
-                              className="accent-indigo-500"
-                            />
-                            <span>{a.name || a.slug}</span>
-                            <span className="text-xs text-zinc-500">@{a.slug}</span>
-                          </label>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-
-              <div className="block">
-                <span className="text-xs font-medium text-zinc-400">Connected Knowledge Sources</span>
-                <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                  {sources.length === 0 && (
-                    <p className="text-xs text-zinc-500">No sources configured.</p>
-                  )}
-                  {sources.map((s) => {
-                    const checked = (selected.connected_sources || []).includes(s.id);
-                    return (
-                      <label key={s.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => {
-                            const current = selected.connected_sources || [];
-                            const next = checked
-                              ? current.filter((x) => x !== s.id)
-                              : [...current, s.id];
-                            setSelected({ ...selected, connected_sources: next });
-                          }}
-                          className="accent-indigo-500"
-                        />
-                        <span>{s.name}</span>
-                        <span className="text-xs text-zinc-500">({s.slug})</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end pt-2">
+              {/* Footer save */}
+              <div className="flex justify-end px-5 py-4 border-t border-zinc-800">
                 <button
                   onClick={save}
                   disabled={saving}
