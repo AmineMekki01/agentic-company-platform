@@ -102,6 +102,8 @@ def upgrade() -> None:
         sa.Column("mode_profile", sa.JSON(), nullable=True),
         sa.Column("is_orchestrator", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("routes_to", sa.JSON(), nullable=True),
+        sa.Column("visibility", sa.String(length=20), nullable=False, server_default="all"),
+        sa.Column("allowed_users", sa.JSON(), nullable=True, server_default="[]"),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
     )
 

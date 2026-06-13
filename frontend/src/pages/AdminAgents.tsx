@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource } from "@/lib/api";
+import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 
 const AVAILABLE_TOOLS = ["retrieve", "web_search", "create_jira_ticket"];
@@ -15,11 +15,14 @@ const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   tools: ["retrieve", "web_search"],
   is_orchestrator: false,
   routes_to: [],
+  visibility: "all",
+  allowed_users: [],
 };
 
 export default function AdminAgents() {
   const [agents, setAgents] = useState<AgentSetting[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
+  const [users, setUsers] = useState<DbUser[]>([]);
   const [selected, setSelected] = useState<AgentSetting | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -33,12 +36,14 @@ export default function AdminAgents() {
     setLoading(true);
     setError(null);
     try {
-      const [agentData, sourceData] = await Promise.all([
+      const [agentData, sourceData, userData] = await Promise.all([
         api.listAgentSettings(),
         api.listKnowledgeSources(),
+        api.listUsers(),
       ]);
       setAgents(agentData);
       setSources(sourceData);
+      setUsers(userData);
       if (selected) {
         const updated = agentData.find((a) => a.slug === selected.slug) ?? null;
         setSelected(updated);
@@ -73,6 +78,8 @@ export default function AdminAgents() {
         tools: tools,
         is_orchestrator: selected.is_orchestrator,
         routes_to: selected.routes_to || undefined,
+        visibility: selected.visibility || undefined,
+        allowed_users: selected.allowed_users || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
       await refresh();
@@ -103,6 +110,8 @@ export default function AdminAgents() {
         web_search_enabled: tools.includes("web_search"),
         is_orchestrator: newAgent.is_orchestrator,
         routes_to: newAgent.routes_to || undefined,
+        visibility: newAgent.visibility || undefined,
+        allowed_users: newAgent.allowed_users || undefined,
       });
       setShowCreate(false);
       setNewAgent({ ...DEFAULT_NEW_AGENT });
@@ -149,6 +158,18 @@ export default function AdminAgents() {
       setSelected({ ...agent, routes_to: next });
     } else {
       setNewAgent({ ...agent, routes_to: next });
+    }
+  };
+
+  const toggleAllowedUser = (agent: AgentSetting | AgentSettingCreate, email: string) => {
+    const current = agent.allowed_users || [];
+    const next = current.includes(email)
+      ? current.filter((e) => e !== email)
+      : [...current, email];
+    if ("id" in agent) {
+      setSelected({ ...agent, allowed_users: next });
+    } else {
+      setNewAgent({ ...agent, allowed_users: next });
     }
   };
 
@@ -310,6 +331,45 @@ export default function AdminAgents() {
                 </div>
               </div>
 
+              <label className="block">
+                <span className="text-xs text-neutral-400">Visibility</span>
+                <select
+                  value={selected.visibility || "all"}
+                  onChange={(e) => setSelected({ ...selected, visibility: e.target.value })}
+                  className="w-full bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm mt-1"
+                >
+                  <option value="all">All users</option>
+                  <option value="admin_only">Admins only</option>
+                  <option value="restricted">Restricted to specific users</option>
+                </select>
+              </label>
+
+              {selected.visibility === "restricted" && (
+                <div className="block">
+                  <span className="text-xs text-neutral-400">Allowed Users</span>
+                  <div className="mt-1 space-y-1 max-h-40 overflow-y-auto bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2">
+                    {users.length === 0 && (
+                      <p className="text-xs text-neutral-500">No users found.</p>
+                    )}
+                    {users.map((u) => {
+                      const checked = (selected.allowed_users || []).includes(u.email);
+                      const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                      return (
+                        <label key={u.id} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAllowedUser(selected, u.email)}
+                          />
+                          <span>{display}</span>
+                          <span className="text-xs text-neutral-500">{u.email}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -465,6 +525,45 @@ export default function AdminAgents() {
                 ))}
               </div>
             </div>
+
+            <label className="block">
+              <span className="text-xs text-neutral-400">Visibility</span>
+              <select
+                value={newAgent.visibility || "all"}
+                onChange={(e) => setNewAgent({ ...newAgent, visibility: e.target.value })}
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-md px-3 py-2 text-sm mt-1"
+              >
+                <option value="all">All users</option>
+                <option value="admin_only">Admins only</option>
+                <option value="restricted">Restricted to specific users</option>
+              </select>
+            </label>
+
+            {newAgent.visibility === "restricted" && (
+              <div className="block">
+                <span className="text-xs text-neutral-400">Allowed Users</span>
+                <div className="mt-1 space-y-1 max-h-40 overflow-y-auto bg-neutral-950 border border-neutral-700 rounded-md px-3 py-2">
+                  {users.length === 0 && (
+                    <p className="text-xs text-neutral-500">No users found.</p>
+                  )}
+                  {users.map((u) => {
+                    const checked = (newAgent.allowed_users || []).includes(u.email);
+                    const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAllowedUser(newAgent, u.email)}
+                        />
+                        <span>{display}</span>
+                        <span className="text-xs text-neutral-500">{u.email}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <label className="flex items-center gap-2">
               <input

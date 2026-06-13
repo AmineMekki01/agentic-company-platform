@@ -5,14 +5,14 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import HumanMessage
-from sqlalchemy import func, update
+from sqlalchemy import func, select, update
 from sse_starlette.sse import EventSourceResponse
 
 from app.agents.runtime import RuntimeDep
 from app.api.conversations import get_owned_conversation
 from app.api.deps import CurrentUser, DbSession
 from app.db.session import async_session_factory
-from app.models import AgentSettings, Conversation, Message
+from app.models import AgentSettings, Conversation, Message, UserRole
 from app.schemas.chat import AgentOut, ChatRequest, JiraTicketDraft, JiraTicketCreateRequest, JiraTicketOut
 from app.services.jira import get_first_jira_connector, get_jira_service_from_connector
 from app.services.titles import generate_title
@@ -20,6 +20,20 @@ from app.services.titles import generate_title
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chat"])
+
+
+def _agent_visible(row: AgentSettings, user) -> bool:
+    """Return True if the agent is visible to the given user."""
+    if user.role == UserRole.ADMIN:
+        return True
+    if row.visibility == "all":
+        return True
+    if row.visibility == "admin_only":
+        return False
+    if row.visibility == "restricted":
+        allowed = row.allowed_users or []
+        return user.email in allowed
+    return False
 
 
 @router.get("/agents", response_model=list[AgentOut])
@@ -40,6 +54,7 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
     return [
         AgentOut(slug=r.slug, name=r.name, description=r.description)
         for r in rows
+        if _agent_visible(r, user)
     ]
 
 
@@ -99,6 +114,16 @@ async def chat_stream(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unknown agent '{agent}'",
         )
+
+    if user.role != UserRole.ADMIN:
+        agent_row = await db.scalar(
+            select(AgentSettings).where(AgentSettings.slug == agent)
+        )
+        if agent_row and not _agent_visible(agent_row, user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You do not have access to agent '{agent}'",
+            )
 
     if not body.force_agent:
         try:

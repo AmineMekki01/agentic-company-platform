@@ -30,6 +30,8 @@ class AgentSettingOut(BaseModel):
     is_orchestrator: bool
     routes_to: list[str] | None
     mode_profile: dict[str, Any] | None
+    visibility: str
+    allowed_users: list[str] | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -57,6 +59,8 @@ class AgentSettingUpdate(BaseModel):
     is_orchestrator: bool = False
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
+    visibility: str | None = "all"
+    allowed_users: list[str] | None = None
 
 
 class AgentSettingCreate(BaseModel):
@@ -81,3 +85,5 @@ class AgentSettingCreate(BaseModel):
     is_orchestrator: bool = False
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
+    visibility: str | None = "all"
+    allowed_users: list[str] | None = None
