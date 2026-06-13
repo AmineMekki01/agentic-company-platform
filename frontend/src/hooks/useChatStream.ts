@@ -14,6 +14,7 @@ export interface StreamCallbacks {
   onToken: (delta: string) => void;
   onSources?: (sources: SourceInfo[]) => void;
   onStep?: (step: string) => void;
+  onTitle?: (title: string) => void;
   onDone?: (payload: { message_id: string; title: string | null }) => void;
   onError?: (detail: string) => void;
 }
@@ -90,7 +91,11 @@ export function useChatStream() {
               else if (event === "token") callbacks.onToken(payload.delta);
               else if (event === "sources") callbacks.onSources?.(payload.sources);
               else if (event === "step") callbacks.onStep?.(payload.step);
-              else if (event === "done") callbacks.onDone?.(payload);
+              else if (event === "title") callbacks.onTitle?.(payload.title);
+              else if (event === "done") {
+                callbacks.onDone?.(payload);
+                setStreaming(false);
+              }
               else if (event === "error") callbacks.onError?.(payload.detail);
             } catch {
             }

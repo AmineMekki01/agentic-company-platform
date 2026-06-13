@@ -133,6 +133,12 @@ export default function ChatPage() {
           )
         );
       },
+      onTitle: (title) =>
+        setConversations((cs) =>
+          cs.map((c) =>
+            c.id === conversationId ? { ...c, title } : c
+          )
+        ),
       onError: (detail) =>
         setMessages((ms) =>
           ms.map((m) =>

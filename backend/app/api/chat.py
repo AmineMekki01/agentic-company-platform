@@ -253,6 +253,10 @@ async def chat_stream(
                             .where(Conversation.id == conversation_id)
                             .values(title=title, updated_at=func.now())
                         )
+                        yield {
+                            "event": "title",
+                            "data": json.dumps({"title": title}),
+                        }
                     else:
                         await session.execute(
                             update(Conversation)
