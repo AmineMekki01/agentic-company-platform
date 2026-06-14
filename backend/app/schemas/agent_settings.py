@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -31,7 +32,10 @@ class AgentSettingOut(BaseModel):
     routes_to: list[str] | None
     mode_profile: dict[str, Any] | None
     visibility: str
+    created_by: str | None
     allowed_users: list[str] | None
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -60,6 +64,7 @@ class AgentSettingUpdate(BaseModel):
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
+    created_by: str | None = None
     allowed_users: list[str] | None = None
 
 
@@ -86,4 +91,5 @@ class AgentSettingCreate(BaseModel):
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
+    created_by: str | None = None
     allowed_users: list[str] | None = None

@@ -14,7 +14,7 @@ from app.agents.context import (
 from app.agents.llm import get_chat_model
 from app.agents.registry import AgentSpec
 from app.agents.state import AgentState
-from app.agents.tools import retrieve, web_search, _retrieve_and_format
+from app.agents.tools import retrieve, web_search
 from app.agents.tools_jira import create_jira_ticket
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,7 @@ def make_agent_node(
     model: str | None = None,
     system_prompt: str | None = None,
     retrieval_top_k: int = 5,
+    registry: dict[str, AgentSpec] | None = None,
 ):
     """Build an agent node that reasons and may emit tool_calls (ReAct pattern).
 
@@ -94,7 +95,42 @@ def make_agent_node(
                 last_user_msg = str(getattr(m, "content", ""))
                 break
 
-        system_msg = SystemMessage(content=prompt)
+        dynamic_prompt = prompt
+        user_allowed = state.get("user_allowed_slugs")
+        accessible_names = [registry[slug].name for slug in (user_allowed or []) if slug in registry]
+        registry_names = [spec.name for spec in registry.values()]
+        logger.info("Agent access names: %s", accessible_names)
+        logger.info("Agent registry names: %s", registry_names)
+        if user_allowed is not None and spec.is_orchestrator:
+            accessible = [slug for slug in user_allowed if slug != spec.slug]
+            if accessible:
+                lines = "\n".join(f"- @{slug}: {registry[slug].description}" for slug in accessible if slug in registry)
+                access_block = (
+                    "MANDATORY ACCESS RESTRICTION — You may ONLY mention, route to, or acknowledge the following specialist agents. "
+                    "If a user asks about a topic belonging to a specialist NOT on this list, you must NOT mention that specialist or suggest routing to them. "
+                    "Instead, answer from your own knowledge if possible, or politely explain you cannot help with that specialist topic.\n\n"
+                    f"Allowed specialists:\n{lines}\n\n"
+                    "Any reference to specialists outside the Allowed specialists list is strictly forbidden.\n\n"
+                    "WHEN the user asks what you can help with, how you can help, or what agents are available, you MUST ALWAYS include a bullet list of the Allowed specialists with a brief description. "
+                    "This is non-optional. Do NOT give vague answers like 'hand off to the right expert.' Name the specific agents the user can access.\n\n"
+                    "Example of a correct response when asked 'how can you help me':\n"
+                    "'I can help with general questions and tasks. You also have access to these specialists:'\n"
+                    f"{lines}\n\n"
+                )
+            else:
+                access_block = (
+                    "MANDATORY ACCESS RESTRICTION — This user has access to NO specialist agents. "
+                    "You must NEVER mention any specialist agent (@it, @hr, @finance, or any other). "
+                    "Answer all questions from your own knowledge. If a topic clearly requires a specialist you cannot access, politely explain you don't have access to that specialist and suggest contacting an administrator.\n\n"
+                )
+            dynamic_prompt = access_block + dynamic_prompt
+
+        if spec.slug == "general":
+            logger.info("Agent[%s] final system prompt:\n%s", spec.slug, dynamic_prompt)
+        else:
+            logger.info("Agent[%s] final system prompt (first 800 chars): %s", spec.slug, dynamic_prompt[:800])
+
+        system_msg = SystemMessage(content=dynamic_prompt)
         system_tokens = llm.get_num_tokens(system_msg.content or "")
 
         if mode == "auto":
@@ -118,7 +154,7 @@ def make_agent_node(
                 "If the first search is insufficient, use the search tool again before answering."
             )
         if mode_suffix:
-            system_msg = SystemMessage(content=prompt + mode_suffix)
+            system_msg = SystemMessage(content=dynamic_prompt + mode_suffix)
             system_tokens = llm.get_num_tokens(system_msg.content or "")
 
         retrieval_tokens = 0
@@ -244,6 +280,12 @@ def make_router_node(
 
         if orchestrator in registry and orchestrator not in allowed_registry:
             allowed_registry[orchestrator] = registry[orchestrator]
+
+        user_allowed = state.get("user_allowed_slugs")
+        if user_allowed is not None:
+            allowed_registry = {
+                slug: spec for slug, spec in allowed_registry.items() if slug in user_allowed
+            }
 
         mention = _extract_mention(last_user_msg, allowed_registry)
         if mention:
@@ -462,7 +504,7 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
             "Agent[%s] graph config: model=%s connected_sources=%s retrieval_top_k=%s prompt_override=%s tools=%s",
             slug, model, source_ids, retrieval_top_k, bool(system_prompt), spec.tools,
         )
-        builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt, retrieval_top_k=retrieval_top_k))
+        builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt, retrieval_top_k=retrieval_top_k, registry=registry))
 
         builder.add_conditional_edges(
             slug,

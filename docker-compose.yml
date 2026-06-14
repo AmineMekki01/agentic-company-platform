@@ -44,6 +44,11 @@ services:
       JIRA_PROJECT_KEY: ${JIRA_PROJECT_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-in-production!}
       FERNET_KEY: ${FERNET_KEY:-}
+      AWS_ACCESS_KEY: ${AWS_ACCESS_KEY:-}
+      AWS_SECRET_KEY: ${AWS_SECRET_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-}
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL:-}
     ports:
       - "8000:8000"
     volumes:

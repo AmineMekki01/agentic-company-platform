@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 
 import AgentSwitcher from "@/components/chat/AgentSwitcher";
 import Composer from "@/components/chat/Composer";
@@ -18,17 +18,21 @@ export default function ChatPage() {
   const [selectedAgent, setSelectedAgent] = useState("");
   const [mode, setMode] = useState<Mode>("auto");
   const [focusKey, setFocusKey] = useState(0);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const { send, stop, streaming } = useChatStream();
 
   useEffect(() => {
     api.listConversations().then(setConversations).catch(() => {});
-    api.listAgents().then((loaded) => {
-      setAgents(loaded);
-      if (loaded.length && !selectedAgent) {
-        const general = loaded.find((a) => a.slug === "general");
-        setSelectedAgent(general ? general.slug : loaded[0].slug);
-      }
-    }).catch(() => {});
+    api.listAgents()
+      .then((loaded) => {
+        setAgents(loaded);
+        if (loaded.length && !selectedAgent) {
+          const general = loaded.find((a) => a.slug === "general");
+          setSelectedAgent(general ? general.slug : loaded[0].slug);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setHasLoaded(true));
   }, []);
 
   const openConversation = useCallback(async (id: string) => {
@@ -170,6 +174,21 @@ export default function ChatPage() {
     }, attachmentIds);
   }
 
+  if (!hasLoaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative flex h-10 w-10 items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+          </div>
+          <p className="text-sm text-zinc-500">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const noAgents = agents.length === 0;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar
@@ -181,68 +200,81 @@ export default function ChatPage() {
       />
 
       <main className="flex min-w-0 flex-1 flex-col bg-zinc-900/50">
-        <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-3 backdrop-blur-sm z-10">
-          <div className="flex items-center gap-3">
-            <AgentSwitcher
-              agents={agents}
-              selected={selectedAgent}
-              onSelect={(slug) => {
-                if (slug !== selectedAgent) {
-                  setSelectedAgent(slug);
-                  newChat();
-                }
-              }}
-            />
-            <ModeSelector selected={mode} onSelect={setMode} />
-          </div>
-          <div className="flex items-center gap-2">
-            {streaming && (
-              <>
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
-                </span>
-                <span className="text-xs text-zinc-400">Agent is responding…</span>
-              </>
-            )}
-          </div>
-        </header>
-
-        <MessageList
-          messages={messages}
-          agents={agents}
-          renderAction={(msg) => {
-            if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
-              return null;
-            }
-            const agent = agents.find((a) => a.slug === msg.agent_id);
-            if (!agent?.tools?.includes("create_jira_ticket")) {
-              return null;
-            }
-            return <JiraTicketButton conversationId={activeId} />;
-          }}
-          emptyState={
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/20">
-                <Sparkles className="h-6 w-6 text-indigo-400" />
-              </div>
-              <h2 className="text-lg font-semibold">How can I help you today?</h2>
-              <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                Ask anything, or use <span className="text-indigo-400">@</span> to call
-                a specific agent directly.
+        {noAgents ? (
+          <div className="flex flex-1 items-center justify-center px-4 text-center">
+            <div>
+              <h1 className="text-xl font-semibold text-zinc-200">No access</h1>
+              <p className="mt-2 max-w-sm text-sm text-zinc-500">
+                You do not have access to any agents. Contact an administrator if you think this is a mistake.
               </p>
             </div>
-          }
-        />
+          </div>
+        ) : (
+          <>
+            <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-3 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-3">
+                <AgentSwitcher
+                  agents={agents}
+                  selected={selectedAgent}
+                  onSelect={(slug) => {
+                    if (slug !== selectedAgent) {
+                      setSelectedAgent(slug);
+                      newChat();
+                    }
+                  }}
+                />
+                <ModeSelector selected={mode} onSelect={setMode} />
+              </div>
+              <div className="flex items-center gap-2">
+                {streaming && (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                    </span>
+                    <span className="text-xs text-zinc-400">Agent is responding…</span>
+                  </>
+                )}
+              </div>
+            </header>
 
-        <Composer
-          agents={agents}
-          disabled={streaming}
-          streaming={streaming}
-          focusKey={focusKey}
-          onSend={handleSend}
-          onStop={stop}
-        />
+            <MessageList
+              messages={messages}
+              agents={agents}
+              renderAction={(msg) => {
+                if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
+                  return null;
+                }
+                const agent = agents.find((a) => a.slug === msg.agent_id);
+                if (!agent?.tools?.includes("create_jira_ticket")) {
+                  return null;
+                }
+                return <JiraTicketButton conversationId={activeId} />;
+              }}
+              emptyState={
+                <div className="text-center">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/20">
+                    <Sparkles className="h-6 w-6 text-indigo-400" />
+                  </div>
+                  <h2 className="text-lg font-semibold">How can I help you today?</h2>
+                  <p className="mt-1 max-w-sm text-sm text-zinc-500">
+                    Ask anything, or use <span className="text-indigo-400">@</span> to call
+                    a specific agent directly.
+                  </p>
+                </div>
+              }
+            />
+
+            <Composer
+              agents={agents}
+              disabled={streaming}
+              streaming={streaming}
+              focusKey={focusKey}
+              onSend={handleSend}
+              onStop={stop}
+            />
+          </>
+        )}
       </main>
     </div>
   );

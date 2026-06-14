@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
+import { useAuth } from "@/stores/auth";
 
 type TabKey = "overview" | "tools" | "knowledge" | "orchestration" | "deploy";
 
@@ -23,14 +24,36 @@ const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   system_prompt: "",
   retrieval_top_k: 5,
   connected_sources: [],
-  tools: ["web_search"],
+  tools: [],
   is_orchestrator: false,
   routes_to: [],
   visibility: "all",
+  created_by: "",
   allowed_users: [],
 };
 
+const formatUserLabel = (u: DbUser) => [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const makeDefaultNewAgent = (ownerEmail = ""): AgentSettingCreate => ({
+  ...DEFAULT_NEW_AGENT,
+  created_by: ownerEmail,
+});
+
 export default function AdminAgents() {
+  const { user: currentUser } = useAuth();
   const [agents, setAgents] = useState<AgentSetting[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [users, setUsers] = useState<DbUser[]>([]);
@@ -40,10 +63,21 @@ export default function AdminAgents() {
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [newAgent, setNewAgent] = useState<AgentSettingCreate>({ ...DEFAULT_NEW_AGENT });
+  const [newAgent, setNewAgent] = useState<AgentSettingCreate>(() => makeDefaultNewAgent());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+
+  const closeSelected = () => {
+    setSelected(null);
+    setActiveTab("overview");
+  };
+
+  const formatOwnerLabel = (email: string | null | undefined) => {
+    if (!email) return "Unassigned";
+    const owner = users.find((u) => u.email === email);
+    return owner ? formatUserLabel(owner) : email;
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -94,6 +128,7 @@ export default function AdminAgents() {
         is_orchestrator: selected.is_orchestrator,
         routes_to: selected.routes_to || undefined,
         visibility: selected.visibility || undefined,
+        created_by: selected.created_by || undefined,
         allowed_users: selected.allowed_users || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
@@ -121,6 +156,7 @@ export default function AdminAgents() {
         name: newAgent.name?.trim() || undefined,
         description: newAgent.description?.trim() || undefined,
         system_prompt: newAgent.system_prompt?.trim() || undefined,
+        created_by: newAgent.created_by?.trim() || undefined,
         retrieval_enabled: (newAgent.connected_sources || []).length > 0,
         web_search_enabled: tools.includes("web_search"),
         is_orchestrator: newAgent.is_orchestrator,
@@ -129,7 +165,7 @@ export default function AdminAgents() {
         allowed_users: newAgent.allowed_users || undefined,
       });
       setShowCreate(false);
-      setNewAgent({ ...DEFAULT_NEW_AGENT });
+      setNewAgent(makeDefaultNewAgent(currentUser?.email || ""));
       await refresh();
     } catch (e: unknown) {
       const err = e as Error;
@@ -197,7 +233,7 @@ export default function AdminAgents() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setShowCreate(true); setError(null); }}
+            onClick={() => { setShowCreate(true); setError(null); setNewAgent(makeDefaultNewAgent(currentUser?.email || "")); }}
             className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -221,105 +257,134 @@ export default function AdminAgents() {
       )}
 
       <div className="flex gap-4">
-        {/* Agent list */}
-        <div className="w-64 shrink-0 space-y-1">
-          {loading && (
-            <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading agents…
-            </div>
-          )}
-          {agents.map((a) => {
-            const active = selected?.slug === a.slug;
-            return (
-              <div
-                key={a.slug}
-                className={
-                  "group w-full text-left rounded-xl px-3 py-2.5 text-sm transition flex items-center gap-3 " +
-                  (active
-                    ? "bg-zinc-900 font-medium border border-zinc-800"
-                    : "hover:bg-zinc-900/60 text-zinc-400 cursor-pointer border border-transparent")
-                }
-                onClick={() => { setSelected(a); setActiveTab("overview"); }}
-              >
-                <div
-                  className={
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border " +
-                    (active
-                      ? a.slug === "it"
-                        ? "bg-cyan-500/10 border-cyan-500/30"
-                        : a.slug === "hr"
-                          ? "bg-rose-500/10 border-rose-500/30"
-                          : "bg-indigo-500/10 border-indigo-500/30"
-                      : "bg-zinc-900/60 border-zinc-800")
-                  }
-                >
-                  <AgentIcon slug={a.slug} size={18} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate text-zinc-200">{a.name || a.slug}</div>
-                  <div className="text-xs text-zinc-500 truncate">{a.description || "No description"}</div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setDeleteConfirm(a.slug);
-                  }}
-                  className="opacity-0 group-hover:opacity-100 rounded-md p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
-                  title="Delete agent"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+        {/* Agents table */}
+        <div className={selected ? "hidden" : "w-full"}>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-100">Agents</h2>
+                <p className="text-xs text-zinc-500">Click a row to edit that agent.</p>
               </div>
-            );
-          })}
-          {!loading && agents.length === 0 && (
-            <div className="text-center py-8">
-              <Bot className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
-              <p className="text-sm text-zinc-500">No agents configured yet</p>
+              {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
             </div>
-          )}
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-zinc-800 text-left text-sm">
+                <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Owner</th>
+                    <th className="px-4 py-3 font-medium">Created</th>
+                    <th className="px-4 py-3 font-medium">Modified</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800 bg-zinc-900">
+                  {agents.map((a) => {
+                    const active = selected?.slug === a.slug;
+                    return (
+                      <tr
+                        key={a.slug}
+                        onClick={() => { setSelected(a); setActiveTab("overview"); }}
+                        className={
+                          "cursor-pointer transition " +
+                          (active ? "bg-zinc-800/70" : "hover:bg-zinc-800/50")
+                        }
+                      >
+                        <td className="px-4 py-3 align-top">
+                          <div className="font-medium text-zinc-100 truncate">{a.name || a.slug}</div>
+                        </td>
+                        <td className="px-4 py-3 align-top text-zinc-300">{formatOwnerLabel(a.created_by)}</td>
+                        <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.created_at)}</td>
+                        <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.updated_at)}</td>
+                        <td className="px-4 py-3 align-top text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirm(a.slug);
+                            }}
+                            className="rounded-md p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                            title="Delete agent"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!loading && agents.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-10 text-center">
+                        <Bot className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
+                        <p className="text-sm text-zinc-500">No agents configured yet</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* Detail panel */}
-        <div className="flex-1 min-w-0">
+        <div className={selected ? "flex-1 min-w-0" : "hidden"}>
           {selected ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-sm flex flex-col h-full">
               {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                    <AgentIcon slug={selected.slug} size={18} />
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={closeSelected}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Back to list
+                  </button>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                      <AgentIcon slug={selected.slug} size={18} />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-zinc-100">{selected.name || selected.slug}</h2>
+                      <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
+                      <div className="mt-1 text-xs text-zinc-500">
+                        Owner: <span className="text-zinc-300">{formatOwnerLabel(selected.created_by)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="font-semibold text-zinc-100">{selected.name || selected.slug}</h2>
-                    <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
-                  </div>
+                </div>
+                <div className="text-xs text-zinc-500">
+                  Owner: <span className="text-zinc-300">{formatOwnerLabel(selected.created_by)}</span>
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-1 px-5 pt-3 border-b border-zinc-800">
-                {TABS.map((t) => {
-                  const Icon = t.icon;
-                  const active = activeTab === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setActiveTab(t.key)}
-                      className={
-                        "flex items-center gap-1.5 text-sm px-3 py-2 rounded-t-lg transition border-b-2 " +
-                        (active
-                          ? "text-zinc-100 border-indigo-500 font-medium"
-                          : "text-zinc-500 border-transparent hover:text-zinc-300")
-                      }
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <div className="flex flex-1 min-h-0">
+                <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/40 p-3">
+                  <div className="mb-3 px-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    Sections
+                  </div>
+                  <div className="space-y-1">
+                    {TABS.map((t) => {
+                      const Icon = t.icon;
+                      const active = activeTab === t.key;
+                      return (
+                        <button
+                          key={t.key}
+                          onClick={() => setActiveTab(t.key)}
+                          className={
+                            "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition " +
+                            (active
+                              ? "border-zinc-800 bg-zinc-900 font-medium text-zinc-100"
+                              : "border-transparent text-zinc-500 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-zinc-200")
+                          }
+                        >
+                          <Icon className={"h-4 w-4 " + (active ? "text-indigo-400" : "text-zinc-500")} />
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
               {/* Tab content */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -356,6 +421,22 @@ export default function AdminAgents() {
                         rows={2}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
                       />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-xs font-medium text-zinc-400">Owner</span>
+                      <select
+                        value={selected.created_by || ""}
+                        onChange={(e) => setSelected({ ...selected, created_by: e.target.value })}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                      >
+                        <option value="">Keep existing owner</option>
+                        {users.map((u) => (
+                          <option key={u.id} value={u.email}>
+                            {formatUserLabel(u)} — {u.email}
+                          </option>
+                        ))}
+                      </select>
                     </label>
 
                     <label className="block">
@@ -547,6 +628,8 @@ export default function AdminAgents() {
                 )}
               </div>
 
+              </div>
+
               {/* Footer save */}
               <div className="flex justify-end px-5 py-4 border-t border-zinc-800">
                 <button
@@ -610,6 +693,25 @@ export default function AdminAgents() {
                 placeholder="What this agent does..."
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
               />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-medium text-zinc-400">Owner</span>
+              <select
+                value={newAgent.created_by || ""}
+                onChange={(e) => setNewAgent({ ...newAgent, created_by: e.target.value })}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+              >
+                <option value="">Use current admin as owner ({currentUser?.email || "unknown"})</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.email}>
+                    {formatUserLabel(u)} — {u.email}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">
+                Owner metadata only. All admins can manage every agent. If you want access restrictions, set Visibility to Restricted and include allowed users.
+              </p>
             </label>
 
             <label className="block">

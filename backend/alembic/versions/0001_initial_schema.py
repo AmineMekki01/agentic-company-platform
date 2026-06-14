@@ -103,8 +103,29 @@ def upgrade() -> None:
         sa.Column("is_orchestrator", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("routes_to", sa.JSON(), nullable=True),
         sa.Column("visibility", sa.String(length=20), nullable=False, server_default="all"),
+        sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("allowed_users", sa.JSON(), nullable=True, server_default="[]"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    )
+    op.execute(
+        """
+        CREATE OR REPLACE FUNCTION agent_settings_set_updated_at()
+        RETURNS trigger AS $$
+        BEGIN
+            NEW.updated_at = now();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        """
+    )
+    op.execute(
+        """
+        CREATE TRIGGER trg_agent_settings_updated_at
+        BEFORE UPDATE ON agent_settings
+        FOR EACH ROW
+        EXECUTE FUNCTION agent_settings_set_updated_at();
+        """
     )
 
     # connectors
@@ -234,6 +255,7 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS knowledge_source_type")
     op.drop_table("connectors")
     op.execute("DROP TYPE IF EXISTS connector_type")
+    op.drop_column("agent_settings", "created_by")
     op.drop_table("agent_settings")
     op.drop_index("ix_messages_conversation_id", table_name="messages")
     op.drop_table("messages")

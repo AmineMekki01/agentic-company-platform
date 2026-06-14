@@ -21,3 +21,4 @@ class AgentState(TypedDict):
     step_count: int | None
     _needs_rethink: bool | None
     source_offset: int | None
+    user_allowed_slugs: list[str] | None

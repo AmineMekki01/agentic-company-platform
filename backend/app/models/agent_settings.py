@@ -41,6 +41,9 @@ class AgentSettings(Base):
     visibility: Mapped[str] = mapped_column(
         String(20), nullable=False, server_default="all"
     )
+    created_by: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     allowed_users: Mapped[list[str] | None] = mapped_column(
         JSON(), nullable=True, server_default="[]"
     )

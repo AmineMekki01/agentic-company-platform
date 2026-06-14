@@ -139,6 +139,11 @@ async def chat_stream(
 
     needs_title = conversation.title is None
 
+    result = await db.execute(select(AgentSettings))
+    user_allowed_slugs = [
+        row.slug for row in result.scalars().all() if _agent_visible(row, user)
+    ]
+
     msg = Message(
         conversation_id=conversation.id,
         role="user",
@@ -217,6 +222,7 @@ async def chat_stream(
                 "_needs_rethink": False,
                 "sources": all_sources,
                 "source_offset": len(all_sources),
+                "user_allowed_slugs": user_allowed_slugs,
             }
             if body.force_agent:
                 forced = body.agent or default_agent

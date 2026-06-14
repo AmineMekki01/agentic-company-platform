@@ -2,24 +2,24 @@
   "comment": "Demo accounts for local development. Modify as needed.",
   "users": [
     {
-      "email": "alice@example.com",
-      "password": "demoPassowrd12345",
+      "email": "user1@guild.com",
+      "password": "admin123",
       "first_name": "Alice",
       "last_name": "Johnson",
       "occupation": "Product Manager",
       "role": "user"
     },
     {
-      "email": "bob@example.com",
-      "password": "demoPassowrd12345",
+      "email": "user2@guild.com",
+      "password": "admin123",
       "first_name": "Bob",
       "last_name": "Smith",
       "occupation": "Software Engineer",
       "role": "user"
     },
     {
-      "email": "charlie@example.com",
-      "password": "demoPassowrd12345",
+      "email": "admin1@guild.com",
+      "password": "admin123",
       "first_name": "Charlie",
       "last_name": "Davis",
       "occupation": "AI Engineer",

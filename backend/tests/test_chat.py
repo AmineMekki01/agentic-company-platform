@@ -30,7 +30,6 @@ async def chat_env(monkeypatch, session_factory):
     from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
     monkeypatch.setattr(BaseLanguageModel, "get_num_tokens", lambda self, text: len(text.split()))
 
-    # Ensure fake model supports bind_tools for ReAct agent nodes
     def _bind_tools(self, tools, **kwargs):
         return self
     monkeypatch.setattr(GenericFakeChatModel, "bind_tools", _bind_tools)
