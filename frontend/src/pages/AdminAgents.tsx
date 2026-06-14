@@ -29,6 +29,7 @@ const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   routes_to: [],
   visibility: "all",
   created_by: "",
+  allow_uploads: true,
   allowed_users: [],
 };
 
@@ -129,6 +130,7 @@ export default function AdminAgents() {
         routes_to: selected.routes_to || undefined,
         visibility: selected.visibility || undefined,
         created_by: selected.created_by || undefined,
+        allow_uploads: selected.allow_uploads !== false,
         allowed_users: selected.allowed_users || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
@@ -162,6 +164,7 @@ export default function AdminAgents() {
         is_orchestrator: newAgent.is_orchestrator,
         routes_to: newAgent.routes_to || undefined,
         visibility: newAgent.visibility || undefined,
+        allow_uploads: newAgent.allow_uploads !== false,
         allowed_users: newAgent.allowed_users || undefined,
       });
       setShowCreate(false);
@@ -540,6 +543,21 @@ export default function AdminAgents() {
                       </label>
                     </div>
 
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.allow_uploads !== false}
+                        onChange={(e) => setSelected({ ...selected, allow_uploads: e.target.checked })}
+                        className="accent-indigo-500"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
+                        <span className="block text-xs text-zinc-500">
+                          Shows the attach button in chat when this agent is selected.
+                        </span>
+                      </span>
+                    </label>
+
                     <div>
                       <h3 className="text-sm font-medium text-zinc-300 mb-1">Connected Knowledge Sources</h3>
                       <p className="text-xs text-zinc-500 mb-3">
@@ -759,6 +777,21 @@ export default function AdminAgents() {
                   : "Connect knowledge sources to enable retrieval."}
               </p>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={newAgent.allow_uploads !== false}
+                onChange={(e) => setNewAgent({ ...newAgent, allow_uploads: e.target.checked })}
+                className="accent-indigo-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
+                <span className="block text-xs text-zinc-500">
+                  Shows the attach button in chat when this agent is selected.
+                </span>
+              </span>
+            </label>
 
             <label className="block">
               <span className="text-xs font-medium text-zinc-400">Visibility</span>

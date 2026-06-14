@@ -44,6 +44,7 @@ class AgentSettings(Base):
     created_by: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+    allow_uploads: Mapped[bool] = mapped_column(nullable=False, server_default="true")
     allowed_users: Mapped[list[str] | None] = mapped_column(
         JSON(), nullable=True, server_default="[]"
     )

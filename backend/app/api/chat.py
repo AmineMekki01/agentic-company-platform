@@ -53,7 +53,13 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
     result = await db.scalars(sa_select(AgentSettings).order_by(AgentSettings.slug))
     rows = result.all()
     return [
-        AgentOut(slug=r.slug, name=r.name, description=r.description, tools=r.tools or [])
+        AgentOut(
+            slug=r.slug,
+            name=r.name,
+            description=r.description,
+            tools=r.tools or [],
+            allow_uploads=r.allow_uploads,
+        )
         for r in rows
         if _agent_visible(r, user)
     ]
@@ -116,16 +122,6 @@ async def chat_stream(
             detail=f"Unknown agent '{agent}'",
         )
 
-    if user.role != UserRole.ADMIN:
-        agent_row = await db.scalar(
-            select(AgentSettings).where(AgentSettings.slug == agent)
-        )
-        if agent_row and not _agent_visible(agent_row, user):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You do not have access to agent '{agent}'",
-            )
-
     if not body.force_agent:
         try:
             config = {"configurable": {"thread_id": str(conversation_id)}}
@@ -136,6 +132,19 @@ async def chat_stream(
                 logger.info("Using persisted agent=%s for conv=%s", agent, conversation_id)
         except Exception:
             pass
+
+    agent_row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == agent))
+    if user.role != UserRole.ADMIN and agent_row and not _agent_visible(agent_row, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You do not have access to agent '{agent}'",
+        )
+
+    if body.attachment_ids and agent_row and not agent_row.allow_uploads:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"File uploads are disabled for agent '{agent}'",
+        )
 
     needs_title = conversation.title is None
 

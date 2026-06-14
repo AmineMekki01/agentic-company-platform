@@ -33,6 +33,7 @@ class AgentSettingOut(BaseModel):
     mode_profile: dict[str, Any] | None
     visibility: str
     created_by: str | None
+    allow_uploads: bool
     allowed_users: list[str] | None
     created_at: datetime
     updated_at: datetime
@@ -65,6 +66,7 @@ class AgentSettingUpdate(BaseModel):
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
     created_by: str | None = None
+    allow_uploads: bool = True
     allowed_users: list[str] | None = None
 
 
@@ -92,4 +94,5 @@ class AgentSettingCreate(BaseModel):
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
     created_by: str | None = None
+    allow_uploads: bool = True
     allowed_users: list[str] | None = None

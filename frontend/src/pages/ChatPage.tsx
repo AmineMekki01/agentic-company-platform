@@ -89,9 +89,12 @@ export default function ChatPage() {
       setConversations((cs) => [created, ...cs]);
     }
 
+    const activeAgentSlug = forcedAgent ?? selectedAgent;
+    const canUpload = agents.find((a) => a.slug === activeAgentSlug)?.allow_uploads !== false;
+
     const attachmentIds: string[] = [];
     const uploadedAttachments: { filename: string; extractedText: string | null }[] = [];
-    for (const file of files) {
+    for (const file of canUpload ? files : []) {
       try {
         const att = await api.uploadChatFile(conversationId, file);
         attachmentIds.push(att.id);
@@ -123,10 +126,12 @@ export default function ChatPage() {
     ]);
 
     await send(conversationId, content.trim(), agent, isForced, mode, {
-      onAgent: (slug) =>
+      onAgent: (slug) => {
+        setSelectedAgent(slug);
         setMessages((ms) =>
           ms.map((m) => (m.id === placeholderId ? { ...m, agent_id: slug } : m))
-        ),
+        );
+      },
       onToken: (delta) =>
         setMessages((ms) =>
           ms.map((m) =>
@@ -267,6 +272,7 @@ export default function ChatPage() {
 
             <Composer
               agents={agents}
+              selectedAgent={selectedAgent}
               disabled={streaming}
               streaming={streaming}
               focusKey={focusKey}

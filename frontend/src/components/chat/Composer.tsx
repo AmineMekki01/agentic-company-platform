@@ -5,6 +5,7 @@ import type { Agent } from "@/lib/api";
 
 interface ComposerProps {
   agents: Agent[];
+  selectedAgent: string;
   disabled: boolean;
   streaming: boolean;
   focusKey: number;
@@ -14,6 +15,7 @@ interface ComposerProps {
 
 export default function Composer({
   agents,
+  selectedAgent,
   disabled,
   streaming,
   focusKey,
@@ -27,6 +29,9 @@ export default function Composer({
   const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeAgentSlug = forcedAgent ?? selectedAgent;
+  const activeAgent = agents.find((a) => a.slug === activeAgentSlug);
+  const canUpload = activeAgent ? activeAgent.allow_uploads !== false : false;
 
   const suggestions =
     mentionQuery !== null
@@ -42,6 +47,13 @@ export default function Composer({
   useEffect(() => {
     textareaRef.current?.focus();
   }, [focusKey]);
+
+  useEffect(() => {
+    if (!canUpload && files.length > 0) {
+      setFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [canUpload, files.length]);
 
   function detectMention(text: string, caret: number) {
     const upToCaret = text.slice(0, caret);
@@ -74,8 +86,9 @@ export default function Composer({
 
   function submit() {
     const content = value.trim();
-    if ((!content && files.length === 0) || disabled) return;
-    onSend(content, forcedAgent, files);
+    const allowedFiles = canUpload ? files : [];
+    if ((!content && allowedFiles.length === 0) || disabled) return;
+    onSend(content, forcedAgent, allowedFiles);
     setValue("");
     setFiles([]);
     setMentionQuery(null);
@@ -159,7 +172,7 @@ export default function Composer({
             </div>
           )}
 
-          {files.length > 0 && (
+          {canUpload && files.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pt-2.5">
               {files.map((file, i) => (
                 <span
@@ -181,22 +194,26 @@ export default function Composer({
           )}
 
           <div className="flex items-end gap-2 px-3 py-2.5">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.doc,.txt,.md"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
-              aria-label="Attach file"
-              title="Attach file"
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
+            {canUpload && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt,.md"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={disabled}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+                  aria-label="Attach file"
+                  title="Attach file"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+              </>
+            )}
 
             <textarea
               ref={textareaRef}
