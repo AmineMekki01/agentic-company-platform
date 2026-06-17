@@ -13,6 +13,7 @@ from app.api.chat import router as chat_router
 from app.api.chat_upload import router as chat_upload_router
 from app.api.connector_browse import router as connector_browse_router
 from app.api.connector_credentials import router as connector_credentials_router
+from app.api.conversation_folders import router as conversation_folders_router
 from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.api.knowledge_sources import router as knowledge_sources_router
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
     app.include_router(conversations_router, prefix="/api")
+    app.include_router(conversation_folders_router, prefix="/api")
     app.include_router(chat_router, prefix="/api")
     app.include_router(chat_upload_router, prefix="/api")
     app.include_router(admin_agents_router, prefix="/api")

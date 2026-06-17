@@ -3,6 +3,7 @@ from app.models.agent_workflow import AgentWorkflow
 from app.models.chat_attachment import ChatAttachment
 from app.models.connector import Connector
 from app.models.conversation import Conversation
+from app.models.conversation_folder import ConversationFolder
 from app.models.knowledge_source import KnowledgeSource
 from app.models.message import Message
 from app.models.upload_settings import UploadSettings
@@ -14,6 +15,7 @@ __all__ = [
     "ChatAttachment",
     "Connector",
     "Conversation",
+    "ConversationFolder",
     "KnowledgeSource",
     "Message",
     "UploadSettings",

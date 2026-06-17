@@ -7,26 +7,20 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 
-class Conversation(Base):
+class ConversationFolder(Base):
     """
-    Chat conversation model.
-    
-    This model stores conversation metadata for each user, including:
-    - Conversation title
-    - User association
-    - Optional folder for organization
-    - Creation and update timestamps
+    Conversation folder model.
+
+    Allows users to organize conversations into named folders.
     """
-    __tablename__ = "conversations"
+    __tablename__ = "conversation_folders"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
-    folder_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("conversation_folders.id", ondelete="SET NULL"), index=True, nullable=True
-    )
-    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -37,6 +31,6 @@ class Conversation(Base):
         nullable=False,
     )
 
-    folder: Mapped["ConversationFolder"] = relationship(
-        "ConversationFolder", back_populates="conversations"
+    conversations: Mapped[list["Conversation"]] = relationship(
+        "Conversation", back_populates="folder", lazy="selectin"
     )
