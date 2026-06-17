@@ -8,10 +8,11 @@ import MessageList, { type DisplayMessage } from "@/components/chat/MessageList"
 import ModeSelector, { type Mode } from "@/components/chat/ModeSelector";
 import Sidebar from "@/components/chat/Sidebar";
 import { useChatStream, type SourceInfo } from "@/hooks/useChatStream";
-import { api, type Agent, type Conversation } from "@/lib/api";
+import { api, type Agent, type Conversation, type ConversationFolder } from "@/lib/api";
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [folders, setFolders] = useState<ConversationFolder[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
@@ -21,8 +22,26 @@ export default function ChatPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const { send, stop, streaming } = useChatStream();
 
+  const loadFolders = useCallback(async () => {
+    try {
+      const data = await api.listConversationFolders();
+      setFolders(data);
+    } catch {
+    }
+  }, []);
+
+  const loadConversations = useCallback(async () => {
+    try {
+      const data = await api.listConversations();
+      setConversations(data);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   useEffect(() => {
-    api.listConversations().then(setConversations).catch(() => {});
+    loadConversations();
+    loadFolders();
     api.listAgents()
       .then((loaded) => {
         setAgents(loaded);
@@ -33,7 +52,7 @@ export default function ChatPage() {
       })
       .catch(() => {})
       .finally(() => setHasLoaded(true));
-  }, []);
+  }, [loadConversations, loadFolders]);
 
   const openConversation = useCallback(async (id: string) => {
     setActiveId(id);
@@ -78,6 +97,26 @@ export default function ChatPage() {
     await api.deleteConversation(id);
     setConversations((cs) => cs.filter((c) => c.id !== id));
     if (id === activeId) newChat();
+  }
+
+  async function handleCreateFolder(name: string, color: string | null) {
+    const folder = await api.createConversationFolder({ name, color });
+    setFolders((fs) => [...fs, folder]);
+  }
+
+  async function handleDeleteFolder(id: string) {
+    await api.deleteConversationFolder(id);
+    setFolders((fs) => fs.filter((f) => f.id !== id));
+    setConversations((cs) =>
+      cs.map((c) => (c.folder_id === id ? { ...c, folder_id: null } : c))
+    );
+  }
+
+  async function handleMoveConversation(conversationId: string, folderId: string | null) {
+    const updated = await api.moveConversationToFolder(conversationId, folderId);
+    setConversations((cs) =>
+      cs.map((c) => (c.id === conversationId ? updated : c))
+    );
   }
 
   async function handleSend(content: string, forcedAgent: string | null, files: File[] = []) {
@@ -198,10 +237,14 @@ export default function ChatPage() {
     <div className="flex h-screen overflow-hidden">
       <Sidebar
         conversations={conversations}
+        folders={folders}
         activeId={activeId}
         onSelect={openConversation}
         onNew={newChat}
         onDelete={handleDelete}
+        onCreateFolder={handleCreateFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onMoveConversation={handleMoveConversation}
       />
 
       <main className="flex min-w-0 flex-1 flex-col bg-zinc-900/50">

@@ -242,8 +242,91 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
 
+    op.create_table(
+        "agent_workflows",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "owner_agent_slug",
+            sa.String(length=50),
+            sa.ForeignKey("agent_settings.slug", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("definition", sa.JSON(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_index(
+        "ix_agent_workflows_owner_agent_slug",
+        "agent_workflows",
+        ["owner_agent_slug"],
+    )
+
+    op.create_table(
+        "conversation_folders",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "user_id",
+            sa.Uuid(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("color", sa.String(length=7), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_index(
+        "ix_conversation_folders_user_id",
+        "conversation_folders",
+        ["user_id"],
+    )
+
+    op.add_column(
+        "conversations",
+        sa.Column(
+            "folder_id",
+            sa.Uuid(),
+            sa.ForeignKey("conversation_folders.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+    )
+    op.create_index(
+        "ix_conversations_folder_id",
+        "conversations",
+        ["folder_id"],
+    )
+
 
 def downgrade() -> None:
+    op.drop_index("ix_conversations_folder_id", table_name="conversations")
+    op.drop_column("conversations", "folder_id")
+    op.drop_index("ix_conversation_folders_user_id", table_name="conversation_folders")
+    op.drop_table("conversation_folders")
+    op.drop_index("ix_agent_workflows_owner_agent_slug", table_name="agent_workflows")
+    op.drop_table("agent_workflows")
     op.drop_constraint("fk_chat_attachments_message", "chat_attachments", type_="foreignkey")
     op.drop_index("ix_chat_attachments_message_id", table_name="chat_attachments")
     op.drop_index("ix_chat_attachments_user_id", table_name="chat_attachments")

@@ -32,6 +32,7 @@ class ConversationOut(BaseModel):
     including:
     - Conversation ID
     - Conversation title
+    - Optional folder ID
     - Conversation creation timestamp
     - Conversation update timestamp
     """
@@ -39,6 +40,7 @@ class ConversationOut(BaseModel):
 
     id: uuid.UUID
     title: str | None
+    folder_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -167,3 +169,31 @@ class JiraTicketOut(BaseModel):
     key: str
     url: str
     summary: str
+
+
+class ConversationFolderOut(BaseModel):
+    """Conversation folder output schema."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    color: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationFolderCreate(BaseModel):
+    """Conversation folder create schema."""
+    name: str = Field(min_length=1, max_length=100)
+    color: str | None = None
+
+
+class ConversationFolderUpdate(BaseModel):
+    """Conversation folder update schema."""
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    color: str | None = None
+
+
+class MoveToFolderRequest(BaseModel):
+    """Request schema to move a conversation to a folder."""
+    folder_id: uuid.UUID | None
