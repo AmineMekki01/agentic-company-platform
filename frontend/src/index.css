@@ -94,3 +94,31 @@ body {
 .prose-chat strong {
   color: var(--color-zinc-50);
 }
+
+/* ReactFlow Controls — dark theme */
+.react-flow__controls {
+  background: rgba(24, 24, 27, 0.95) !important;
+  border: 1px solid rgba(63, 63, 70, 0.8) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(63, 63, 70, 0.5) !important;
+  color: #a1a1aa !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(63, 63, 70, 0.4) !important;
+  color: #e4e4e7 !important;
+}
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+.react-flow__controls-button svg {
+  fill: currentColor !important;
+  max-width: 14px;
+  max-height: 14px;
+}

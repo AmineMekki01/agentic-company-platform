@@ -66,24 +66,43 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
 
 
 def _chunk_text(chunk) -> str:
-    """
-    Extract plain text from a message chunk (str or content-parts list).
-    
-    Args:
-        chunk: Message chunk to extract text from
-        
-    Returns:
-        Extracted plain text
-    """
-    content = getattr(chunk, "content", "")
+    """Extract plain text from a message chunk."""
+    if isinstance(chunk, dict):
+        content = chunk.get("content", "")
+        if not content and "data" in chunk and isinstance(chunk["data"], dict):
+            content = chunk["data"].get("content", "")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        return ""
+
+    # Handle object-style messages (AIMessage, HumanMessage, etc.)
+    content = getattr(chunk, "content", None)
+    if content is None:
+        content = getattr(chunk, "text", None)
+    if content is None:
+        content = getattr(chunk, "data", None)
+        if isinstance(content, dict):
+            content = content.get("content", "")
+    if content is None:
+        content = ""
+
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        return "".join(
-            part.get("text", "")
-            for part in content
-            if isinstance(part, dict) and part.get("type") == "text"
-        )
+        parts = []
+        for part in content:
+            if isinstance(part, dict):
+                if part.get("type") == "text":
+                    parts.append(part.get("text", ""))
+                elif "text" in part:
+                    parts.append(part.get("text", ""))
+        return "".join(parts)
     return ""
 
 
@@ -210,6 +229,15 @@ async def chat_stream(
                 f"User question: {body.content}"
             )
 
+    logger.warning(
+        "Chat request payload conv=%s agent=%s mode=%s content_len=%d content_preview=%s",
+        conversation_id,
+        agent,
+        body.mode,
+        len(llm_content),
+        llm_content[:500],
+    )
+
     async def event_generator():
         """
         Generate SSE events for the chat stream.
@@ -269,20 +297,51 @@ async def chat_stream(
                         if output.get("sources"):
                             sources = output["sources"]
 
+                        if output.get("response_text"):
+                            assistant_text = _clean_citations(str(output["response_text"]))
+                        if not assistant_text:
+                            node_messages = output.get("messages", [])
+                            for msg in reversed(node_messages):
+                                msg_type = getattr(msg, "type", None) if not isinstance(msg, dict) else msg.get("type")
+                                if msg_type in ("ai", "assistant"):
+                                    text = _chunk_text(msg)
+                                    if text:
+                                        assistant_text = _clean_citations(text)
+                                        break
+
             yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
 
-            final_state = await runtime.graph.aget_state(config)
-            final_messages = final_state.values.get("messages", []) if final_state else []
-
-            for m in reversed(final_messages):
-                if getattr(m, "type", None) in ("ai", "assistant"):
-                    text = _chunk_text(m)
-                    if text:
-                        assistant_text = _clean_citations(text)
-                        break
+            if not assistant_text:
+                final_state = await runtime.graph.aget_state(config)
+                final_values = final_state.values if final_state else {}
+                if isinstance(final_values, dict):
+                    state_text = final_values.get("response_text")
+                    if state_text:
+                        assistant_text = _clean_citations(str(state_text))
+                        logger.warning(
+                            "Captured assistant text from final state conv=%s len=%d preview=%s",
+                            conversation_id,
+                            len(assistant_text),
+                            assistant_text[:500],
+                        )
+                if not assistant_text:
+                    final_messages = final_values.get("messages", []) if isinstance(final_values, dict) else []
+                    for m in reversed(final_messages):
+                        msg_type = getattr(m, "type", None) if not isinstance(m, dict) else m.get("type")
+                        if msg_type in ("ai", "assistant"):
+                            text = _chunk_text(m)
+                            if text:
+                                assistant_text = _clean_citations(text)
+                                break
 
             if assistant_text:
-                logger.warning("Final assistant text len=%d", len(assistant_text))
+                logger.warning(
+                    "Final assistant text conv=%s len=%d preview=%s",
+                    conversation_id,
+                    len(assistant_text),
+                    assistant_text[:1000],
+                )
+                print(f"[CHAT] assistant_text={assistant_text[:1000]}")
                 collected.append(assistant_text)
                 yield {"event": "token", "data": json.dumps({"delta": assistant_text})}
 

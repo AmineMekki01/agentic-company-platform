@@ -12,7 +12,7 @@ from app.agents.graph import build_graph
 from app.agents.registry import AgentSpec
 from app.core.config import settings
 from app.db.session import async_session_factory
-from app.models import AgentSettings, KnowledgeSource
+from app.models import AgentSettings, AgentWorkflow, KnowledgeSource
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,7 @@ class AgentRuntime:
 
         agent_registry: dict[str, AgentSpec] = {}
         agent_settings: dict[str, dict] = {}
+        workflows: dict[str, dict] = {}
         try:
             async with async_session_factory() as session:
                 agent_registry = await self._load_agent_registry(session)
@@ -114,16 +115,23 @@ class AgentRuntime:
                         sources,
                         raw_sources,
                     )
+                wf_result = await session.scalars(select(AgentWorkflow).where(AgentWorkflow.enabled == True))
+                for wf in wf_result.all():
+                    definition = dict(wf.definition)
+                    definition["enabled"] = wf.enabled
+                    workflows[wf.owner_agent_slug] = definition
+                    logger.warning("Workflow loaded for agent=%s name=%s", wf.owner_agent_slug, wf.name)
         except Exception:
             logger.exception("Failed to load agent settings at startup")
 
         self.agent_registry = agent_registry
-        self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings)
+        self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings, workflows=workflows)
 
     async def refresh_graph(self) -> None:
         """Rebuild the graph with the latest agent settings from the DB."""
         agent_registry: dict[str, AgentSpec] = {}
         agent_settings: dict[str, dict] = {}
+        workflows: dict[str, dict] = {}
         try:
             async with async_session_factory() as session:
                 agent_registry = await self._load_agent_registry(session)
@@ -144,12 +152,18 @@ class AgentRuntime:
                             sources,
                             raw_sources,
                         )
+                wf_result = await session.scalars(select(AgentWorkflow).where(AgentWorkflow.enabled == True))
+                for wf in wf_result.all():
+                    definition = dict(wf.definition)
+                    definition["enabled"] = wf.enabled
+                    workflows[wf.owner_agent_slug] = definition
+                    logger.warning("Workflow refreshed for agent=%s name=%s", wf.owner_agent_slug, wf.name)
         except Exception:
             logger.exception("Failed to reload agent settings during refresh")
 
         self.agent_registry = agent_registry
         checkpointer = AsyncPostgresSaver(self._pool)
-        self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings)
+        self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings, workflows=workflows)
         logger.info("Agent graph refreshed with settings for %d agents", len(agent_registry))
 
     async def shutdown(self) -> None:

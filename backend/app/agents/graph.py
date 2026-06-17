@@ -1,8 +1,9 @@
+import asyncio
 import json
 import logging
 import re
 
-from langchain_core.messages import SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.context import (
@@ -50,6 +51,260 @@ async def _expand_query(query: str, model: str = "gpt-5-nano") -> str:
     return expanded if expanded else query
 
 
+def _render_template(template: str, variables: dict) -> str:
+    """Render {{path.to.var}} placeholders in a template string."""
+    def _resolve(path: str) -> str:
+        parts = path.split(".")
+        val = variables
+        for p in parts:
+            if isinstance(val, dict) and p in val:
+                val = val[p]
+            else:
+                return ""
+        return str(val) if val is not None else ""
+
+    pattern = re.compile(r"\{\{\s*([\w.]+)\s*\}\}")
+    return pattern.sub(lambda m: _resolve(m.group(1)), template)
+
+
+def _resolve_source_expression(source: str | None, variables: dict) -> str:
+    """Resolve a variable path such as input.query or step_1.output."""
+    if not source:
+        return ""
+    return _render_template(f"{{{{{source}}}}}", variables)
+
+
+def _build_step_prompt(node_def: dict, variables: dict, step_id: str) -> str:
+    """Build the user-facing prompt for a workflow step."""
+    prompt_template = node_def.get("prompt_template")
+    if prompt_template:
+        return _render_template(str(prompt_template), variables)
+
+    label = node_def.get("label") or step_id
+    instructions = str(node_def.get("instructions") or "").strip()
+    inputs = node_def.get("inputs") or []
+    outputs = node_def.get("outputs") or []
+    output_var = node_def.get("output_var", "output")
+
+    lines: list[str] = [f"You are executing the workflow step '{label}'."]
+    if instructions:
+        lines.append(f"Instructions:\n{instructions}")
+
+    if inputs:
+        input_lines = []
+        for item in inputs:
+            name = str(item.get("name") or "input")
+            source = item.get("source") or f"input.{name}"
+            value = _resolve_source_expression(source, variables)
+            desc = str(item.get("description") or "").strip()
+            line = f"- {name}: {value}"
+            if desc:
+                line += f" ({desc})"
+            input_lines.append(line)
+        lines.append("Inputs:\n" + "\n".join(input_lines))
+
+    if outputs:
+        output_lines = []
+        for item in outputs:
+            name = str(item.get("name") or "output")
+            desc = str(item.get("description") or "").strip()
+            line = f"- {name}"
+            if desc:
+                line += f" ({desc})"
+            output_lines.append(line)
+        lines.append("Expected outputs:\n" + "\n".join(output_lines))
+    else:
+        lines.append(f"Expected output: {output_var}")
+
+    lines.append("Respond with the most useful result for this step.")
+    return "\n\n".join(lines)
+
+
+async def _invoke_agent_direct(
+    spec: AgentSpec,
+    source_ids: list[str] | None,
+    model: str | None,
+    system_prompt: str | None,
+    user_prompt: str,
+    registry: dict[str, AgentSpec] | None,
+) -> str:
+    """Directly invoke an agent LLM (no tool loop) and return its text output."""
+    llm = get_chat_model(model or spec.default_model)
+    prompt = system_prompt or spec.system_prompt or _FALLBACK_PROMPT
+    model_name = model or spec.default_model
+    context_window = resolve_context_window(model_name)
+
+    dynamic_prompt = prompt
+
+    system_msg = SystemMessage(content=dynamic_prompt)
+    system_tokens = llm.get_num_tokens(system_msg.content or "")
+
+    profile = get_mode_profile("auto")
+    history_budget = profile.history_budget_after(context_window, system_tokens, 0)
+
+    messages = [system_msg, HumanMessage(content=user_prompt)]
+    trimmed = trim_history(messages, history_budget, llm)
+    final_messages = [system_msg] + list(trimmed)[1:] if len(trimmed) > 1 else messages
+
+    logger.info("Workflow direct invoke agent=%s model=%s", spec.slug, model_name)
+    response = await llm.ainvoke(final_messages)
+    raw_text = str(getattr(response, "content", response))
+    return _clean_citations(raw_text)
+
+
+async def _execute_single_step(
+    node_def: dict,
+    variables: dict,
+    step_id: str,
+    registry: dict[str, AgentSpec],
+    settings_map: dict[str, dict],
+) -> tuple[str, dict]:
+    """Execute a single workflow node and return (step_id, step_values)."""
+    agent_slug = node_def["agent_slug"]
+    inputs = node_def.get("inputs") or []
+    outputs = node_def.get("outputs") or []
+    output_var = node_def.get("output_var", "output")
+
+    rendered = _build_step_prompt(node_def, variables, step_id)
+    logger.info("Workflow step=%s agent=%s prompt_len=%d", step_id, agent_slug, len(rendered))
+
+    sub_spec = registry.get(agent_slug)
+    if sub_spec is None:
+        result_text = f"[Error: agent '{agent_slug}' not found]"
+    else:
+        cfg = settings_map.get(agent_slug, {})
+        result_text = await _invoke_agent_direct(
+            spec=sub_spec,
+            source_ids=cfg.get("connected_sources") or [],
+            model=cfg.get("model"),
+            system_prompt=cfg.get("system_prompt"),
+            user_prompt=rendered,
+            registry=registry,
+        )
+
+    step_values: dict = {output_var: result_text}
+    resolved_inputs: dict[str, str] = {}
+    for item in inputs:
+        name = str(item.get("name") or "input")
+        source = item.get("source") or f"input.{name}"
+        resolved_inputs[name] = _resolve_source_expression(source, variables)
+    if resolved_inputs:
+        step_values["inputs"] = resolved_inputs
+
+    resolved_outputs: dict[str, str] = {output_var: result_text}
+    for item in outputs:
+        name = str(item.get("name") or "output")
+        resolved_outputs[name] = result_text
+    step_values["outputs"] = resolved_outputs
+
+    logger.warning("Workflow step=%s INPUTS: %r", step_id, resolved_inputs)
+    logger.warning("Workflow step=%s OUTPUTS: %r", step_id, list(resolved_outputs.keys()))
+    logger.info("Workflow step=%s output_len=%d", step_id, len(result_text))
+    return step_id, step_values
+
+
+async def _execute_workflow(
+    workflow_def: dict,
+    user_message: str,
+    registry: dict[str, AgentSpec],
+    settings_map: dict[str, dict],
+) -> str:
+    """Execute a workflow DAG, running independent nodes in parallel."""
+    nodes = {n["id"]: n for n in workflow_def.get("nodes", [])}
+    edges = workflow_def.get("edges", [])
+    input_schema = workflow_def.get("input_schema", [])
+
+    adj: dict[str, list[str]] = {n_id: [] for n_id in nodes}
+    in_degree: dict[str, int] = {n_id: 0 for n_id in nodes}
+    for e in edges:
+        src, tgt = e.get("source"), e.get("target")
+        if src in adj and tgt in in_degree:
+            adj[src].append(tgt)
+            in_degree[tgt] += 1
+
+    levels: list[list[str]] = []
+    remaining = set(nodes.keys())
+    while remaining:
+        level = [n_id for n_id in remaining if in_degree[n_id] == 0]
+        if not level:
+            raise ValueError("Workflow contains a cycle")
+        levels.append(level)
+        for n_id in level:
+            remaining.discard(n_id)
+            for nxt in adj.get(n_id, []):
+                in_degree[nxt] -= 1
+
+    variables: dict = {"input": {}}
+    if user_message:
+        variables["input"]["query"] = user_message
+    if input_schema and user_message:
+        variables["input"][input_schema[0]] = user_message
+        for name in input_schema[1:]:
+            variables["input"].setdefault(name, "")
+
+    for level in levels:
+        tasks = [
+            _execute_single_step(nodes[sid], variables, sid, registry, settings_map)
+            for sid in level
+        ]
+        results = await asyncio.gather(*tasks)
+        for sid, step_values in results:
+            variables[sid] = step_values
+
+    final_template = workflow_def.get("output", "")
+    if not final_template and levels:
+        last_level = levels[-1]
+        if len(last_level) == 1:
+            last_step = nodes[last_level[0]]
+            final_template = f"{{{{{last_level[0]}.{last_step.get('output_var', 'output')}}}}}"
+        else:
+            parts = []
+            for sid in last_level:
+                out_var = nodes[sid].get("output_var", "output")
+                parts.append(f"{{{{{sid}.{out_var}}}}}")
+            final_template = "\n\n".join(parts)
+    
+    logger.warning("Workflow execution template: %r", final_template)
+    logger.warning("Workflow execution variables keys: %r", list(variables.keys()))
+    for k, v in variables.items():
+        if k != "input":
+            logger.warning("Workflow execution variable %s content: %r", k, list(v.keys()) if isinstance(v, dict) else type(v).__name__)
+
+    rendered = _render_template(final_template, variables)
+    
+    if not rendered.strip() and levels:
+        last_level = levels[-1]
+        logger.warning("Rendered output was empty. Falling back to last topological level nodes: %s", last_level)
+        if len(last_level) == 1:
+            last_step = nodes[last_level[0]]
+            out_var = last_step.get("output_var") or "output"
+
+            step_vars = variables.get(last_level[0], {})
+            if out_var not in step_vars:
+                keys = [k for k in step_vars.keys() if k not in ("inputs", "outputs")]
+                if keys:
+                    out_var = keys[0]
+            fallback_template = f"{{{{{last_level[0]}.{out_var}}}}}"
+            logger.warning("Using fallback template: %r", fallback_template)
+            rendered = _render_template(fallback_template, variables)
+        else:
+            parts = []
+            for sid in last_level:
+                out_var = nodes[sid].get("output_var") or "output"
+                step_vars = variables.get(sid, {})
+                if out_var not in step_vars:
+                    keys = [k for k in step_vars.keys() if k not in ("inputs", "outputs")]
+                    if keys:
+                        out_var = keys[0]
+                val = _render_template(f"{{{{{sid}.{out_var}}}}}", variables)
+                if val:
+                    parts.append(val)
+            rendered = "\n\n".join(parts)
+
+    logger.warning("Workflow execution rendered output_len: %d", len(rendered))
+    return rendered
+
+
 def make_agent_node(
     spec: AgentSpec,
     source_ids: list[str] | None = None,
@@ -57,6 +312,8 @@ def make_agent_node(
     system_prompt: str | None = None,
     retrieval_top_k: int = 5,
     registry: dict[str, AgentSpec] | None = None,
+    workflow_def: dict | None = None,
+    settings_map: dict[str, dict] | None = None,
 ):
     """Build an agent node that reasons and may emit tool_calls (ReAct pattern).
 
@@ -66,6 +323,8 @@ def make_agent_node(
         model: Model to use, or None for default
         system_prompt: System prompt to use, or None for default
         retrieval_top_k: Number of chunks to retrieve (unused here, passed to tools_node)
+        workflow_def: Optional workflow definition to execute instead of normal reasoning
+        settings_map: Agent settings map for sub-agent invocation in workflows
 
     Returns:
         Agent node function
@@ -86,6 +345,40 @@ def make_agent_node(
     llm_with_tools = llm.bind_tools(agent_tools) if agent_tools else llm
 
     async def node(state: AgentState) -> dict:
+
+        if workflow_def and workflow_def.get("enabled"):
+            last_user_msg = ""
+            for m in reversed(state["messages"]):
+                if getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user":
+                    last_user_msg = str(getattr(m, "content", ""))
+                    break
+            try:
+                result_text = await _execute_workflow(
+                    workflow_def=workflow_def,
+                    user_message=last_user_msg,
+                    registry=registry or {},
+                    settings_map=settings_map or {},
+                )
+                logger.warning("Workflow agent=%s response_text_len=%d preview=%s", spec.slug, len(result_text), result_text[:1000])
+                return {
+                    "messages": [AIMessage(content=result_text)],
+                    "response_text": result_text,
+                    "sources": state.get("sources"),
+                    "step_count": (state.get("step_count") or 0) + 1,
+                    "mode": state.get("mode") or "auto",
+                }
+            except Exception:
+                logger.exception("Workflow execution failed for agent=%s", spec.slug)
+                err_text = "Workflow execution failed. Please check the workflow configuration."
+                logger.warning("Workflow agent=%s error_text=%s", spec.slug, err_text)
+                return {
+                    "messages": [AIMessage(content=err_text)],
+                    "response_text": err_text,
+                    "sources": state.get("sources"),
+                    "step_count": (state.get("step_count") or 0) + 1,
+                    "mode": state.get("mode") or "auto",
+                }
+
         mode = state.get("mode") or "auto"
         profile = get_mode_profile(mode)
 
@@ -124,6 +417,23 @@ def make_agent_node(
                     "Answer all questions from your own knowledge. If a topic clearly requires a specialist you cannot access, politely explain you don't have access to that specialist and suggest contacting an administrator.\n\n"
                 )
             dynamic_prompt = access_block + dynamic_prompt
+
+        # --- Orchestrator synthesis: inject child outputs into prompt ---
+        history = state.get("orchestrator_history") or []
+        if spec.is_orchestrator and history:
+            synth_lines = ["\n\n=== CHILD AGENT OUTPUTS ==="]
+            for entry in history:
+                child = entry.get("agent", "unknown")
+                output = entry.get("output", "")[:1500]
+                synth_lines.append(f"\n--- @{child} ---\n{output}")
+            synth_lines.append(
+                "\n=== INSTRUCTIONS ===\n"
+                "You are the orchestrator supervisor. The above outputs are from child specialist agents you delegated to.\n"
+                "Synthesize their findings into a single, coherent, well-structured final answer for the user.\n"
+                "Do not mention internal delegation unless relevant. Provide a polished, complete response.\n"
+            )
+            dynamic_prompt = dynamic_prompt + "\n".join(synth_lines)
+            logger.warning("Agent[%s] synthesizing with %d child outputs", spec.slug, len(history))
 
         if spec.slug == "general":
             logger.info("Agent[%s] final system prompt:\n%s", spec.slug, dynamic_prompt)
@@ -185,12 +495,24 @@ def make_agent_node(
                 if hasattr(response, attr):
                     kwargs[attr] = getattr(response, attr)
             response = msg_cls(**kwargs)
-        return {
+        logger.warning("Agent=%s response_text_len=%d preview=%s", spec.slug, len(raw_text), raw_text[:1000])
+
+        result = {
             "messages": [response],
+            "response_text": _clean_citations(raw_text),
             "sources": state.get("sources"),
             "step_count": (state.get("step_count") or 0) + 1,
             "mode": mode,
         }
+
+        orchestrator = state.get("orchestrator_agent")
+        if orchestrator and orchestrator != spec.slug:
+            history = list(state.get("orchestrator_history") or [])
+            history.append({"agent": spec.slug, "output": cleaned_text})
+            result["orchestrator_history"] = history
+            logger.info("Recorded orchestrator_history entry for child=%s", spec.slug)
+
+        return result
 
     node.__name__ = f"{spec.slug}_agent"
     return node
@@ -242,6 +564,45 @@ async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, Agen
     return ""
 
 
+async def _orchestrator_delegate(
+    user_msg: str,
+    orchestrator_slug: str,
+    allowed_registry: dict[str, AgentSpec],
+    history: list[dict],
+) -> str:
+    """Ask an LLM whether to delegate to another child or synthesize."""
+    agent_lines = "\n".join(
+        f"- {slug}: {spec.description}" for slug, spec in allowed_registry.items()
+    )
+    history_text = ""
+    for entry in history:
+        child = entry.get("agent", "unknown")
+        output = entry.get("output", "")[:800]
+        history_text += f"\n--- Child: @{child} ---\n{output}\n"
+
+    prompt = (
+        f"You are an orchestrator supervisor ({orchestrator_slug}).\n\n"
+        f"Original user request: {user_msg}\n\n"
+        f"Child agents already called and their outputs:\n{history_text}\n\n"
+        f"Available child agents:\n{agent_lines}\n\n"
+        f"Your task: Decide what to do next.\n"
+        f"1. If the user request requires more specialist input, return the EXACT agent slug to delegate to.\n"
+        f"2. If all necessary information has been gathered, return 'SYNTHESIZE' (all caps).\n"
+        f"3. If the query is simple enough to answer directly, return 'SYNTHESIZE'.\n\n"
+        f"Return ONLY the agent slug or the word SYNTHESIZE. No explanation."
+    )
+    llm = get_chat_model("gpt-5-nano", temperature=0.1)
+    response = await llm.ainvoke([SystemMessage(content=prompt)])
+    text = str(getattr(response, "content", response)).strip()
+    text = re.sub(r"[^a-zA-Z0-9_]", "", text)
+    if text.lower() == "synthesize":
+        return "SYNTHESIZE"
+    slug = text.lower()
+    if slug in allowed_registry:
+        return slug
+    return "SYNTHESIZE"
+
+
 def make_router_node(
     registry: dict[str, AgentSpec],
     routes_map: dict[str, list[str]],
@@ -249,6 +610,8 @@ def make_router_node(
     default_agent: str = "general",
 ):
     """Build the supervisor/router node that decides which agent handles the turn.
+
+    Supports both simple routing and orchestrator delegation loops.
 
     Args:
         registry: Full agent registry
@@ -275,7 +638,10 @@ def make_router_node(
         if orchestrator not in orchestrator_slugs:
             return {"current_agent": current_agent}
 
-        allowed_slugs = routes_map.get(orchestrator, [])
+        if orchestrator == "general":
+            allowed_slugs = [slug for slug in registry if slug != "general"]
+        else:
+            allowed_slugs = routes_map.get(orchestrator, [])
         allowed_registry = {slug: registry[slug] for slug in allowed_slugs if slug in registry}
 
         if orchestrator in registry and orchestrator not in allowed_registry:
@@ -286,6 +652,21 @@ def make_router_node(
             allowed_registry = {
                 slug: spec for slug, spec in allowed_registry.items() if slug in user_allowed
             }
+
+        history = state.get("orchestrator_history") or []
+
+        if history and current_agent != orchestrator:
+            last_child = history[-1].get("agent", "")
+            logger.info("Router: returning from child=%s, history_count=%d", last_child, len(history))
+            decision = await _orchestrator_delegate(
+                last_user_msg, orchestrator, allowed_registry, history
+            )
+            if decision != "SYNTHESIZE" and decision in allowed_registry:
+                logger.info("Router: orchestrator delegating -> %s", decision)
+                return {"current_agent": decision}
+            else:
+                logger.info("Router: orchestrator synthesizing via %s", orchestrator)
+                return {"current_agent": orchestrator}
 
         mention = _extract_mention(last_user_msg, allowed_registry)
         if mention:
@@ -443,23 +824,38 @@ def make_reflect_node():
 
 
 def _route_from_agent(state: AgentState) -> str:
-    """Route from an agent node to tools, reflect, or END."""
+    """Route from an agent node to tools, reflect, router, or END."""
     if _has_tool_calls(state):
         return "tools"
 
     mode = state.get("mode") or "auto"
     step_count = state.get("step_count") or 0
-    if step_count > 5:
+    if step_count > 8:
         logger.warning("Max steps reached, ending turn")
         return END
 
     if mode == "deep" and not state.get("reflection_done"):
         return "reflect"
 
+    current_agent = state.get("current_agent")
+    orchestrator = state.get("orchestrator_agent")
+    if orchestrator and current_agent and current_agent != orchestrator:
+        history = state.get("orchestrator_history") or []
+        if len(history) < 3:
+            logger.info("Routing child %s back to orchestrator router", current_agent)
+            return "router"
+        else:
+            logger.warning("Max orchestrator delegations reached, ending turn")
+
     return END
 
 
-def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None = None, agent_settings: dict[str, dict] | None = None):
+def build_graph(
+    checkpointer=None,
+    agent_registry: dict[str, AgentSpec] | None = None,
+    agent_settings: dict[str, dict] | None = None,
+    workflows: dict[str, dict] | None = None,
+):
     """
     Build the graph.
 
@@ -467,12 +863,14 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
         checkpointer: Checkpointer for state management
         agent_registry: Dictionary of agent specs (slug -> AgentSpec)
         agent_settings: Dictionary of agent runtime settings (slug -> config dict)
+        workflows: Dictionary of agent slug -> workflow definition dict
 
     Returns:
         Compiled graph
     """
     registry = agent_registry or {}
     settings_map = agent_settings or {}
+    workflow_map = workflows or {}
     default_agent = "general" if "general" in registry else (next(iter(registry.keys()), "") if registry else "")
 
     builder = StateGraph(AgentState)
@@ -504,12 +902,24 @@ def build_graph(checkpointer=None, agent_registry: dict[str, AgentSpec] | None =
             "Agent[%s] graph config: model=%s connected_sources=%s retrieval_top_k=%s prompt_override=%s tools=%s",
             slug, model, source_ids, retrieval_top_k, bool(system_prompt), spec.tools,
         )
-        builder.add_node(slug, make_agent_node(spec, source_ids=source_ids, model=model, system_prompt=system_prompt, retrieval_top_k=retrieval_top_k, registry=registry))
+        builder.add_node(
+            slug,
+            make_agent_node(
+                spec,
+                source_ids=source_ids,
+                model=model,
+                system_prompt=system_prompt,
+                retrieval_top_k=retrieval_top_k,
+                registry=registry,
+                workflow_def=workflow_map.get(slug),
+                settings_map=settings_map,
+            ),
+        )
 
         builder.add_conditional_edges(
             slug,
             _route_from_agent,
-            {"tools": "tools", "reflect": "reflect", END: END}
+            {"tools": "tools", "reflect": "reflect", "router": "router", END: END}
         )
 
     builder.add_conditional_edges(

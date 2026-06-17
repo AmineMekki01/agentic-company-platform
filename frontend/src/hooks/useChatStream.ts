@@ -94,8 +94,12 @@ export function useChatStream() {
 
             try {
               const payload = JSON.parse(data);
+              console.log("[SSE] event=", event, "payload=", payload);
               if (event === "agent") callbacks.onAgent?.(payload.agent);
-              else if (event === "token") callbacks.onToken(payload.delta);
+              else if (event === "token") {
+                console.log("[SSE] token delta_len=", payload.delta?.length ?? 0, "delta_preview=", payload.delta?.substring(0, 100));
+                callbacks.onToken(payload.delta);
+              }
               else if (event === "sources") callbacks.onSources?.(payload.sources);
               else if (event === "step") callbacks.onStep?.(payload.step);
               else if (event === "title") callbacks.onTitle?.(payload.title);
@@ -104,7 +108,8 @@ export function useChatStream() {
                 setStreaming(false);
               }
               else if (event === "error") callbacks.onError?.(payload.detail);
-            } catch {
+            } catch (e) {
+              console.error("[SSE] JSON parse error:", e, "data=", data);
             }
           }
         }

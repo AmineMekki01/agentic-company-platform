@@ -1,18 +1,27 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, Workflow } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
+import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import { useAuth } from "@/stores/auth";
 
-type TabKey = "overview" | "tools" | "knowledge" | "orchestration" | "deploy";
+type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy";
 
-const TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
+const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "overview", label: "Overview", icon: Settings },
   { key: "tools", label: "Tools", icon: Wrench },
   { key: "knowledge", label: "Knowledge", icon: BookOpen },
-  { key: "orchestration", label: "Orchestration", icon: Rocket },
+  { key: "routing", label: "Routing", icon: Rocket },
+  { key: "agent-to-agent", label: "Agent-to-Agent", icon: Workflow },
   { key: "deploy", label: "Deploy", icon: Globe },
 ];
+
+function getTabsForAgent(slug: string | undefined): typeof ALL_TABS {
+  if (slug === "general") {
+    return ALL_TABS.filter((t) => t.key !== "agent-to-agent");
+  }
+  return ALL_TABS.filter((t) => t.key !== "routing");
+}
 
 const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
 
@@ -367,7 +376,7 @@ export default function AdminAgents() {
                     Sections
                   </div>
                   <div className="space-y-1">
-                    {TABS.map((t) => {
+                    {getTabsForAgent(selected?.slug).map((t) => {
                       const Icon = t.icon;
                       const active = activeTab === t.key;
                       return (
@@ -477,45 +486,32 @@ export default function AdminAgents() {
                   </div>
                 )}
 
-                {activeTab === "orchestration" && (
+                {activeTab === "routing" && selected.slug === "general" && (
                   <div className="space-y-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selected.is_orchestrator}
-                        onChange={(e) => setSelected({ ...selected, is_orchestrator: e.target.checked })}
-                        className="accent-indigo-500"
-                      />
-                      <span className="text-sm text-zinc-300">Is Orchestrator (routes queries to other agents)</span>
-                    </label>
+                    <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg px-4 py-3">
+                      <p className="text-sm text-indigo-300 font-medium">General routes to all available agents</p>
+                      <p className="text-xs text-indigo-400/70 mt-1">
+                        The General agent automatically routes user queries to the best specialist agent based on intent. Access is filtered by each agent's visibility settings.
+                      </p>
+                    </div>
 
-                    {selected.is_orchestrator && (
-                      <div className="block">
-                        <span className="text-xs font-medium text-zinc-400">Routes To</span>
-                        <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                          {agents.length <= 1 && (
-                            <p className="text-xs text-zinc-500">No other agents available.</p>
-                          )}
-                          {agents
-                            .filter((a) => a.slug !== selected.slug)
-                            .map((a) => {
-                              const checked = (selected.routes_to || []).includes(a.slug);
-                              return (
-                                <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
-                                  <input
-                                    type="checkbox"
-                                    checked={checked}
-                                    onChange={() => toggleRoute(selected, a.slug)}
-                                    className="accent-indigo-500"
-                                  />
-                                  <span>{a.name || a.slug}</span>
-                                  <span className="text-xs text-zinc-500">@{a.slug}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
+                    <div className="block">
+                      <span className="text-xs font-medium text-zinc-400">Available Specialists</span>
+                      <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        {agents
+                          .filter((a) => a.slug !== "general")
+                          .map((a) => (
+                            <div key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 px-1 py-0.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <span>{a.name || a.slug}</span>
+                              <span className="text-xs text-zinc-500">@{a.slug}</span>
+                            </div>
+                          ))}
+                        {agents.length <= 1 && (
+                          <p className="text-xs text-zinc-500">No specialist agents configured yet.</p>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
 
@@ -642,6 +638,68 @@ export default function AdminAgents() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {activeTab === "agent-to-agent" && selected.slug !== "general" && (
+                  <div className="space-y-6">
+                    <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg px-4 py-3">
+                      <p className="text-sm text-indigo-300 font-medium">Orchestrator Mode</p>
+                      <p className="text-xs text-indigo-400/70 mt-1">
+                        When enabled, this agent acts as a supervisor. It can delegate user queries to child agents and synthesize their outputs into a final answer.
+                      </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.is_orchestrator || false}
+                        onChange={(e) => setSelected({ ...selected, is_orchestrator: e.target.checked })}
+                        className="accent-indigo-500"
+                      />
+                      <span>
+                        <span className="block text-sm font-medium text-zinc-200">Enable Orchestrator Mode</span>
+                        <span className="block text-xs text-zinc-500">
+                          This agent will dynamically route queries to child agents and synthesize their outputs.
+                        </span>
+                      </span>
+                    </label>
+
+                    {selected.is_orchestrator && (
+                      <div className="block">
+                        <span className="text-xs font-medium text-zinc-400">Routes To (Child Agents)</span>
+                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                          {agents
+                            .filter((a) => a.slug !== selected.slug)
+                            .map((a) => {
+                              const checked = (selected.routes_to || []).includes(a.slug);
+                              return (
+                                <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleRoute(selected, a.slug)}
+                                    className="accent-indigo-500"
+                                  />
+                                  <span>{a.name || a.slug}</span>
+                                  <span className="text-xs text-zinc-500">@{a.slug}</span>
+                                </label>
+                              );
+                            })}
+                          {agents.length <= 1 && (
+                            <p className="text-xs text-zinc-500">No other agents available to route to.</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="border-t border-zinc-800 pt-4">
+                      <h3 className="text-sm font-medium text-zinc-300 mb-1">Workflow (Agent-to-Agent)</h3>
+                      <p className="text-xs text-zinc-500 mb-3">
+                        Define a fixed step-by-step workflow for this agent. Workflows are mutually exclusive with Orchestrator Mode — the system will use whichever is active.
+                      </p>
+                      <AgentWorkflowEditor agentSlug={selected.slug} agents={agents} />
+                    </div>
                   </div>
                 )}
               </div>
