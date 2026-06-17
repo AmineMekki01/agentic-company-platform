@@ -22,3 +22,5 @@ class AgentState(TypedDict):
     _needs_rethink: bool | None
     source_offset: int | None
     user_allowed_slugs: list[str] | None
+    response_text: str | None
+    orchestrator_history: list[dict] | None
