@@ -1,4 +1,5 @@
 from app.models.agent_settings import AgentSettings
+from app.models.agent_version import AgentVersion
 from app.models.agent_workflow import AgentWorkflow
 from app.models.chat_attachment import ChatAttachment
 from app.models.connector import Connector
@@ -11,6 +12,7 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "AgentSettings",
+    "AgentVersion",
     "AgentWorkflow",
     "ChatAttachment",
     "Connector",

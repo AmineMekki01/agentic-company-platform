@@ -26,6 +26,7 @@ export interface DisplayMessage {
   sources?: SourceInfo[];
   step?: string;
   attachments?: AttachmentInfo[];
+  draft?: boolean;
 }
 
 interface MessageListProps {
@@ -203,6 +204,11 @@ export default function MessageList({ messages, agents, emptyState, renderAction
                 {m.role === "assistant" && m.agent_id && (
                   <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
                     @{m.agent_id}
+                  </span>
+                )}
+                {m.role === "assistant" && m.draft && (
+                  <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
+                    Draft
                   </span>
                 )}
               </div>

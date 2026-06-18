@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
     force_agent: bool = False
     mode: Literal["auto", "quick", "mid", "deep"] = "auto"
     attachment_ids: list[uuid.UUID] | None = None
+    draft: bool = False
 
 
 class ConversationOut(BaseModel):

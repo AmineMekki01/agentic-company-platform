@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from dotenv import load_dotenv
 
@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.encryption import EncryptionService
 from app.db.session import async_session_factory
-from app.models import AgentSettings, Connector, KnowledgeSource
+from app.models import AgentSettings, AgentVersion, Connector, KnowledgeSource
 
 
 AGENTS: list[dict] = [
@@ -218,18 +218,92 @@ async def _ensure_agent(session, agent_def: dict, source_id: str | None) -> None
     if allowed_users is None and agent_def.get("visibility") == "restricted":
         allowed_users = [created_by]
 
-    existing = await session.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
-    if existing:
-        existing.system_prompt = agent_def["system_prompt"]
-        existing.visibility = agent_def.get("visibility", existing.visibility)
-        existing.created_by = created_by
-        existing.allowed_users = allowed_users
-        await session.commit()
-        print(f"Agent '{slug}' already exists - updated settings (owner={created_by}, visibility={existing.visibility}).")
-        return
-
     connected_sources = [source_id] if source_id else []
 
+    existing = await session.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    if existing:
+        # Build the desired config snapshot
+        new_config = {
+            "name": agent_def["name"],
+            "description": agent_def["description"],
+            "llm_model": agent_def.get("llm_model", "gpt-5.4-nano"),
+            "system_prompt": agent_def["system_prompt"],
+            "retrieval_top_k": 5,
+            "retrieval_enabled": bool(connected_sources),
+            "web_search_enabled": False,
+            "connected_sources": connected_sources,
+            "tools": agent_def.get("tools", []),
+            "is_orchestrator": agent_def.get("is_orchestrator", False),
+            "routes_to": agent_def.get("routes_to") or None,
+            "mode_profile": None,
+            "visibility": agent_def.get("visibility", "all"),
+            "created_by": created_by,
+            "allow_uploads": True,
+            "allowed_users": allowed_users,
+        }
+
+        if existing.is_published:
+            # Save as draft, then auto-publish (seed script should make agents live)
+            existing.draft_config = new_config
+            await session.flush()
+
+            # Snapshot current live config as a version
+            current_config = {
+                "name": existing.name,
+                "description": existing.description,
+                "llm_model": existing.llm_model,
+                "system_prompt": existing.system_prompt,
+                "retrieval_top_k": existing.retrieval_top_k,
+                "retrieval_enabled": existing.retrieval_enabled,
+                "web_search_enabled": existing.web_search_enabled,
+                "connected_sources": existing.connected_sources,
+                "tools": existing.tools,
+                "is_orchestrator": existing.is_orchestrator,
+                "routes_to": existing.routes_to,
+                "mode_profile": existing.mode_profile,
+                "visibility": existing.visibility,
+                "created_by": existing.created_by,
+                "allow_uploads": existing.allow_uploads,
+                "allowed_users": existing.allowed_users,
+            }
+            next_v = await session.scalar(
+                select(func.max(AgentVersion.version_number)).where(
+                    AgentVersion.agent_settings_id == existing.id
+                )
+            )
+            version_num = (next_v or 0) + 1
+            version = AgentVersion(
+                agent_settings_id=existing.id,
+                version_number=version_num,
+                config=current_config,
+                notes="Auto-published by setup_workspace",
+                created_by=created_by,
+            )
+            session.add(version)
+            await session.flush()
+
+            # Apply draft to live fields
+            for key, value in new_config.items():
+                if hasattr(existing, key):
+                    setattr(existing, key, value)
+            existing.draft_config = None
+            existing.is_published = True
+            existing.published_at = func.now()
+            existing.published_version_id = version.id
+            await session.commit()
+            print(f"Agent '{slug}' updated & published (v{version_num}).")
+        else:
+            # Unpublished: update live fields directly and publish
+            for key, value in new_config.items():
+                if hasattr(existing, key):
+                    setattr(existing, key, value)
+            existing.is_published = True
+            existing.published_at = func.now()
+            await session.commit()
+            print(f"Agent '{slug}' updated & published (was draft).")
+        return
+
+    # Create new agent (published by default for seed data)
     row = AgentSettings(
         slug=slug,
         name=agent_def["name"],
@@ -244,11 +318,44 @@ async def _ensure_agent(session, agent_def: dict, source_id: str | None) -> None
         visibility=agent_def.get("visibility", "all"),
         created_by=created_by,
         allowed_users=allowed_users,
+        is_published=True,
+        published_at=func.now(),
     )
     session.add(row)
+    await session.flush()
+
+    # Create initial version v1 for new agents
+    initial_config = {
+        "name": row.name,
+        "description": row.description,
+        "llm_model": row.llm_model,
+        "system_prompt": row.system_prompt,
+        "retrieval_top_k": row.retrieval_top_k,
+        "retrieval_enabled": row.retrieval_enabled,
+        "web_search_enabled": row.web_search_enabled,
+        "connected_sources": row.connected_sources,
+        "tools": row.tools,
+        "is_orchestrator": row.is_orchestrator,
+        "routes_to": row.routes_to,
+        "mode_profile": row.mode_profile,
+        "visibility": row.visibility,
+        "created_by": row.created_by,
+        "allow_uploads": row.allow_uploads,
+        "allowed_users": row.allowed_users,
+    }
+    version = AgentVersion(
+        agent_settings_id=row.id,
+        version_number=1,
+        config=initial_config,
+        notes="Initial version created by setup_workspace",
+        created_by=created_by,
+    )
+    session.add(version)
+    await session.flush()
+    row.published_version_id = version.id
     await session.commit()
     print(
-        f"Created agent: {slug} (owner={created_by}, visibility={row.visibility}) -> linked to source '{source_id or 'none'}'"
+        f"Created agent: {slug} (published, v1, owner={created_by}, visibility={row.visibility}) -> linked to source '{source_id or 'none'}'"
     )
 
 

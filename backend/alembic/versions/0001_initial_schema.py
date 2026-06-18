@@ -106,6 +106,11 @@ def upgrade() -> None:
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("allow_uploads", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("allowed_users", sa.JSON(), nullable=True, server_default="[]"),
+        sa.Column("draft_config", sa.JSON(), nullable=True),
+        sa.Column("is_published", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("published_version_id", sa.Uuid(), nullable=True),
+        sa.Column("beta_users", sa.JSON(), nullable=True, server_default="[]"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
     )
@@ -127,6 +132,49 @@ def upgrade() -> None:
         FOR EACH ROW
         EXECUTE FUNCTION agent_settings_set_updated_at();
         """
+    )
+
+    # agent_versions
+    op.create_table(
+        "agent_versions",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "agent_settings_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_settings.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("version_number", sa.Integer(), nullable=False),
+        sa.Column("config", sa.JSON(), nullable=False),
+        sa.Column("notes", sa.Text(), nullable=True),
+        sa.Column("created_by", sa.String(length=255), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_index(
+        "ix_agent_versions_agent_settings_id",
+        "agent_versions",
+        ["agent_settings_id"],
+    )
+    op.create_index(
+        "ix_agent_versions_version_number",
+        "agent_versions",
+        ["agent_settings_id", "version_number"],
+        unique=True,
+    )
+
+    # FK from agent_settings to agent_versions
+    op.create_foreign_key(
+        "fk_agent_settings_published_version",
+        "agent_settings",
+        "agent_versions",
+        ["published_version_id"],
+        ["id"],
+        ondelete="SET NULL",
     )
 
     # connectors
@@ -339,8 +387,12 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS knowledge_source_type")
     op.drop_table("connectors")
     op.execute("DROP TYPE IF EXISTS connector_type")
-    op.drop_column("agent_settings", "created_by")
-    op.drop_column("agent_settings", "allow_uploads")
+    op.drop_constraint("fk_agent_settings_published_version", "agent_settings", type_="foreignkey")
+    op.drop_index("ix_agent_versions_version_number", table_name="agent_versions")
+    op.drop_index("ix_agent_versions_agent_settings_id", table_name="agent_versions")
+    op.drop_table("agent_versions")
+    op.execute("DROP TRIGGER IF EXISTS trg_agent_settings_updated_at ON agent_settings")
+    op.execute("DROP FUNCTION IF EXISTS agent_settings_set_updated_at()")
     op.drop_table("agent_settings")
     op.drop_index("ix_messages_conversation_id", table_name="messages")
     op.drop_table("messages")

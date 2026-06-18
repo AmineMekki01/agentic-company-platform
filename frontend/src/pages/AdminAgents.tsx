@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, Workflow } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser } from "@/lib/api";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import { useAuth } from "@/stores/auth";
 
-type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy";
+type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy" | "versions";
 
 const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "overview", label: "Overview", icon: Settings },
@@ -14,6 +14,7 @@ const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "routing", label: "Routing", icon: Rocket },
   { key: "agent-to-agent", label: "Agent-to-Agent", icon: Workflow },
   { key: "deploy", label: "Deploy", icon: Globe },
+  { key: "versions", label: "Versions", icon: History },
 ];
 
 function getTabsForAgent(slug: string | undefined): typeof ALL_TABS {
@@ -57,6 +58,63 @@ const formatDateTime = (value: string | null | undefined) => {
   }).format(date);
 };
 
+function diffWords(oldText: string, newText: string): { type: "same" | "del" | "ins"; text: string }[] {
+  const oldWords = oldText.split(/(\s+)/).filter(Boolean);
+  const newWords = newText.split(/(\s+)/).filter(Boolean);
+  const m = oldWords.length;
+  const n = newWords.length;
+  const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      dp[i][j] = oldWords[i] === newWords[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const result: { type: "same" | "del" | "ins"; text: string }[] = [];
+  let i = 0, j = 0;
+  while (i < m || j < n) {
+    if (i < m && j < n && oldWords[i] === newWords[j]) {
+      result.push({ type: "same", text: oldWords[i] });
+      i++; j++;
+    } else if (j < n && (i >= m || dp[i][j + 1] >= dp[i + 1][j])) {
+      result.push({ type: "ins", text: newWords[j] });
+      j++;
+    } else if (i < m) {
+      result.push({ type: "del", text: oldWords[i] });
+      i++;
+    } else {
+      break;
+    }
+  }
+  return result;
+}
+
+function resolveSourceNames(ids: string[] | null | undefined, sourceList: KnowledgeSource[]): string {
+  if (!ids || ids.length === 0) return "—";
+  return ids.map((id) => sourceList.find((s) => s.id === id)?.name || id).join(", ");
+}
+
+function mergeAgentDraft(agent: AgentSetting): AgentSetting {
+  if (!agent.draft_config || Object.keys(agent.draft_config).length === 0) return agent;
+  const draft = agent.draft_config;
+  const merged: AgentSetting = { ...agent };
+  if ("name" in draft) merged.name = draft.name as string | null;
+  if ("description" in draft) merged.description = draft.description as string | null;
+  if ("llm_model" in draft) merged.llm_model = draft.llm_model as string | null;
+  if ("system_prompt" in draft) merged.system_prompt = draft.system_prompt as string | null;
+  if ("retrieval_top_k" in draft) merged.retrieval_top_k = draft.retrieval_top_k as number;
+  if ("connected_sources" in draft) merged.connected_sources = draft.connected_sources as string[] | null;
+  if ("tools" in draft) merged.tools = draft.tools as string[] | null;
+  if ("is_orchestrator" in draft) merged.is_orchestrator = draft.is_orchestrator as boolean;
+  if ("routes_to" in draft) merged.routes_to = draft.routes_to as string[] | null;
+  if ("visibility" in draft) merged.visibility = draft.visibility as string;
+  if ("created_by" in draft) merged.created_by = draft.created_by as string | null;
+  if ("allow_uploads" in draft) merged.allow_uploads = draft.allow_uploads as boolean;
+  if ("allowed_users" in draft) merged.allowed_users = draft.allowed_users as string[] | null;
+  if ("beta_users" in draft) merged.beta_users = draft.beta_users as string[] | null;
+  if ("mode_profile" in draft) merged.mode_profile = draft.mode_profile as Record<string, unknown> | null;
+  return merged;
+}
+
 const makeDefaultNewAgent = (ownerEmail = ""): AgentSettingCreate => ({
   ...DEFAULT_NEW_AGENT,
   created_by: ownerEmail,
@@ -77,6 +135,19 @@ export default function AdminAgents() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishNotes, setPublishNotes] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [versionDetail, setVersionDetail] = useState<AgentVersionDetail | null>(null);
+  const [showTestDraft, setShowTestDraft] = useState(false);
+  const [testDraftMessage, setTestDraftMessage] = useState("");
+  const [testDraftResponse, setTestDraftResponse] = useState("");
+  const [testingDraft, setTestingDraft] = useState(false);
+  const [suppressAutoSaveUntil, setSuppressAutoSaveUntil] = useState<number>(0);
 
   const closeSelected = () => {
     setSelected(null);
@@ -99,12 +170,13 @@ export default function AdminAgents() {
         api.listUsers(),
         api.listModels(),
       ]);
-      setAgents(agentData);
+      const mergedAgents = agentData.map(mergeAgentDraft);
+      setAgents(mergedAgents);
       setSources(sourceData);
       setUsers(userData);
       setModels(modelData);
       if (selected) {
-        const updated = agentData.find((a) => a.slug === selected.slug) ?? null;
+        const updated = mergedAgents.find((a) => a.slug === selected.slug) ?? null;
         setSelected(updated);
       }
     } catch (e: unknown) {
@@ -118,6 +190,148 @@ export default function AdminAgents() {
   useEffect(() => {
     refresh();
   }, []);
+
+  // Load versions when agent is selected or versions tab is active
+  const loadVersions = useCallback(async (slug: string) => {
+    try {
+      const data = await api.listAgentVersions(slug);
+      setVersions(data);
+    } catch {
+      setVersions([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected && activeTab === "versions") {
+      loadVersions(selected.slug);
+    }
+  }, [selected, activeTab, loadVersions]);
+
+  // Auto-save draft for published agents
+  const autoSaveDraft = useCallback(async (agent: AgentSetting) => {
+    if (!agent.is_published) return;
+    setDraftSaving(true);
+    try {
+      const tools = (agent.tools || []).filter((t) => t !== "retrieve");
+      const payload: Partial<AgentSettingUpdate> = {
+        name: agent.name || undefined,
+        description: agent.description || undefined,
+        llm_model: agent.llm_model || undefined,
+        system_prompt: agent.system_prompt || undefined,
+        retrieval_top_k: agent.retrieval_top_k,
+        retrieval_enabled: (agent.connected_sources || []).length > 0,
+        web_search_enabled: tools.includes("web_search"),
+        connected_sources: agent.connected_sources || undefined,
+        tools: tools,
+        is_orchestrator: agent.is_orchestrator,
+        routes_to: agent.routes_to || undefined,
+        visibility: agent.visibility || undefined,
+        created_by: agent.created_by || undefined,
+        allow_uploads: agent.allow_uploads !== false,
+        allowed_users: agent.allowed_users || undefined,
+      };
+      await api.saveAgentDraft(agent.slug, payload);
+    } catch {
+      // ignore auto-save errors
+    } finally {
+      setDraftSaving(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selected || !selected.is_published) return;
+    if (Date.now() < suppressAutoSaveUntil) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      autoSaveDraft(selected);
+    }, 1200);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [selected, autoSaveDraft, suppressAutoSaveUntil]);
+
+  const hasDraftChanges = (agent: AgentSetting | null): boolean => {
+    if (!agent) return false;
+    if (!agent.is_published) return false;
+    return agent.draft_config !== null && Object.keys(agent.draft_config).length > 0;
+  };
+
+  const handlePublish = async () => {
+    if (!selected) return;
+    setPublishing(true);
+    setError(null);
+    try {
+      const body: AgentPublishRequest = { notes: publishNotes || null };
+      const updated = await api.publishAgent(selected.slug, body);
+      setSelected(updated);
+      setShowPublishModal(false);
+      setPublishNotes("");
+      setSuppressAutoSaveUntil(Date.now() + 5000);
+      await refresh();
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleDiscardDraft = async () => {
+    if (!selected) return;
+    setError(null);
+    try {
+      const updated = await api.discardAgentDraft(selected.slug);
+      setSelected(updated);
+      setSuppressAutoSaveUntil(Date.now() + 5000);
+      await refresh();
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message);
+    }
+  };
+
+  const handleRestoreVersion = async (versionId: string) => {
+    if (!selected) return;
+    setRestoring(true);
+    setError(null);
+    try {
+      const updated = await api.restoreAgentVersion(selected.slug, versionId);
+      setSelected(updated);
+      await refresh();
+      await loadVersions(selected.slug);
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message);
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const handleViewVersion = async (versionId: string) => {
+    if (!selected) return;
+    try {
+      const detail = await api.getAgentVersion(selected.slug, versionId);
+      setVersionDetail(detail);
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message);
+    }
+  };
+
+  const handleTestDraft = async () => {
+    if (!selected || !testDraftMessage.trim()) return;
+    setTestingDraft(true);
+    setError(null);
+    try {
+      const res = await api.testAgentDraft(selected.slug, { content: testDraftMessage });
+      setTestDraftResponse(res.response);
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message);
+    } finally {
+      setTestingDraft(false);
+    }
+  };
 
   const save = async () => {
     if (!selected) return;
@@ -141,6 +355,7 @@ export default function AdminAgents() {
         created_by: selected.created_by || undefined,
         allow_uploads: selected.allow_uploads !== false,
         allowed_users: selected.allowed_users || undefined,
+        beta_users: selected.beta_users || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
       await refresh();
@@ -357,16 +572,70 @@ export default function AdminAgents() {
                       <AgentIcon slug={selected.slug} size={18} />
                     </div>
                     <div>
-                      <h2 className="font-semibold text-zinc-100">{selected.name || selected.slug}</h2>
-                      <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
-                      <div className="mt-1 text-xs text-zinc-500">
-                        Owner: <span className="text-zinc-300">{formatOwnerLabel(selected.created_by)}</span>
+                      <div className="flex items-center gap-2">
+                        <h2 className="font-semibold text-zinc-100">{selected.name || selected.slug}</h2>
+                        {/* Status badge */}
+                        {selected.is_published ? (
+                          hasDraftChanges(selected) ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400 border border-amber-500/20">
+                              <AlertTriangle className="h-3 w-3" />
+                              Modified
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400 border border-emerald-500/20">
+                              <Eye className="h-3 w-3" />
+                              Published
+                            </span>
+                          )
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-700/30 px-2 py-0.5 text-[11px] font-medium text-zinc-400 border border-zinc-700/50">
+                            <EyeOff className="h-3 w-3" />
+                            Draft
+                          </span>
+                        )}
+                        {draftSaving && (
+                          <span className="text-[11px] text-zinc-500 animate-pulse">Saving…</span>
+                        )}
                       </div>
+                      <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-zinc-500">
-                  Owner: <span className="text-zinc-300">{formatOwnerLabel(selected.created_by)}</span>
+                <div className="flex items-center gap-2">
+                  {selected.is_published && hasDraftChanges(selected) && (
+                    <>
+                      <button
+                        onClick={() => { setShowTestDraft(true); setTestDraftMessage(""); setTestDraftResponse(""); }}
+                        className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Test Draft
+                      </button>
+                      <button
+                        onClick={handleDiscardDraft}
+                        className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Discard
+                      </button>
+                      <button
+                        onClick={() => setShowPublishModal(true)}
+                        className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                      >
+                        <Rocket className="h-3.5 w-3.5" />
+                        Publish
+                      </button>
+                    </>
+                  )}
+                  {!selected.is_published && (
+                    <button
+                      onClick={() => setShowPublishModal(true)}
+                      className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                    >
+                      <Rocket className="h-3.5 w-3.5" />
+                      Publish
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -638,6 +907,48 @@ export default function AdminAgents() {
                         </div>
                       </div>
                     )}
+
+                    {/* Beta Testers */}
+                    <div className="block">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-zinc-400">Beta Testers</span>
+                        {(selected.beta_users || []).length > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400 border border-amber-500/20">
+                            Staged
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-500 mb-1">
+                        When beta testers are selected, only these users (and admins) can see the agent. Clear the list to release to all permitted users.
+                      </p>
+                      <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        {users.length === 0 && (
+                          <p className="text-xs text-zinc-500">No users found.</p>
+                        )}
+                        {users.map((u) => {
+                          const checked = (selected.beta_users || []).includes(u.email);
+                          const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
+                          return (
+                            <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const current = selected.beta_users || [];
+                                  const next = checked
+                                    ? current.filter((e) => e !== u.email)
+                                    : [...current, u.email];
+                                  setSelected({ ...selected, beta_users: next });
+                                }}
+                                className="accent-indigo-500"
+                              />
+                              <span>{display}</span>
+                              <span className="text-xs text-zinc-500">{u.email}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -700,6 +1011,71 @@ export default function AdminAgents() {
                       </p>
                       <AgentWorkflowEditor agentSlug={selected.slug} agents={agents} />
                     </div>
+                  </div>
+                )}
+
+                {activeTab === "versions" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-zinc-200">Version History</h3>
+                      {restoring && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+                    </div>
+
+                    {versions.length === 0 ? (
+                      <div className="text-center py-10">
+                        <History className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
+                        <p className="text-sm text-zinc-500">No versions yet.</p>
+                        <p className="text-xs text-zinc-600 mt-1">Publish this agent to create the first version.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                        <table className="min-w-full text-left text-sm">
+                          <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                            <tr>
+                              <th className="px-4 py-2 font-medium">Version</th>
+                              <th className="px-4 py-2 font-medium">Date</th>
+                              <th className="px-4 py-2 font-medium">Author</th>
+                              <th className="px-4 py-2 font-medium">Notes</th>
+                              <th className="px-4 py-2 font-medium text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800 bg-zinc-900">
+                            {versions.map((v) => (
+                              <tr key={v.id} className="hover:bg-zinc-800/30 transition">
+                                <td className="px-4 py-2.5 font-mono text-xs text-zinc-300">
+                                  <button
+                                    onClick={() => handleViewVersion(v.id)}
+                                    className="hover:text-indigo-400 transition"
+                                  >
+                                    v{v.version_number}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-2.5 text-zinc-400">{formatDateTime(v.created_at)}</td>
+                                <td className="px-4 py-2.5 text-zinc-400">{v.created_by || "—"}</td>
+                                <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{v.notes || "—"}</td>
+                                <td className="px-4 py-2.5 text-right">
+                                  <button
+                                    onClick={() => handleViewVersion(v.id)}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition mr-2"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => handleRestoreVersion(v.id)}
+                                    disabled={restoring}
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition disabled:opacity-40"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                    Restore
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -975,6 +1351,214 @@ export default function AdminAgents() {
               >
                 Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish modal */}
+      {showPublishModal && selected && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10">
+                <Rocket className="h-5 w-5 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-lg">
+                  {selected.is_published ? "Publish Changes" : "Publish Agent"}
+                </h2>
+                <p className="text-xs text-zinc-500">
+                  {selected.is_published
+                    ? "This will snapshot the current live config and apply your draft changes."
+                    : "This will make the agent visible to all permitted users."}
+                </p>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-medium text-zinc-400">Notes (optional)</span>
+              <textarea
+                value={publishNotes}
+                onChange={(e) => setPublishNotes(e.target.value)}
+                placeholder="What changed in this version?"
+                rows={2}
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+              />
+            </label>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => { setShowPublishModal(false); setPublishNotes(""); }}
+                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
+              >
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                {publishing ? "Publishing…" : "Publish"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version diff modal */}
+      {versionDetail && selected && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-lg">
+                  Version v{versionDetail.version_number}
+                </h2>
+                <p className="text-xs text-zinc-500">
+                  {versionDetail.notes || "No notes"} · {formatDateTime(versionDetail.created_at)}
+                </p>
+              </div>
+              <button
+                onClick={() => setVersionDetail(null)}
+                className="text-zinc-500 hover:text-zinc-300 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {(() => {
+                const config = versionDetail.config as Record<string, unknown>;
+                const live = selected;
+                const fields = [
+                  { key: "name", label: "Name" },
+                  { key: "description", label: "Description", textDiff: true },
+                  { key: "llm_model", label: "LLM Model" },
+                  { key: "system_prompt", label: "System Prompt", textDiff: true },
+                  { key: "connected_sources", label: "Knowledge Sources", sourceNames: true },
+                  { key: "tools", label: "Tools" },
+                  { key: "is_orchestrator", label: "Orchestrator" },
+                  { key: "routes_to", label: "Routes To" },
+                  { key: "visibility", label: "Visibility" },
+                ];
+                return fields.map(({ key, label, textDiff, sourceNames }) => {
+                  let vVal: unknown = config[key] ?? "—";
+                  let lVal: unknown = (live as unknown as Record<string, unknown>)[key] ?? "—";
+
+                  if (sourceNames && key === "connected_sources") {
+                    vVal = resolveSourceNames(vVal as string[] | null | undefined, sources);
+                    lVal = resolveSourceNames(lVal as string[] | null | undefined, sources);
+                  }
+
+                  const changed = JSON.stringify(vVal) !== JSON.stringify(lVal);
+                  const oldText = typeof vVal === "string" ? vVal : JSON.stringify(vVal);
+                  const newText = typeof lVal === "string" ? lVal : JSON.stringify(lVal);
+
+                  return (
+                    <div key={key} className={`rounded-lg border px-3 py-2 text-sm ${changed ? "border-amber-500/30 bg-amber-500/5" : "border-zinc-800 bg-zinc-900/50"}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-zinc-300">{label}</span>
+                        {changed && <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wide">Changed</span>}
+                      </div>
+                      {textDiff && changed ? (
+                        <div className="text-xs leading-relaxed">
+                          {diffWords(oldText, newText).map((seg, idx) => (
+                            <span
+                              key={idx}
+                              className={
+                                seg.type === "del"
+                                  ? "bg-red-500/20 text-red-300 line-through decoration-red-400 px-0.5 rounded"
+                                  : seg.type === "ins"
+                                  ? "bg-emerald-500/20 text-emerald-300 px-0.5 rounded"
+                                  : "text-zinc-400"
+                              }
+                            >
+                              {seg.text}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-zinc-500 block mb-0.5">Version</span>
+                            <span className="text-zinc-400 font-mono break-all">{oldText}</span>
+                          </div>
+                          <div>
+                            <span className="text-zinc-500 block mb-0.5">Current Live</span>
+                            <span className="text-zinc-400 font-mono break-all">{newText}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+              <button
+                onClick={() => setVersionDetail(null)}
+                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test draft chat modal */}
+      {showTestDraft && selected && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-lg">Test Draft</h2>
+                <p className="text-xs text-zinc-500">
+                  Runs the full agent graph with your draft config — including tools, retrieval, routing, and orchestration.
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowTestDraft(false); setTestDraftMessage(""); setTestDraftResponse(""); }}
+                className="text-zinc-500 hover:text-zinc-300 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 flex-1 overflow-y-auto">
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-400">Your message</span>
+                <textarea
+                  value={testDraftMessage}
+                  onChange={(e) => setTestDraftMessage(e.target.value)}
+                  placeholder="Type a test message..."
+                  rows={3}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                />
+              </label>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleTestDraft}
+                  disabled={testingDraft || !testDraftMessage.trim()}
+                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+                >
+                  {testingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+                  {testingDraft ? "Testing…" : "Send"}
+                </button>
+              </div>
+
+              {testDraftResponse && (
+                <div className="mt-3">
+                  <span className="text-xs font-medium text-zinc-400">Response</span>
+                  <div className="mt-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                    {testDraftResponse}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

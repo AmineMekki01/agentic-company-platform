@@ -27,6 +27,13 @@ def _agent_visible(row: AgentSettings, user) -> bool:
     """Return True if the agent is visible to the given user."""
     if user.role == UserRole.ADMIN:
         return True
+    if not row.is_published:
+        return False
+
+    # beta/staging: if beta_users is set, only beta users + admins can see it
+    beta = row.beta_users or []
+    if beta:
+        return user.email in beta
     if row.visibility == "all":
         return True
     if row.visibility == "admin_only":
@@ -81,7 +88,6 @@ def _chunk_text(chunk) -> str:
             )
         return ""
 
-    # Handle object-style messages (AIMessage, HumanMessage, etc.)
     content = getattr(chunk, "content", None)
     if content is None:
         content = getattr(chunk, "text", None)
@@ -158,6 +164,62 @@ async def chat_stream(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"You do not have access to agent '{agent}'",
         )
+
+    # a temporary graph with draft overrides when admin enables draft mode
+    graph = runtime.graph
+    draft_registry = runtime.agent_registry
+    if body.draft and user.role == UserRole.ADMIN and agent_row:
+        from app.agents.graph import build_graph
+        from app.agents.registry import AgentSpec
+        draft = agent_row.draft_config or {}
+        system_prompt = draft.get("system_prompt") or agent_row.system_prompt
+        model_name = draft.get("llm_model") or agent_row.llm_model
+        tools = draft.get("tools") if "tools" in draft else agent_row.tools
+        is_orchestrator = draft.get("is_orchestrator") if "is_orchestrator" in draft else agent_row.is_orchestrator
+        routes_to = draft.get("routes_to") if "routes_to" in draft else agent_row.routes_to
+        connected_sources = draft.get("connected_sources") if "connected_sources" in draft else agent_row.connected_sources
+        retrieval_top_k = draft.get("retrieval_top_k") if "retrieval_top_k" in draft else agent_row.retrieval_top_k
+
+        all_agents = await db.scalars(select(AgentSettings))
+        registry: dict[str, AgentSpec] = {}
+        settings_map: dict[str, dict] = {}
+        for a in all_agents.all():
+            if a.slug == agent:
+                registry[a.slug] = AgentSpec(
+                    slug=a.slug,
+                    name=draft.get("name") or a.name or a.slug,
+                    description=draft.get("description") or a.description or "",
+                    system_prompt=system_prompt,
+                    default_model=model_name or "gpt-5-nano",
+                    tools=tools or [],
+                    is_orchestrator=bool(is_orchestrator),
+                    routes_to=routes_to or [],
+                )
+                settings_map[a.slug] = {
+                    "model": model_name,
+                    "system_prompt": system_prompt,
+                    "retrieval_top_k": retrieval_top_k or 5,
+                    "connected_sources": connected_sources or [],
+                }
+            else:
+                registry[a.slug] = AgentSpec(
+                    slug=a.slug,
+                    name=a.name or a.slug,
+                    description=a.description or "",
+                    system_prompt=a.system_prompt,
+                    default_model=a.llm_model or "gpt-5-nano",
+                    tools=a.tools or [],
+                    is_orchestrator=bool(a.is_orchestrator),
+                    routes_to=a.routes_to or [],
+                )
+                settings_map[a.slug] = {
+                    "model": a.llm_model,
+                    "system_prompt": a.system_prompt,
+                    "retrieval_top_k": a.retrieval_top_k or 5,
+                    "connected_sources": a.connected_sources or [],
+                }
+        graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
+        draft_registry = registry
 
     if body.attachment_ids and agent_row and not agent_row.allow_uploads:
         raise HTTPException(
@@ -267,16 +329,16 @@ async def chat_stream(
                 input_state["current_agent"] = forced
                 input_state["orchestrator_agent"] = forced
 
-            logger.warning("Chat stream start conv=%s agent=%s mode=%s", conversation_id, agent, body.mode)
+            logger.warning("Chat stream start conv=%s agent=%s mode=%s draft=%s", conversation_id, agent, body.mode, body.draft)
 
             assistant_text = ""
             routed_agent = agent
             sources: list[dict] = []
             message_id = str(uuid.uuid4())
             title: str | None = None
-            agent_slugs = set(runtime.agent_registry.keys())
+            agent_slugs = set(draft_registry.keys())
 
-            async for event in runtime.graph.astream_events(input_state, config, version="v2"):
+            async for event in graph.astream_events(input_state, config, version="v2"):
                 kind = event.get("event")
                 name = event.get("name", "")
                 tags = event.get("tags") or []
@@ -312,8 +374,11 @@ async def chat_stream(
             yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
 
             if not assistant_text:
-                final_state = await runtime.graph.aget_state(config)
-                final_values = final_state.values if final_state else {}
+                try:
+                    final_state = await graph.aget_state(config)
+                    final_values = final_state.values if final_state else {}
+                except Exception:
+                    final_values = {}
                 if isinstance(final_values, dict):
                     state_text = final_values.get("response_text")
                     if state_text:
