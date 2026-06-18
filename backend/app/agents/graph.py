@@ -711,13 +711,16 @@ def make_tools_node(agent_settings: dict[str, dict]):
 
             if name == "retrieve":
                 query = args.get("query", "")
-                if source_ids == []:
+                # Merge LLM args with agent defaults for transparent debugging
+                llm_sources = args.get("sources")
+                resolved_sources = llm_sources if llm_sources is not None else source_ids
+                if resolved_sources == []:
                     results.append("No knowledge sources are configured for this agent.")
                 else:
                     expanded_query = await _expand_query(query)
                     logger.info("Expanded query: %r -> %r", query, expanded_query)
                     tool_fn = _TOOL_REGISTRY.get("retrieve")
-                    result = await tool_fn.ainvoke({"query": expanded_query, "sources": source_ids})
+                    result = await tool_fn.ainvoke({"query": expanded_query, "sources": resolved_sources})
                     parsed = json.loads(str(result))
 
                     offset = state.get("source_offset") or 0

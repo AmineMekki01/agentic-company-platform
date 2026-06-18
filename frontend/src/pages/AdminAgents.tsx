@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest } from "@/lib/api";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText } from "lucide-react";
+import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import { useAuth } from "@/stores/auth";
 
-type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy" | "versions";
+type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy" | "versions" | "feedback";
 
 const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "overview", label: "Overview", icon: Settings },
@@ -15,6 +15,7 @@ const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "agent-to-agent", label: "Agent-to-Agent", icon: Workflow },
   { key: "deploy", label: "Deploy", icon: Globe },
   { key: "versions", label: "Versions", icon: History },
+  { key: "feedback", label: "Feedback", icon: ThumbsUp },
 ];
 
 function getTabsForAgent(slug: string | undefined): typeof ALL_TABS {
@@ -136,6 +137,28 @@ export default function AdminAgents() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
   const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [feedbackList, setFeedbackList] = useState<MessageFeedback[]>([]);
+  const [feedbackSummary, setFeedbackSummary] = useState<AgentFeedbackSummary | null>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [selectedFeedback, setSelectedFeedback] = useState<MessageFeedback | null>(null);
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Set<number>>(new Set());
+  const toggleToolCall = (idx: number) => {
+    setExpandedToolCalls((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+  const [expandedSources, setExpandedSources] = useState<Set<number>>(new Set());
+  const toggleSource = (idx: number) => {
+    setExpandedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
   const [draftSaving, setDraftSaving] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishNotes, setPublishNotes] = useState("");
@@ -206,6 +229,30 @@ export default function AdminAgents() {
       loadVersions(selected.slug);
     }
   }, [selected, activeTab, loadVersions]);
+
+  // Load feedback when agent is selected or feedback tab is active
+  const loadFeedback = useCallback(async (slug: string) => {
+    setFeedbackLoading(true);
+    try {
+      const [list, summary] = await Promise.all([
+        api.getAgentFeedback(slug, { limit: 100 }),
+        api.getAgentFeedbackSummary(slug),
+      ]);
+      setFeedbackList(list);
+      setFeedbackSummary(summary);
+    } catch {
+      setFeedbackList([]);
+      setFeedbackSummary(null);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected && activeTab === "feedback") {
+      loadFeedback(selected.slug);
+    }
+  }, [selected, activeTab, loadFeedback]);
 
   // Auto-save draft for published agents
   const autoSaveDraft = useCallback(async (agent: AgentSetting) => {
@@ -1078,6 +1125,88 @@ export default function AdminAgents() {
                     )}
                   </div>
                 )}
+
+                {activeTab === "feedback" && (
+                  <div className="space-y-6">
+                    {/* Analytics cards */}
+                    {feedbackSummary && (
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                          <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total</div>
+                          <div className="mt-1 text-2xl font-bold text-zinc-200">{feedbackSummary.total}</div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                          <div className="text-xs font-medium text-emerald-500 uppercase tracking-wide">Thumbs Up</div>
+                          <div className="mt-1 text-2xl font-bold text-emerald-400">{feedbackSummary.thumbs_up}</div>
+                        </div>
+                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
+                          <div className="text-xs font-medium text-rose-500 uppercase tracking-wide">Thumbs Down</div>
+                          <div className="mt-1 text-2xl font-bold text-rose-400">{feedbackSummary.thumbs_down}</div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                          <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Positive Rate</div>
+                          <div className="mt-1 text-2xl font-bold text-zinc-200">{feedbackSummary.up_rate_pct}%</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Feedback table */}
+                    {feedbackLoading ? (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                      </div>
+                    ) : feedbackList.length === 0 ? (
+                      <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
+                        <p className="text-sm text-zinc-500">No feedback yet for this agent.</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                        <table className="min-w-full text-left text-sm">
+                          <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                            <tr>
+                              <th className="px-4 py-2 font-medium">Date</th>
+                              <th className="px-4 py-2 font-medium">User</th>
+                              <th className="px-4 py-2 font-medium">Rating</th>
+                              <th className="px-4 py-2 font-medium">Comment</th>
+                              <th className="px-4 py-2 font-medium">Screenshot</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-800">
+                            {feedbackList.map((f) => (
+                              <tr key={f.id} className="hover:bg-zinc-800/30 transition cursor-pointer" onClick={() => setSelectedFeedback(f)}>
+                                <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">
+                                  {new Date(f.created_at).toLocaleString()}
+                                </td>
+                                <td className="px-4 py-2.5 text-zinc-400">{f.user_id.slice(0, 8)}…</td>
+                                <td className="px-4 py-2.5">
+                                  {f.thumbs_up ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+                                      <ThumbsUp className="h-3 w-3" /> Up
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
+                                      <ThumbsUp className="h-3 w-3" /> Down
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">
+                                  {f.comment || "—"}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {f.screenshot_attachment_id ? (
+                                    <span className="text-xs text-indigo-400">Yes</span>
+                                  ) : (
+                                    <span className="text-xs text-zinc-600">No</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               </div>
@@ -1504,6 +1633,235 @@ export default function AdminAgents() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback detail modal */}
+      {selectedFeedback && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedFeedback(null)}>
+          <div
+            className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${selectedFeedback.thumbs_up ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
+                  <ThumbsUp className={`h-4 w-4 ${selectedFeedback.thumbs_up ? "text-emerald-400" : "text-rose-400"}`} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm text-zinc-200">
+                    {selectedFeedback.thumbs_up ? "Thumbs Up" : "Thumbs Down"} — {selectedFeedback.user_id.slice(0, 8)}…
+                  </h3>
+                  <p className="text-xs text-zinc-500">{new Date(selectedFeedback.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedFeedback(null)}
+                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6">
+              {/* Comment */}
+              {selectedFeedback.comment && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    User Comment
+                  </div>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300">
+                    {selectedFeedback.comment}
+                  </div>
+                </div>
+              )}
+
+              {/* Conversation Actions */}
+              {selectedFeedback.conversation_actions && selectedFeedback.conversation_actions.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <Rocket className="h-3.5 w-3.5" />
+                    Conversation Actions ({selectedFeedback.conversation_actions.length})
+                  </div>
+                  <div className="space-y-2">
+                    {selectedFeedback.conversation_actions.map((action, i) => (
+                      <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                            {action.type.replace(/_/g, " ")}
+                          </span>
+                          {action.ticket_key && (
+                            <a
+                              href={action.ticket_url || "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {action.ticket_key}
+                            </a>
+                          )}
+                        </div>
+                        {action.summary && (
+                          <p className="text-xs text-zinc-400">{action.summary}</p>
+                        )}
+                        {action.raw && !action.summary && (
+                          <p className="text-xs text-zinc-500 font-mono">{action.raw}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Conversation Snapshot */}
+              {selectedFeedback.conversation_snapshot && selectedFeedback.conversation_snapshot.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Conversation Snapshot
+                  </div>
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {selectedFeedback.conversation_snapshot.map((msg) => (
+                      <div key={msg.id} className={`rounded-lg px-3 py-2 text-sm border ${msg.role === "assistant" ? "bg-indigo-500/5 border-indigo-500/10 text-zinc-300" : "bg-zinc-900 border-zinc-800 text-zinc-300"}`}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className={`text-[10px] font-bold uppercase tracking-wide ${msg.role === "assistant" ? "text-indigo-400" : "text-zinc-500"}`}>
+                            {msg.role}
+                          </span>
+                          {msg.agent_id && (
+                            <span className="text-[10px] text-zinc-600">• {msg.agent_id}</span>
+                          )}
+                        </div>
+                        <p className="text-sm text-zinc-300 whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Tool Calls */}
+              {selectedFeedback.tool_calls_log && selectedFeedback.tool_calls_log.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <Wrench className="h-3.5 w-3.5" />
+                    Tool Calls
+                  </div>
+                  <div className="space-y-2">
+                    {selectedFeedback.tool_calls_log.map((tc, i) => {
+                      const expanded = expandedToolCalls.has(i);
+                      const resultStr = tc.result !== undefined ? JSON.stringify(tc.result) : "";
+                      return (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="text-xs font-semibold text-indigo-300">{tc.tool || "unknown tool"}</div>
+                            {resultStr.length > 200 && (
+                              <button
+                                onClick={() => toggleToolCall(i)}
+                                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition"
+                              >
+                                {expanded ? (
+                                  <><ChevronUp className="h-3 w-3" /> Less</>
+                                ) : (
+                                  <><ChevronDown className="h-3 w-3" /> More</>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1 overflow-x-auto">
+                            {tc.tool === "retrieve" && tc.args?.sources === null ? (
+                              <div>
+                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1.5 py-0.5">sources: agent defaults</span>
+                                <pre className="mt-1">{JSON.stringify({ ...tc.args, sources: undefined }, null, 2)}</pre>
+                              </div>
+                            ) : (
+                              JSON.stringify(tc.args || {}, null, 2)
+                            )}
+                          </div>
+                          {tc.result !== undefined && (
+                            <div className="mt-1.5 text-[11px] text-zinc-400 font-mono bg-zinc-950 rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap">
+                              {expanded ? resultStr : resultStr.slice(0, 200) + (resultStr.length > 200 ? "…" : "")}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Retrieved Sources */}
+              {selectedFeedback.retrieved_sources && selectedFeedback.retrieved_sources.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    Retrieved Sources ({selectedFeedback.retrieved_sources.length})
+                  </div>
+                  <div className="space-y-2">
+                    {selectedFeedback.retrieved_sources.map((src, i) => {
+                      const expanded = expandedSources.has(i);
+                      return (
+                        <div
+                          key={i}
+                          className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 cursor-pointer hover:border-zinc-700 transition"
+                          onClick={() => toggleSource(i)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 rounded px-1.5 py-0.5 shrink-0">[{src.rank}]</span>
+                              <span className="text-[11px] font-medium text-zinc-300 truncate">{src.title || "Untitled"}</span>
+                            </div>
+                            {expanded ? (
+                              <ChevronUp className="h-3 w-3 text-zinc-500 shrink-0" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
+                            )}
+                          </div>
+                          {src.url && (
+                            <div className="text-[10px] text-zinc-600 truncate mt-1">{src.url}</div>
+                          )}
+                          <div className="text-[10px] text-zinc-600 font-mono mt-0.5">ID: {src.id?.slice(0, 8)}…</div>
+                          {expanded && (
+                            <div className="mt-2 pt-2 border-t border-zinc-800">
+                              <a
+                                href={src.url || "#"}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-indigo-400 hover:text-indigo-300 transition mb-1.5 inline-block"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Open source →
+                              </a>
+                              <div className="text-[10px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap">
+                                Source: {src.title}
+                                <br />
+                                ID: {src.id}
+                                {src.url && <><br />URL: {src.url}</>}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Screenshot */}
+              {selectedFeedback.screenshot_attachment_id && (
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                    <Eye className="h-3.5 w-3.5" />
+                    Screenshot
+                  </div>
+                  <div className="text-xs text-zinc-500">
+                    Attachment ID: {selectedFeedback.screenshot_attachment_id}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

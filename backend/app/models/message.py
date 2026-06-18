@@ -28,6 +28,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     agent_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     citations: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
+    tool_calls_log: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -37,6 +38,12 @@ class Message(Base):
 
     attachments: Mapped[list["ChatAttachment"]] = relationship(
         "ChatAttachment",
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    feedback: Mapped[list["MessageFeedback"]] = relationship(
+        "MessageFeedback",
         back_populates="message",
         cascade="all, delete-orphan",
         lazy="selectin",
