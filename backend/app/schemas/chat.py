@@ -79,6 +79,7 @@ class MessageOut(BaseModel):
     content: str
     agent_id: str | None
     citations: list[Any] | None
+    tool_calls_log: list[dict[str, Any]] | None = None
     attachments: list[AttachmentOut] = []
     created_at: datetime
 
@@ -198,3 +199,48 @@ class ConversationFolderUpdate(BaseModel):
 class MoveToFolderRequest(BaseModel):
     """Request schema to move a conversation to a folder."""
     folder_id: uuid.UUID | None
+
+
+class MessageFeedbackCreate(BaseModel):
+    """Schema for creating feedback on an assistant message."""
+    thumbs_up: bool
+    comment: str | None = None
+    screenshot_attachment_id: uuid.UUID | None = None
+
+
+class MessageFeedbackOut(BaseModel):
+    """Schema for feedback output (admin view with full context)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    message_id: uuid.UUID
+    conversation_id: uuid.UUID
+    user_id: uuid.UUID
+    agent_id: str
+    thumbs_up: bool
+    comment: str | None
+    screenshot_attachment_id: uuid.UUID | None
+    conversation_snapshot: list[dict[str, Any]] | None = None
+    tool_calls_log: list[dict[str, Any]] | None = None
+    retrieved_sources: list[dict[str, Any]] | None = None
+    conversation_actions: list[dict[str, Any]] | None = None
+    created_at: datetime
+
+
+class MessageFeedbackUserOut(BaseModel):
+    """Schema for feedback output (user-facing, no snapshots)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    message_id: uuid.UUID
+    thumbs_up: bool
+    comment: str | None
+    created_at: datetime
+
+
+class AgentFeedbackSummary(BaseModel):
+    """Summary of feedback for an agent."""
+    total: int
+    thumbs_up: int
+    thumbs_down: int
+    up_rate_pct: float

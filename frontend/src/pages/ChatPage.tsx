@@ -22,6 +22,7 @@ export default function ChatPage() {
   const [focusKey, setFocusKey] = useState(0);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [testDraft, setTestDraft] = useState(false);
+  const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
   const { send, stop, streaming } = useChatStream();
   const { isAdmin } = useAuth();
 
@@ -61,6 +62,7 @@ export default function ChatPage() {
     setActiveId(id);
     setFocusKey((k) => k + 1);
     setMessages([]);
+    setFeedbackMap({});
     const detail = await api.getConversation(id);
     setActiveId((current) => {
       if (current === id) {
@@ -304,6 +306,11 @@ export default function ChatPage() {
             <MessageList
               messages={messages}
               agents={agents}
+              conversationId={activeId ?? undefined}
+              feedbackMap={feedbackMap}
+              onFeedbackSubmitted={(messageId, thumbsUp) => {
+                setFeedbackMap((prev) => ({ ...prev, [messageId]: { thumbs_up: thumbsUp } }));
+              }}
               renderAction={(msg) => {
                 if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
                   return null;

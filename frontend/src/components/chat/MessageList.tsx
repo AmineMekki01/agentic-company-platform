@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, FileText, Loader2, Paperclip, User as UserIcon } from "lucide-react";
+import { Bot, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
+import FeedbackModal from "./FeedbackModal";
 
 export interface SourceInfo {
   rank: number;
@@ -34,6 +35,9 @@ interface MessageListProps {
   agents: Agent[];
   emptyState: React.ReactNode;
   renderAction?: (message: DisplayMessage) => React.ReactNode;
+  conversationId?: string;
+  feedbackMap?: Record<string, { thumbs_up: boolean }>;
+  onFeedbackSubmitted?: (messageId: string, thumbsUp: boolean) => void;
 }
 
 function agentName(agents: Agent[], slug: string | null): string {
@@ -54,11 +58,21 @@ function linkifyCitations(content: string, rankMap: Map<number, number>): string
 function AssistantMessage({
   m,
   renderAction,
+  conversationId,
+  hasFeedback,
+  feedbackUp,
+  onFeedbackSubmitted,
 }: {
   m: DisplayMessage;
   renderAction?: (message: DisplayMessage) => React.ReactNode;
+  conversationId?: string;
+  hasFeedback?: boolean;
+  feedbackUp?: boolean;
+  onFeedbackSubmitted?: (messageId: string, thumbsUp: boolean) => void;
 }) {
   const [highlightedRank, setHighlightedRank] = useState<number | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalInitialUp, setModalInitialUp] = useState(true);
 
 
   const seenTitles = new Set<string>();
@@ -162,11 +176,63 @@ function AssistantMessage({
       {renderAction && !m.streaming && (
         <div className="mt-3">{renderAction(m)}</div>
       )}
+      {!m.streaming && conversationId && (
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            onClick={() => {
+              setModalInitialUp(true);
+              setShowModal(true);
+            }}
+            className={`rounded-lg p-1.5 transition ${
+              hasFeedback && feedbackUp
+                ? "text-emerald-400 bg-emerald-500/10"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+            }`}
+            title="Thumbs up"
+          >
+            <ThumbsUp className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              setModalInitialUp(false);
+              setShowModal(true);
+            }}
+            className={`rounded-lg p-1.5 transition ${
+              hasFeedback && !feedbackUp
+                ? "text-rose-400 bg-rose-500/10"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+            }`}
+            title="Thumbs down"
+          >
+            <ThumbsDown className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {showModal && conversationId && (
+        <FeedbackModal
+          conversationId={conversationId}
+          messageId={m.id}
+          initialThumbsUp={modalInitialUp}
+          onClose={() => setShowModal(false)}
+          onSubmitted={() => {
+            setShowModal(false);
+            onFeedbackSubmitted?.(m.id, modalInitialUp);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-export default function MessageList({ messages, agents, emptyState, renderAction }: MessageListProps) {
+export default function MessageList({
+  messages,
+  agents,
+  emptyState,
+  renderAction,
+  conversationId,
+  feedbackMap,
+  onFeedbackSubmitted,
+}: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -233,7 +299,14 @@ export default function MessageList({ messages, agents, emptyState, renderAction
                   </p>
                 </div>
               ) : (
-                <AssistantMessage m={m} renderAction={renderAction} />
+                <AssistantMessage
+                  m={m}
+                  renderAction={renderAction}
+                  conversationId={conversationId}
+                  hasFeedback={!!feedbackMap?.[m.id]}
+                  feedbackUp={feedbackMap?.[m.id]?.thumbs_up}
+                  onFeedbackSubmitted={onFeedbackSubmitted}
+                />
               )}
             </div>
           </div>

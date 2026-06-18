@@ -46,6 +46,7 @@ async def upload_chat_file(
     file: UploadFile,
     user: CurrentUser,
     db: DbSession,
+    subfolder: str | None = None,
 ):
     """
     Upload a file into a chat conversation.
@@ -107,7 +108,8 @@ async def upload_chat_file(
     base_prefix = settings.s3_base_prefix
     if base_prefix and not base_prefix.endswith("/"):
         base_prefix += "/"
-    s3_key = f"{base_prefix}{user.id}/{conversation_id}/{timestamp}_{safe_name}"
+    folder_prefix = f"{subfolder}/" if subfolder else ""
+    s3_key = f"{base_prefix}{folder_prefix}{user.id}/{conversation_id}/{timestamp}_{safe_name}"
 
     s3_client = _get_s3_client(credentials)
     extra_args = {}
@@ -131,10 +133,12 @@ async def upload_chat_file(
     )
 
     text = ""
-    try:
-        text = parse_upload(content, file.content_type, file.filename or "")
-    except Exception:
-        logger.exception("Failed to extract text from uploaded file")
+    is_image = (file.content_type or "").startswith("image/")
+    if not is_image:
+        try:
+            text = parse_upload(content, file.content_type, file.filename or "")
+        except Exception:
+            logger.exception("Failed to extract text from uploaded file")
 
     retention_until = None
     if settings.retention_days > 0:

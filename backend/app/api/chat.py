@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, status
 from langchain_core.messages import HumanMessage
@@ -337,6 +338,7 @@ async def chat_stream(
             message_id = str(uuid.uuid4())
             title: str | None = None
             agent_slugs = set(draft_registry.keys())
+            tool_calls_log: list[dict] = []
 
             async for event in graph.astream_events(input_state, config, version="v2"):
                 kind = event.get("event")
@@ -347,10 +349,38 @@ async def chat_stream(
                     yield {"event": "step", "data": json.dumps({"step": "routing"})}
                 elif kind == "on_chain_start" and name == "tools":
                     yield {"event": "step", "data": json.dumps({"step": "searching"})}
+                    # Capture tool call args at start
+                    tool_input = event.get("data", {}).get("input", {})
+                    state_tools = tool_input.get("messages", []) if isinstance(tool_input, dict) else []
+                    for msg in state_tools:
+                        tc = getattr(msg, "tool_calls", None) if not isinstance(msg, dict) else msg.get("tool_calls")
+                        if tc:
+                            for t in tc:
+                                tool_call_id = t.get("id") if isinstance(t, dict) else getattr(t, "id", None)
+                                tool_calls_log.append({
+                                    "tool": t.get("name") if isinstance(t, dict) else getattr(t, "name", None),
+                                    "args": t.get("args") if isinstance(t, dict) else getattr(t, "args", {}),
+                                    "tool_call_id": tool_call_id,
+                                    "timestamp": datetime.now().isoformat(),
+                                    "status": "started",
+                                })
                 elif kind == "on_chain_start" and name == "reflect":
                     yield {"event": "step", "data": json.dumps({"step": "verifying"})}
                 elif kind in ("on_chain_start", "on_chain_stream") and name in agent_slugs:
                     yield {"event": "step", "data": json.dumps({"step": "thinking"})}
+                elif kind == "on_tool_end":
+                    # Robust tool call capture — fires for every tool execution
+                    data = event.get("data", {})
+                    tool_name = event.get("name") or ""
+                    tool_input = data.get("input", {}) if isinstance(data, dict) else {}
+                    tool_output = data.get("output") if isinstance(data, dict) else None
+                    tool_calls_log.append({
+                        "tool": tool_name,
+                        "args": tool_input,
+                        "result": tool_output,
+                        "timestamp": datetime.now().isoformat(),
+                        "status": "completed",
+                    })
                 elif kind == "on_chain_end":
                     output = event.get("data", {}).get("output", {})
                     if isinstance(output, dict):
@@ -358,6 +388,37 @@ async def chat_stream(
                             routed_agent = output["current_agent"]
                         if output.get("sources"):
                             sources = output["sources"]
+
+                        # Capture tool call results at end of tools node
+                        if name == "tools":
+                            node_messages = output.get("messages", [])
+                            for msg in node_messages:
+                                msg_type = getattr(msg, "type", None) if not isinstance(msg, dict) else msg.get("type")
+                                if msg_type == "tool":
+                                    tool_id = getattr(msg, "tool_call_id", None) if not isinstance(msg, dict) else msg.get("tool_call_id")
+                                    result = _chunk_text(msg)
+                                    if tool_id:
+                                        # Match by tool_call_id for accuracy
+                                        for entry in tool_calls_log:
+                                            if entry.get("tool_call_id") == tool_id and entry.get("status") == "started":
+                                                entry["result"] = result
+                                                entry["status"] = "completed"
+                                                break
+                                        else:
+                                            # Fallback: match first started entry
+                                            for entry in tool_calls_log:
+                                                if entry.get("status") == "started":
+                                                    entry["result"] = result
+                                                    entry["tool_call_id"] = tool_id
+                                                    entry["status"] = "completed"
+                                                    break
+                                    else:
+                                        # No tool_call_id — match first started entry
+                                        for entry in tool_calls_log:
+                                            if entry.get("status") == "started":
+                                                entry["result"] = result
+                                                entry["status"] = "completed"
+                                                break
 
                         if output.get("response_text"):
                             assistant_text = _clean_citations(str(output["response_text"]))
@@ -429,6 +490,7 @@ async def chat_stream(
                             content=assistant_text,
                             agent_id=routed_agent,
                             citations=sources,
+                            tool_calls_log=tool_calls_log if tool_calls_log else None,
                         )
                     )
                     if needs_title:
