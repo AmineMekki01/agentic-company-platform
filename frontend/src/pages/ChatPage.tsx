@@ -9,6 +9,7 @@ import ModeSelector, { type Mode } from "@/components/chat/ModeSelector";
 import Sidebar from "@/components/chat/Sidebar";
 import { useChatStream, type SourceInfo } from "@/hooks/useChatStream";
 import { api, type Agent, type Conversation, type ConversationFolder } from "@/lib/api";
+import { useAuth } from "@/stores/auth";
 
 export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -20,7 +21,9 @@ export default function ChatPage() {
   const [mode, setMode] = useState<Mode>("auto");
   const [focusKey, setFocusKey] = useState(0);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [testDraft, setTestDraft] = useState(false);
   const { send, stop, streaming } = useChatStream();
+  const { isAdmin } = useAuth();
 
   const loadFolders = useCallback(async () => {
     try {
@@ -161,7 +164,7 @@ export default function ChatPage() {
     setMessages((ms) => [
       ...ms,
       userMsg,
-      { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true, step: "routing" },
+      { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true, step: "routing", draft: testDraft },
     ]);
 
     await send(conversationId, content.trim(), agent, isForced, mode, {
@@ -215,7 +218,7 @@ export default function ChatPage() {
               : m
           )
         ),
-    }, attachmentIds);
+    }, attachmentIds, testDraft);
   }
 
   if (!hasLoaded) {
@@ -267,13 +270,25 @@ export default function ChatPage() {
                   onSelect={(slug) => {
                     if (slug !== selectedAgent) {
                       setSelectedAgent(slug);
+                      setTestDraft(false);
                       newChat();
                     }
                   }}
                 />
                 <ModeSelector selected={mode} onSelect={setMode} />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {isAdmin() && (
+                  <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={testDraft}
+                      onChange={(e) => setTestDraft(e.target.checked)}
+                      className="accent-indigo-500"
+                    />
+                    Test Draft
+                  </label>
+                )}
                 {streaming && (
                   <>
                     <span className="relative flex h-2 w-2">

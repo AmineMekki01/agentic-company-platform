@@ -35,8 +35,13 @@ class AgentSettingOut(BaseModel):
     created_by: str | None
     allow_uploads: bool
     allowed_users: list[str] | None
+    beta_users: list[str] | None
     created_at: datetime
     updated_at: datetime
+    draft_config: dict[str, Any] | None = None
+    is_published: bool = False
+    published_at: datetime | None = None
+    published_version_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,6 +73,7 @@ class AgentSettingUpdate(BaseModel):
     created_by: str | None = None
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
+    beta_users: list[str] | None = None
 
 
 class AgentSettingCreate(BaseModel):
@@ -96,3 +102,50 @@ class AgentSettingCreate(BaseModel):
     created_by: str | None = None
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
+    beta_users: list[str] | None = None
+
+
+class AgentVersionOut(BaseModel):
+    """
+    Agent version output schema.
+
+    Represents an immutable published snapshot of an agent configuration.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    agent_settings_id: UUID
+    version_number: int
+    notes: str | None
+    created_by: str | None
+    created_at: datetime
+
+
+class AgentPublishRequest(BaseModel):
+    """Request body for publishing an agent draft."""
+    notes: str | None = None
+
+
+class AgentDraftSave(BaseModel):
+    """
+    Agent draft save schema.
+
+    Same fields as AgentSettingUpdate but all optional for partial auto-save.
+    """
+    name: str | None = None
+    description: str | None = None
+    llm_model: str | None = None
+    system_prompt: str | None = None
+    retrieval_top_k: int = Field(default=5, ge=1, le=20)
+    retrieval_enabled: bool = True
+    web_search_enabled: bool = False
+    connected_sources: list[str] | None = None
+    tools: list[str] | None = None
+    is_orchestrator: bool = False
+    routes_to: list[str] | None = None
+    mode_profile: dict[str, Any] | None = None
+    visibility: str | None = "all"
+    created_by: str | None = None
+    allow_uploads: bool = True
+    allowed_users: list[str] | None = None
+    beta_users: list[str] | None = None

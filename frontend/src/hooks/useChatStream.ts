@@ -37,7 +37,8 @@ export function useChatStream() {
       forceAgent: boolean,
       mode: string,
       callbacks: StreamCallbacks,
-      attachmentIds: string[] = []
+      attachmentIds: string[] = [],
+      draft: boolean = false
     ) => {
       const controller = new AbortController();
       abortRef.current = controller;
@@ -56,6 +57,7 @@ export function useChatStream() {
             force_agent: forceAgent,
             mode,
             attachment_ids: attachmentIds,
+            draft,
           }),
           signal: controller.signal,
         });
