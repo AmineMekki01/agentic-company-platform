@@ -418,7 +418,6 @@ def make_agent_node(
                 )
             dynamic_prompt = access_block + dynamic_prompt
 
-        # --- Orchestrator synthesis: inject child outputs into prompt ---
         history = state.get("orchestrator_history") or []
         if spec.is_orchestrator and history:
             synth_lines = ["\n\n=== CHILD AGENT OUTPUTS ==="]
@@ -435,10 +434,7 @@ def make_agent_node(
             dynamic_prompt = dynamic_prompt + "\n".join(synth_lines)
             logger.warning("Agent[%s] synthesizing with %d child outputs", spec.slug, len(history))
 
-        if spec.slug == "general":
-            logger.info("Agent[%s] final system prompt:\n%s", spec.slug, dynamic_prompt)
-        else:
-            logger.info("Agent[%s] final system prompt (first 800 chars): %s", spec.slug, dynamic_prompt[:800])
+        logger.info("Agent[%s] final system prompt length: %d", spec.slug, len(dynamic_prompt))
 
         system_msg = SystemMessage(content=dynamic_prompt)
         system_tokens = llm.get_num_tokens(system_msg.content or "")
@@ -711,7 +707,6 @@ def make_tools_node(agent_settings: dict[str, dict]):
 
             if name == "retrieve":
                 query = args.get("query", "")
-                # Merge LLM args with agent defaults for transparent debugging
                 llm_sources = args.get("sources")
                 resolved_sources = llm_sources if llm_sources is not None else source_ids
                 if resolved_sources == []:
@@ -735,7 +730,7 @@ def make_tools_node(agent_settings: dict[str, dict]):
                         parsed["text"] = text
                     results.append(parsed["text"])
                     new_sources.extend(parsed.get("sources", []))
-                    logger.info("retrieved results : %s", parsed["text"])
+                    logger.info("length of retrieved results : %s", len(results))
                     
             elif name == "web_search":
                 tool_fn = _TOOL_REGISTRY.get("web_search")

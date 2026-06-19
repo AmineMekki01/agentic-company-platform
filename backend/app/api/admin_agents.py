@@ -1,6 +1,7 @@
 """Admin agent settings API."""
 
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
@@ -272,9 +273,25 @@ async def save_agent_draft(
     if "created_by" in data and data["created_by"] is not None:
         data["created_by"] = data["created_by"].strip().lower()
 
+    # Merge incoming data with existing draft
     existing_draft = dict(row.draft_config or {})
     existing_draft.update(data)
-    row.draft_config = existing_draft
+
+    # Only keep fields that differ from live values (prevent phantom drafts)
+    filtered_draft: dict[str, Any] = {}
+    for key, value in existing_draft.items():
+        if key in ("draft_config", "is_published", "published_at", "published_version_id"):
+            continue
+        if hasattr(row, key):
+            live_value = getattr(row, key)
+            # Normalize for comparison (lists/None)
+            if live_value is None and (value is None or value == []):
+                continue
+            if live_value == value:
+                continue
+        filtered_draft[key] = value
+
+    row.draft_config = filtered_draft if filtered_draft else None
     await db.commit()
     await db.refresh(row)
 
@@ -515,7 +532,6 @@ async def test_agent_draft(
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    # Merge draft over live config
     draft = row.draft_config or {}
     system_prompt = draft.get("system_prompt") or row.system_prompt
     model_name = draft.get("llm_model") or row.llm_model
@@ -564,7 +580,6 @@ async def test_agent_draft(
                 "connected_sources": a.connected_sources or [],
             }
 
-    # Build a throw away graph
     graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
 
     input_state = {
