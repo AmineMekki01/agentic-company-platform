@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary } from "@/lib/api";
+import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText, Activity } from "lucide-react";
+import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import { useAuth } from "@/stores/auth";
 
-type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy" | "versions" | "feedback";
+type TabKey = "overview" | "tools" | "knowledge" | "routing" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
 
 const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "overview", label: "Overview", icon: Settings },
@@ -16,6 +16,7 @@ const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "deploy", label: "Deploy", icon: Globe },
   { key: "versions", label: "Versions", icon: History },
   { key: "feedback", label: "Feedback", icon: ThumbsUp },
+  { key: "evaluation", label: "Evaluation", icon: Activity },
 ];
 
 function getTabsForAgent(slug: string | undefined): typeof ALL_TABS {
@@ -172,6 +173,26 @@ export default function AdminAgents() {
   const [testingDraft, setTestingDraft] = useState(false);
   const [suppressAutoSaveUntil, setSuppressAutoSaveUntil] = useState<number>(0);
 
+  const [evalTests, setEvalTests] = useState<AgentEvalTest[]>([]);
+  const [evalRuns, setEvalRuns] = useState<AgentEvalRun[]>([]);
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalSubTab, setEvalSubTab] = useState<"tests" | "runs">("tests");
+  const [showEvalTestModal, setShowEvalTestModal] = useState(false);
+  const [editingEvalTest, setEditingEvalTest] = useState<AgentEvalTest | null>(null);
+  const [evalTestForm, setEvalTestForm] = useState({ name: "", question: "", expected_answer: "" });
+  const [showLaunchRunModal, setShowLaunchRunModal] = useState(false);
+  const [launchRunForm, setLaunchRunForm] = useState<{
+    name: string;
+    thresholds: Record<string, number>;
+    selectedTestIds: Set<string>;
+  }>({
+    name: "",
+    thresholds: { answer_correctness: 0.5, faithfulness: 0.5, answer_relevancy: 0.5 },
+    selectedTestIds: new Set<string>(),
+  });
+  const [selectedEvalRun, setSelectedEvalRun] = useState<AgentEvalRunDetail | null>(null);
+  const [selectedContext, setSelectedContext] = useState<string | null>(null);
+
   const closeSelected = () => {
     setSelected(null);
     setActiveTab("overview");
@@ -230,7 +251,6 @@ export default function AdminAgents() {
     }
   }, [selected, activeTab, loadVersions]);
 
-  // Load feedback when agent is selected or feedback tab is active
   const loadFeedback = useCallback(async (slug: string) => {
     setFeedbackLoading(true);
     try {
@@ -254,9 +274,31 @@ export default function AdminAgents() {
     }
   }, [selected, activeTab, loadFeedback]);
 
-  // Auto-save draft for published agents
+  const loadEvalData = useCallback(async (slug: string) => {
+    setEvalLoading(true);
+    try {
+      const [tests, runs] = await Promise.all([
+        api.listEvalTests(slug),
+        api.listEvalRuns(slug),
+      ]);
+      setEvalTests(tests);
+      setEvalRuns(runs);
+    } catch {
+      setEvalTests([]);
+      setEvalRuns([]);
+    } finally {
+      setEvalLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected && activeTab === "evaluation") {
+      loadEvalData(selected.slug);
+    }
+  }, [selected, activeTab, loadEvalData]);
+
   const autoSaveDraft = useCallback(async (agent: AgentSetting) => {
-    if (!agent.is_published) return;
+    if (!agent.is_published) return undefined;
     setDraftSaving(true);
     try {
       const tools = (agent.tools || []).filter((t) => t !== "retrieve");
@@ -277,9 +319,10 @@ export default function AdminAgents() {
         allow_uploads: agent.allow_uploads !== false,
         allowed_users: agent.allowed_users || undefined,
       };
-      await api.saveAgentDraft(agent.slug, payload);
+      const updated = await api.saveAgentDraft(agent.slug, payload);
+      return updated;
     } catch {
-      // ignore auto-save errors
+      return undefined;
     } finally {
       setDraftSaving(false);
     }
@@ -289,8 +332,20 @@ export default function AdminAgents() {
     if (!selected || !selected.is_published) return;
     if (Date.now() < suppressAutoSaveUntil) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(() => {
-      autoSaveDraft(selected);
+    draftTimerRef.current = setTimeout(async () => {
+      const updated = await autoSaveDraft(selected);
+      if (updated) {
+        // Only update draft_config metadata — preserve user's current typing
+        setSelected((prev) =>
+          prev
+            ? {
+                ...prev,
+                draft_config: updated.draft_config,
+                updated_at: updated.updated_at,
+              }
+            : prev,
+        );
+      }
     }, 1200);
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
@@ -499,7 +554,7 @@ export default function AdminAgents() {
   };
 
   return (
-    <div>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Agents</h1>
@@ -530,7 +585,7 @@ export default function AdminAgents() {
         </div>
       )}
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-1 min-h-0">
         {/* Agents table */}
         <div className={selected ? "hidden" : "w-full"}>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
@@ -601,7 +656,7 @@ export default function AdminAgents() {
         </div>
 
         {/* Detail panel */}
-        <div className={selected ? "flex-1 min-w-0" : "hidden"}>
+        <div className={selected ? "flex-1 min-w-0 h-full" : "hidden"}>
           {selected ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-sm flex flex-col h-full">
               {/* Header */}
@@ -687,7 +742,7 @@ export default function AdminAgents() {
               </div>
 
               <div className="flex flex-1 min-h-0">
-                <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/40 p-3">
+                <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/40 p-3 h-full overflow-y-auto">
                   <div className="mb-3 px-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
                     Sections
                   </div>
@@ -698,7 +753,10 @@ export default function AdminAgents() {
                       return (
                         <button
                           key={t.key}
-                          onClick={() => setActiveTab(t.key)}
+                          onClick={() => {
+                            if (t.key === "evaluation") setSuppressAutoSaveUntil(Date.now() + 5000);
+                            setActiveTab(t.key);
+                          }}
                           className={
                             "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition " +
                             (active
@@ -1207,8 +1265,227 @@ export default function AdminAgents() {
                     )}
                   </div>
                 )}
-              </div>
 
+                {/* Evaluation */}
+                {activeTab === "evaluation" && (
+                  <div className="w-full space-y-6">
+                  {/* Sub-tabs */}
+                  <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+                    <button
+                      onClick={() => setEvalSubTab("tests")}
+                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "tests" ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"}`}
+                    >
+                      Tests
+                    </button>
+                    <button
+                      onClick={() => setEvalSubTab("runs")}
+                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "runs" ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"}`}
+                    >
+                      Runs
+                    </button>
+                  </div>
+
+                  {evalLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                    </div>
+                  ) : evalSubTab === "tests" ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-zinc-300">Evaluation Tests ({evalTests.length})</h3>
+                        <button
+                          onClick={() => {
+                            setSuppressAutoSaveUntil(Date.now() + 5000);
+                            setEditingEvalTest(null);
+                            setEvalTestForm({ name: "", question: "", expected_answer: "" });
+                            setShowEvalTestModal(true);
+                          }}
+                          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> New Test
+                        </button>
+                      </div>
+                      {evalTests.length === 0 ? (
+                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
+                          <p className="text-sm text-zinc-500">No evaluation tests yet.</p>
+                          <p className="text-xs text-zinc-600 mt-1">Create tests with a question and expected answer to evaluate your agent.</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                          <table className="min-w-full text-left text-sm">
+                            <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                              <tr>
+                                <th className="px-4 py-2 font-medium">Name</th>
+                                <th className="px-4 py-2 font-medium">Question</th>
+                                <th className="px-4 py-2 font-medium">Expected Answer</th>
+                                <th className="px-4 py-2 font-medium w-24"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800">
+                              {evalTests.map((t) => (
+                                <tr key={t.id} className="hover:bg-zinc-800/30 transition">
+                                  <td className="px-4 py-2.5 text-zinc-300 font-medium">{t.name}</td>
+                                  <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{t.question}</td>
+                                  <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{t.expected_answer}</td>
+                                  <td className="px-4 py-2.5">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setSuppressAutoSaveUntil(Date.now() + 5000);
+                                          setEditingEvalTest(t);
+                                          setEvalTestForm({ name: t.name, question: t.question, expected_answer: t.expected_answer });
+                                          setShowEvalTestModal(true);
+                                        }}
+                                        className="text-zinc-500 hover:text-zinc-300 transition"
+                                        title="Edit"
+                                      >
+                                        <Settings className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={async () => {
+                                          if (!selected) return;
+                                          if (!confirm("Delete this test?")) return;
+                                          setSuppressAutoSaveUntil(Date.now() + 5000);
+                                          try {
+                                            await api.deleteEvalTest(selected.slug, t.id);
+                                            loadEvalData(selected.slug);
+                                            // Re-sync selected agent to prevent stale status
+                                            try {
+                                              const agents = await api.listAgentSettings();
+                                              const updated = agents.find((a) => a.slug === selected.slug);
+                                              if (updated) setSelected(updated);
+                                            } catch { /* ignore */ }
+                                          } catch {
+                                            alert("Failed to delete test");
+                                          }
+                                        }}
+                                        className="text-zinc-500 hover:text-rose-400 transition"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-medium text-zinc-300">Evaluation Runs ({evalRuns.length})</h3>
+                        <button
+                          onClick={() => {
+                            setSuppressAutoSaveUntil(Date.now() + 5000);
+                            setLaunchRunForm({
+                              name: `Run ${new Date().toLocaleString()}`,
+                              thresholds: { answer_correctness: 0.5, faithfulness: 0.5, answer_relevancy: 0.5 },
+                              selectedTestIds: new Set(evalTests.map((t) => t.id)),
+                            });
+                            setShowLaunchRunModal(true);
+                          }}
+                          disabled={evalTests.length === 0}
+                          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                        >
+                          <Rocket className="h-3.5 w-3.5" /> Launch Run
+                        </button>
+                      </div>
+                      {evalRuns.length === 0 ? (
+                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
+                          <p className="text-sm text-zinc-500">No evaluation runs yet.</p>
+                          <p className="text-xs text-zinc-600 mt-1">Launch a run to evaluate your agent against the test cases.</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                          <table className="min-w-full text-left text-sm">
+                            <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                              <tr>
+                                <th className="px-4 py-2 font-medium">Name</th>
+                                <th className="px-4 py-2 font-medium">Status</th>
+                                <th className="px-4 py-2 font-medium">Pass Rate</th>
+                                <th className="px-4 py-2 font-medium">Date</th>
+                                <th className="px-4 py-2 font-medium w-24"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800">
+                              {evalRuns.map((r) => (
+                                <tr key={r.id} className="hover:bg-zinc-800/30 transition cursor-pointer" onClick={async () => {
+                                  if (!selected) return;
+                                  try {
+                                    const detail = await api.getEvalRunDetail(selected.slug, r.id);
+                                    setSelectedEvalRun(detail);
+                                  } catch {
+                                    alert("Failed to load run details");
+                                  }
+                                }}>
+                                  <td className="px-4 py-2.5 text-zinc-300 font-medium">{r.name}</td>
+                                  <td className="px-4 py-2.5">
+                                    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs ${
+                                      r.status === "completed" ? "bg-emerald-500/10 text-emerald-400" :
+                                      r.status === "running" ? "bg-amber-500/10 text-amber-400" :
+                                      r.status === "failed" ? "bg-rose-500/10 text-rose-400" :
+                                      "bg-zinc-500/10 text-zinc-400"
+                                    }`}>
+                                      {r.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
+                                      {r.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    {r.total_tests > 0 ? (
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-20 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                          <div
+                                            className="h-full bg-emerald-500 rounded-full"
+                                            style={{ width: `${(r.pass_count / r.total_tests) * 100}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-xs text-zinc-400">{r.pass_count}/{r.total_tests}</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-xs text-zinc-600">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
+                                  <td className="px-4 py-2.5">
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (!selected) return;
+                                        if (!confirm("Delete this run?")) return;
+                                        setSuppressAutoSaveUntil(Date.now() + 5000);
+                                        try {
+                                          await api.deleteEvalRun(selected.slug, r.id);
+                                          loadEvalData(selected.slug);
+                                          // Re-sync selected agent to prevent stale status
+                                          try {
+                                            const agents = await api.listAgentSettings();
+                                            const updated = agents.find((a) => a.slug === selected.slug);
+                                            if (updated) setSelected(updated);
+                                          } catch { /* ignore */ }
+                                        } catch {
+                                          alert("Failed to delete run");
+                                        }
+                                      }}
+                                      className="text-zinc-500 hover:text-rose-400 transition"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              </div>
               </div>
 
               {/* Footer save */}
@@ -1918,6 +2195,267 @@ export default function AdminAgents() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      {/* Eval Test Modal */}
+      {showEvalTestModal && selected && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowEvalTestModal(false)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h2 className="font-semibold text-lg">{editingEvalTest ? "Edit Test" : "New Eval Test"}</h2>
+              <button onClick={() => setShowEvalTestModal(false)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-400">Name</span>
+                <input
+                  value={evalTestForm.name}
+                  onChange={(e) => setEvalTestForm((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  placeholder="e.g., Laptop request for new hire"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-400">Question</span>
+                <textarea
+                  value={evalTestForm.question}
+                  onChange={(e) => setEvalTestForm((p) => ({ ...p, question: e.target.value }))}
+                  rows={3}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  placeholder="What question should the agent answer?"
+                />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-400">Expected Answer</span>
+                <textarea
+                  value={evalTestForm.expected_answer}
+                  onChange={(e) => setEvalTestForm((p) => ({ ...p, expected_answer: e.target.value }))}
+                  rows={4}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  placeholder="What should the ideal answer contain?"
+                />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+              <button onClick={() => setShowEvalTestModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()) return;
+                  setSuppressAutoSaveUntil(Date.now() + 5000);
+                  try {
+                    if (editingEvalTest) {
+                      await api.updateEvalTest(selected.slug, editingEvalTest.id, evalTestForm);
+                    } else {
+                      await api.createEvalTest(selected.slug, evalTestForm);
+                    }
+                    setShowEvalTestModal(false);
+                    loadEvalData(selected.slug);
+                    // Re-sync selected agent to prevent stale status
+                    try {
+                      const agents = await api.listAgentSettings();
+                      const updated = agents.find((a) => a.slug === selected.slug);
+                      if (updated) setSelected(updated);
+                    } catch { /* ignore */ }
+                  } catch {
+                    alert("Failed to save test");
+                  }
+                }}
+                disabled={!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+              >
+                <Save className="h-4 w-4" /> Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Launch Run Modal */}
+      {showLaunchRunModal && selected && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowLaunchRunModal(false)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h2 className="font-semibold text-lg">Launch Evaluation Run</h2>
+              <button onClick={() => setShowLaunchRunModal(false)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium text-zinc-400">Run Name</span>
+                <input
+                  value={launchRunForm.name}
+                  onChange={(e) => setLaunchRunForm((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                />
+              </label>
+              <div className="space-y-3">
+                <span className="text-xs font-medium text-zinc-400 block">Per-Metric Thresholds</span>
+                {Object.entries(launchRunForm.thresholds).map(([key, value]) => (
+                  <label key={key} className="block">
+                    <span className="text-xs text-zinc-400 capitalize">{key.replace(/_/g, " ")}: {value.toFixed(2)}</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={value}
+                      onChange={(e) =>
+                        setLaunchRunForm((p) => ({
+                          ...p,
+                          thresholds: { ...p.thresholds, [key]: parseFloat(e.target.value) },
+                        }))
+                      }
+                      className="w-full mt-1 accent-indigo-500"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div>
+                <span className="text-xs font-medium text-zinc-400 block mb-2">Tests to run</span>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 border border-zinc-800 rounded-lg p-2 bg-zinc-900/50">
+                  {evalTests.map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800/50 rounded px-1.5 py-1 transition">
+                      <input
+                        type="checkbox"
+                        checked={launchRunForm.selectedTestIds.has(t.id)}
+                        onChange={(e) => {
+                          setLaunchRunForm((p) => {
+                            const next = new Set(p.selectedTestIds);
+                            if (e.target.checked) next.add(t.id);
+                            else next.delete(t.id);
+                            return { ...p, selectedTestIds: next };
+                          });
+                        }}
+                        className="accent-indigo-500"
+                      />
+                      <span className="text-xs text-zinc-300">{t.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+              <button onClick={() => setShowLaunchRunModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition">Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0) return;
+                  setSuppressAutoSaveUntil(Date.now() + 5000);
+                  try {
+                    await api.createEvalRun(selected.slug, {
+                      name: launchRunForm.name,
+                      test_ids: Array.from(launchRunForm.selectedTestIds),
+                      thresholds: launchRunForm.thresholds,
+                    });
+                    setShowLaunchRunModal(false);
+                    setEvalSubTab("runs");
+                    loadEvalData(selected.slug);
+                    // Re-sync selected agent to prevent stale status
+                    try {
+                      const agents = await api.listAgentSettings();
+                      const updated = agents.find((a) => a.slug === selected.slug);
+                      if (updated) setSelected(updated);
+                    } catch { /* ignore */ }
+                  } catch {
+                    alert("Failed to launch run");
+                  }
+                }}
+                disabled={!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0}
+                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+              >
+                <Rocket className="h-4 w-4" /> Launch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Run Detail Modal */}
+      {selectedEvalRun && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEvalRun(null)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+              <div>
+                <h2 className="font-semibold text-lg">{selectedEvalRun.name}</h2>
+                <p className="text-xs text-zinc-500">
+                  {selectedEvalRun.status} • Thresholds: {Object.entries(selectedEvalRun.thresholds || {}).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v.toFixed(2)}`).join(", ")} •
+                  Pass: {selectedEvalRun.pass_count}/{selectedEvalRun.total_tests}
+                </p>
+              </div>
+              <button onClick={() => setSelectedEvalRun(null)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="px-6 py-5 space-y-6">
+              {selectedEvalRun.results.length === 0 ? (
+                <p className="text-sm text-zinc-500 text-center py-8">No results yet.</p>
+              ) : (
+                selectedEvalRun.results.map((res) => (
+                  <div key={res.id} className="border border-zinc-800 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-zinc-300">{res.test_name}</span>
+                      <div className="flex items-center gap-2">
+                        {res.passed !== null && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${res.passed ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
+                            {res.passed ? "PASS" : "FAIL"}
+                          </span>
+                        )}
+                        <span className="text-xs text-zinc-500 font-mono">{res.duration_ms}ms</span>
+                      </div>
+                    </div>
+                    {res.metrics && (
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(res.metrics).map(([k, v]) => {
+                          const metricPassed = res.metric_passes?.[k] ?? false;
+                          return (
+                            <span key={k} className={`text-[10px] border rounded px-1.5 py-0.5 ${metricPassed ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
+                              {k.replace(/_/g, " ")}: {typeof v === "number" ? v.toFixed(2) : v}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2.5">
+                        <span className="text-zinc-500 block mb-1">Expected</span>
+                        <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.test_name ? evalTests.find((t) => t.id === res.test_id)?.expected_answer || "—" : "—"}</p>
+                      </div>
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2.5">
+                        <span className="text-zinc-500 block mb-1">Actual</span>
+                        <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.actual_answer || "—"}</p>
+                      </div>
+                    </div>
+                    {res.retrieved_contexts && res.retrieved_contexts.length > 0 && (
+                      <div>
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Retrieved Contexts ({res.retrieved_contexts.length})</span>
+                        <div className="mt-1 space-y-1">
+                          {res.retrieved_contexts.map((ctx, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setSelectedContext(ctx)}
+                              className="text-left w-full text-[10px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1 truncate cursor-pointer hover:bg-zinc-800 transition"
+                              title="Click to view full context"
+                            >
+                              <span className="text-zinc-600 mr-1">#{i + 1}</span>{ctx.slice(0, 120)}…
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Context Modal */}
+      {selectedContext && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => setSelectedContext(null)}>
+          <div className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
+              <h3 className="text-sm font-medium text-zinc-300">Full Retrieved Context</h3>
+              <button onClick={() => setSelectedContext(null)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-4 w-4" /></button>
+            </div>
+            <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-words">{selectedContext}</pre>
           </div>
         </div>
       )}

@@ -1,3 +1,6 @@
+from app.models.agent_eval_run import AgentEvalRun
+from app.models.agent_eval_result import AgentEvalResult
+from app.models.agent_eval_test import AgentEvalTest
 from app.models.agent_settings import AgentSettings
 from app.models.agent_version import AgentVersion
 from app.models.agent_workflow import AgentWorkflow
@@ -13,6 +16,9 @@ from app.models.upload_settings import UploadSettings
 from app.models.user import User, UserRole
 
 __all__ = [
+    "AgentEvalRun",
+    "AgentEvalResult",
+    "AgentEvalTest",
     "AgentSettings",
     "AgentVersion",
     "AgentWorkflow",
