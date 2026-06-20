@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText, Activity } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
@@ -160,18 +160,15 @@ export default function AdminAgents() {
       return next;
     });
   };
-  const [draftSaving, setDraftSaving] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishNotes, setPublishNotes] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [versionDetail, setVersionDetail] = useState<AgentVersionDetail | null>(null);
   const [showTestDraft, setShowTestDraft] = useState(false);
   const [testDraftMessage, setTestDraftMessage] = useState("");
   const [testDraftResponse, setTestDraftResponse] = useState("");
   const [testingDraft, setTestingDraft] = useState(false);
-  const [suppressAutoSaveUntil, setSuppressAutoSaveUntil] = useState<number>(0);
 
   const [evalTests, setEvalTests] = useState<AgentEvalTest[]>([]);
   const [evalRuns, setEvalRuns] = useState<AgentEvalRun[]>([]);
@@ -297,60 +294,6 @@ export default function AdminAgents() {
     }
   }, [selected, activeTab, loadEvalData]);
 
-  const autoSaveDraft = useCallback(async (agent: AgentSetting) => {
-    if (!agent.is_published) return undefined;
-    setDraftSaving(true);
-    try {
-      const tools = (agent.tools || []).filter((t) => t !== "retrieve");
-      const payload: Partial<AgentSettingUpdate> = {
-        name: agent.name || undefined,
-        description: agent.description || undefined,
-        llm_model: agent.llm_model || undefined,
-        system_prompt: agent.system_prompt || undefined,
-        retrieval_top_k: agent.retrieval_top_k,
-        retrieval_enabled: (agent.connected_sources || []).length > 0,
-        web_search_enabled: tools.includes("web_search"),
-        connected_sources: agent.connected_sources || undefined,
-        tools: tools,
-        is_orchestrator: agent.is_orchestrator,
-        routes_to: agent.routes_to || undefined,
-        visibility: agent.visibility || undefined,
-        created_by: agent.created_by || undefined,
-        allow_uploads: agent.allow_uploads !== false,
-        allowed_users: agent.allowed_users || undefined,
-      };
-      const updated = await api.saveAgentDraft(agent.slug, payload);
-      return updated;
-    } catch {
-      return undefined;
-    } finally {
-      setDraftSaving(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!selected || !selected.is_published) return;
-    if (Date.now() < suppressAutoSaveUntil) return;
-    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    draftTimerRef.current = setTimeout(async () => {
-      const updated = await autoSaveDraft(selected);
-      if (updated) {
-        // Only update draft_config metadata — preserve user's current typing
-        setSelected((prev) =>
-          prev
-            ? {
-                ...prev,
-                draft_config: updated.draft_config,
-                updated_at: updated.updated_at,
-              }
-            : prev,
-        );
-      }
-    }, 1200);
-    return () => {
-      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-    };
-  }, [selected, autoSaveDraft, suppressAutoSaveUntil]);
 
   const hasDraftChanges = (agent: AgentSetting | null): boolean => {
     if (!agent) return false;
@@ -368,8 +311,7 @@ export default function AdminAgents() {
       setSelected(updated);
       setShowPublishModal(false);
       setPublishNotes("");
-      setSuppressAutoSaveUntil(Date.now() + 5000);
-      await refresh();
+            await refresh();
     } catch (e: unknown) {
       const err = e as Error;
       setError(err.message);
@@ -384,8 +326,7 @@ export default function AdminAgents() {
     try {
       const updated = await api.discardAgentDraft(selected.slug);
       setSelected(updated);
-      setSuppressAutoSaveUntil(Date.now() + 5000);
-      await refresh();
+            await refresh();
     } catch (e: unknown) {
       const err = e as Error;
       setError(err.message);
@@ -695,9 +636,6 @@ export default function AdminAgents() {
                             Draft
                           </span>
                         )}
-                        {draftSaving && (
-                          <span className="text-[11px] text-zinc-500 animate-pulse">Saving…</span>
-                        )}
                       </div>
                       <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
                     </div>
@@ -754,7 +692,6 @@ export default function AdminAgents() {
                         <button
                           key={t.key}
                           onClick={() => {
-                            if (t.key === "evaluation") setSuppressAutoSaveUntil(Date.now() + 5000);
                             setActiveTab(t.key);
                           }}
                           className={
@@ -1295,8 +1232,7 @@ export default function AdminAgents() {
                         <h3 className="text-sm font-medium text-zinc-300">Evaluation Tests ({evalTests.length})</h3>
                         <button
                           onClick={() => {
-                            setSuppressAutoSaveUntil(Date.now() + 5000);
-                            setEditingEvalTest(null);
+                                                        setEditingEvalTest(null);
                             setEvalTestForm({ name: "", question: "", expected_answer: "" });
                             setShowEvalTestModal(true);
                           }}
@@ -1331,8 +1267,7 @@ export default function AdminAgents() {
                                     <div className="flex items-center gap-2">
                                       <button
                                         onClick={() => {
-                                          setSuppressAutoSaveUntil(Date.now() + 5000);
-                                          setEditingEvalTest(t);
+                                                                                    setEditingEvalTest(t);
                                           setEvalTestForm({ name: t.name, question: t.question, expected_answer: t.expected_answer });
                                           setShowEvalTestModal(true);
                                         }}
@@ -1345,8 +1280,7 @@ export default function AdminAgents() {
                                         onClick={async () => {
                                           if (!selected) return;
                                           if (!confirm("Delete this test?")) return;
-                                          setSuppressAutoSaveUntil(Date.now() + 5000);
-                                          try {
+                                                                                    try {
                                             await api.deleteEvalTest(selected.slug, t.id);
                                             loadEvalData(selected.slug);
                                             // Re-sync selected agent to prevent stale status
@@ -1379,8 +1313,7 @@ export default function AdminAgents() {
                         <h3 className="text-sm font-medium text-zinc-300">Evaluation Runs ({evalRuns.length})</h3>
                         <button
                           onClick={() => {
-                            setSuppressAutoSaveUntil(Date.now() + 5000);
-                            setLaunchRunForm({
+                                                        setLaunchRunForm({
                               name: `Run ${new Date().toLocaleString()}`,
                               thresholds: { answer_correctness: 0.5, faithfulness: 0.5, answer_relevancy: 0.5 },
                               selectedTestIds: new Set(evalTests.map((t) => t.id)),
@@ -1455,8 +1388,7 @@ export default function AdminAgents() {
                                         e.stopPropagation();
                                         if (!selected) return;
                                         if (!confirm("Delete this run?")) return;
-                                        setSuppressAutoSaveUntil(Date.now() + 5000);
-                                        try {
+                                                                                try {
                                           await api.deleteEvalRun(selected.slug, r.id);
                                           loadEvalData(selected.slug);
                                           // Re-sync selected agent to prevent stale status
@@ -2242,8 +2174,7 @@ export default function AdminAgents() {
               <button
                 onClick={async () => {
                   if (!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()) return;
-                  setSuppressAutoSaveUntil(Date.now() + 5000);
-                  try {
+                                    try {
                     if (editingEvalTest) {
                       await api.updateEvalTest(selected.slug, editingEvalTest.id, evalTestForm);
                     } else {
@@ -2339,8 +2270,7 @@ export default function AdminAgents() {
               <button
                 onClick={async () => {
                   if (!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0) return;
-                  setSuppressAutoSaveUntil(Date.now() + 5000);
-                  try {
+                                    try {
                     await api.createEvalRun(selected.slug, {
                       name: launchRunForm.name,
                       test_ids: Array.from(launchRunForm.selectedTestIds),
