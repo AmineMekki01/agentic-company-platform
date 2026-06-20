@@ -524,40 +524,61 @@ def _has_tool_calls(state: AgentState) -> bool:
 
 
 def _extract_mention(text: str, registry: dict[str, AgentSpec]) -> str | None:
-    """Look for @slug in user text and return the matched agent slug if valid."""
-    match = re.search(r"@(\w+)", text)
-    if match:
-        slug = match.group(1).lower()
-        if slug in registry:
-            return slug
+    """Look for @slug in user text and return the matched agent slug if valid"""
+    idx = text.find("@")
+    if idx == -1:
+        return None
+
+    slug_chars = []
+    for ch in text[idx + 1:]:
+        if ch.isalnum() or ch in "_-":
+            slug_chars.append(ch)
+        else:
+            break
+    slug = "".join(slug_chars).lower()
+    if slug in registry:
+        return slug
     return None
 
 
 async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, AgentSpec]) -> str:
-    """Use a lightweight LLM to classify intent and pick the best agent slug."""
+    """Use gpt-5-nano to classify intent and pick the best agent slug."""
+    registry_slugs = sorted(registry.keys())
+    general_slugs = [s for s, sp in registry.items() if sp.is_router or sp.is_orchestrator]
+    general_slug = general_slugs[0] if general_slugs else ""
+
     agent_lines = "\n".join(
-        f"- {slug}: {spec.description}" for slug, spec in registry.items()
+        f"  {slug}: {spec.name or slug} — {spec.description or ''}" for slug, spec in registry.items()
     )
+
     prompt = (
-        f"You are a routing assistant. Your ONLY job is to choose the best agent slug to handle a user query.\n\n"
-        f"Available agents:\n{agent_lines}\n\n"
-        f"Routing rules:\n"
-        f"1. If the user explicitly mentions an agent with @slug, route to that agent.\n"
-        f"2. If the query is a short follow-up (e.g. 'thanks', 'ok', 'and then?') to the current agent, stay with that agent.\n"
-        f"3. If the query is clearly about a specific domain, route to the matching specialist.\n"
-        f"4. If the query is general, ambiguous, spans multiple domains, or is a greeting, route to 'general'.\n"
-        f"5. Return ONLY the agent slug — one word, no punctuation, no explanation.\n\n"
-        f"Current conversation agent: {current_agent or 'none'}\n"
-        f"User message: {user_msg}\n\n"
-        f"Agent slug:"
+        "You are a router. Pick the exact agent slug that should handle the user query.\n\n"
+        f"Valid slugs (pick one exactly): {registry_slugs}\n\n"
+        f"{agent_lines}\n\n"
+        "Rules:\n"
+        "- Greetings, small talk, broad or cross-domain questions → pick the general/router agent.\n"
+        "- Domain-specific questions (IT, HR, finance) → pick the matching specialist.\n"
+        "- Short follow-ups ('thanks', 'ok', 'what about it?') → stay with current_agent.\n"
+        "- Return ONLY the slug, nothing else. No quotes, no punctuation.\n\n"
+        f"current_agent: {current_agent or 'none'}\n"
+        f"user: {user_msg}\n\n"
+        "slug:"
     )
-    llm = get_chat_model("gpt-5-nano", temperature=0.1)
+
+    llm = get_chat_model("gpt-5-nano", temperature=0.0)
     response = await llm.ainvoke([SystemMessage(content=prompt)])
     text = str(getattr(response, "content", response)).strip().lower()
-    text = re.sub(r"[^a-z0-9_]", "", text)
+
     if text in registry:
+        logger.info("LLM router: %s", text)
         return text
-    return ""
+
+    if current_agent in registry:
+        logger.info("LLM router fallback: staying with %s", current_agent)
+        return current_agent
+
+    logger.info("LLM router fallback: general %s", general_slug)
+    return general_slug if general_slug in registry else ""
 
 
 async def _orchestrator_delegate(
@@ -589,13 +610,11 @@ async def _orchestrator_delegate(
     )
     llm = get_chat_model("gpt-5-nano", temperature=0.1)
     response = await llm.ainvoke([SystemMessage(content=prompt)])
-    text = str(getattr(response, "content", response)).strip()
-    text = re.sub(r"[^a-zA-Z0-9_]", "", text)
-    if text.lower() == "synthesize":
+    text = str(getattr(response, "content", response)).strip().lower()
+    if text == "synthesize":
         return "SYNTHESIZE"
-    slug = text.lower()
-    if slug in allowed_registry:
-        return slug
+    if text in allowed_registry:
+        return text
     return "SYNTHESIZE"
 
 
@@ -876,7 +895,7 @@ def build_graph(
     routes_map: dict[str, list[str]] = {}
     orchestrator_slugs: set[str] = set()
     for slug, spec in registry.items():
-        if spec.is_orchestrator:
+        if spec.is_router or spec.is_orchestrator:
             orchestrator_slugs.add(slug)
             routes_map[slug] = spec.routes_to or []
 

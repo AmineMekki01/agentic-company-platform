@@ -29,6 +29,7 @@ class AgentSettingOut(BaseModel):
     connected_sources: list[Any] | None
     tools: list[str] | None
     is_orchestrator: bool
+    is_router: bool
     routes_to: list[str] | None
     mode_profile: dict[str, Any] | None
     visibility: str
@@ -67,6 +68,7 @@ class AgentSettingUpdate(BaseModel):
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False
+    is_router: bool = False
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
@@ -96,6 +98,7 @@ class AgentSettingCreate(BaseModel):
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False
+    is_router: bool = False
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
@@ -142,6 +145,7 @@ class AgentDraftSave(BaseModel):
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False
+    is_router: bool = False
     routes_to: list[str] | None = None
     mode_profile: dict[str, Any] | None = None
     visibility: str | None = "all"
@@ -149,3 +153,35 @@ class AgentDraftSave(BaseModel):
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
     beta_users: list[str] | None = None
+
+
+class AgentTemplateOut(BaseModel):
+    """Lightweight template metadata for gallery listing."""
+
+    id: str
+    name: str
+    description: str | None
+    tags: list[str] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgentTemplateDetailOut(BaseModel):
+    """Full template payload for preview / deploy."""
+
+    id: str
+    name: str
+    description: str | None
+    tags: list[str] = []
+    agent_config: dict[str, Any]
+    workflows: list[dict[str, Any]] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AgentTemplateDeployRequest(BaseModel):
+    """Override fields when deploying a template."""
+
+    slug: str
+    name: str | None = None
+    description: str | None = None

@@ -23,7 +23,7 @@ router = APIRouter(prefix="/admin/agents", tags=["admin"])
 
 _AGENT_SETTING_COLUMNS = """
 SELECT id, slug, name, description, llm_model, system_prompt, retrieval_top_k,
-       retrieval_enabled, web_search_enabled, connected_sources, tools, is_orchestrator,
+       retrieval_enabled, web_search_enabled, connected_sources, tools, is_orchestrator, is_router,
        routes_to, mode_profile, visibility, created_by, allow_uploads, allowed_users, beta_users,
        created_at, updated_at, draft_config, is_published, published_at, published_version_id
 FROM agent_settings

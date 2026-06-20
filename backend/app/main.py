@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.agents.runtime import AgentRuntime
+from app.api.admin_agent_templates import router as admin_agent_templates_router
 from app.api.admin_agents import router as admin_agents_router
 from app.api.admin_upload_settings import router as admin_upload_settings_router
 from app.api.agent_eval import router as agent_eval_router
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, prefix="/api")
     app.include_router(chat_upload_router, prefix="/api")
     app.include_router(admin_agents_router, prefix="/api")
+    app.include_router(admin_agent_templates_router, prefix="/api")
     app.include_router(agent_eval_router, prefix="/api")
     app.include_router(agent_workflows_router, prefix="/api")
     app.include_router(admin_users_router, prefix="/api")

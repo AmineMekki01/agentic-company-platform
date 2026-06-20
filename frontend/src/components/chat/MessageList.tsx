@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon } from "lucide-react";
+import { Bot, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 import FeedbackModal from "./FeedbackModal";
@@ -20,6 +20,7 @@ export interface AttachmentInfo {
 
 export interface DisplayMessage {
   id: string;
+  serverId?: string;
   role: "user" | "assistant";
   content: string;
   agent_id: string | null;
@@ -211,12 +212,12 @@ function AssistantMessage({
       {showModal && conversationId && (
         <FeedbackModal
           conversationId={conversationId}
-          messageId={m.id}
+          messageId={m.serverId || m.id}
           initialThumbsUp={modalInitialUp}
           onClose={() => setShowModal(false)}
           onSubmitted={() => {
             setShowModal(false);
-            onFeedbackSubmitted?.(m.id, modalInitialUp);
+            onFeedbackSubmitted?.(m.serverId || m.id, modalInitialUp);
           }}
         />
       )}
@@ -243,74 +244,100 @@ export default function MessageList({
     return <div className="flex flex-1 items-center justify-center">{emptyState}</div>;
   }
 
+  // Build a map of previous assistant agent per message index
+  const prevAssistantAgents: (string | null)[] = [];
+  let lastAgent: string | null = null;
+  for (const m of messages) {
+    prevAssistantAgents.push(lastAgent);
+    if (m.role === "assistant" && m.agent_id) {
+      lastAgent = m.agent_id;
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
-        {messages.map((m) => (
-          <div key={m.id} className="flex gap-3.5 group">
-            <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                m.role === "user"
-                  ? "bg-gradient-to-br from-zinc-600 to-zinc-700"
-                  : "bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15"
-              }`}
-            >
-              {m.role === "user" ? (
-                <UserIcon className="h-4 w-4 text-zinc-200" />
-              ) : (
-                <Bot className="h-4 w-4 text-white" />
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1 pt-0.5">
-              <div className="mb-1.5 flex items-baseline gap-2">
-                <span className="text-xs font-semibold text-zinc-300">
-                  {m.role === "user" ? "You" : agentName(agents, m.agent_id)}
-                </span>
-                {m.role === "assistant" && m.agent_id && (
-                  <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
-                    @{m.agent_id}
+        {messages.map((m, idx) => {
+          const prevAgent = prevAssistantAgents[idx];
+          const isHandoff = m.role === "assistant" && !!m.agent_id && prevAgent !== null && prevAgent !== m.agent_id;
+          return (
+            <div key={m.id} className="group">
+              {isHandoff && (
+                <div className="mb-2 flex w-full items-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800/80 border border-zinc-700/50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
+                    <ArrowRight className="h-3 w-3" />
+                    Handed off to {agentName(agents, m.agent_id)}
                   </span>
-                )}
-                {m.role === "assistant" && m.draft && (
-                  <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
-                    Draft
-                  </span>
-                )}
-              </div>
-
-              {m.role === "user" ? (
-                <div>
-                  {m.attachments && m.attachments.length > 0 && (
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      {m.attachments.map((att, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-xs text-zinc-300"
-                        >
-                          <Paperclip className="h-3 w-3 text-zinc-500" />
-                          {att.filename}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-                    {m.content}
-                  </p>
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
                 </div>
-              ) : (
-                <AssistantMessage
-                  m={m}
-                  renderAction={renderAction}
-                  conversationId={conversationId}
-                  hasFeedback={!!feedbackMap?.[m.id]}
-                  feedbackUp={feedbackMap?.[m.id]?.thumbs_up}
-                  onFeedbackSubmitted={onFeedbackSubmitted}
-                />
               )}
+              <div className="flex gap-3.5">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                    m.role === "user"
+                      ? "bg-gradient-to-br from-zinc-600 to-zinc-700"
+                      : "bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15"
+                  }`}
+                >
+                  {m.role === "user" ? (
+                    <UserIcon className="h-4 w-4 text-zinc-200" />
+                  ) : (
+                    <Bot className="h-4 w-4 text-white" />
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <div className="mb-1.5 flex items-baseline gap-2">
+                    <span className="text-xs font-semibold text-zinc-300">
+                      {m.role === "user" ? "You" : agentName(agents, m.agent_id)}
+                    </span>
+                    {m.role === "assistant" && m.agent_id && (
+                      <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
+                        @{m.agent_id}
+                      </span>
+                    )}
+                    {m.role === "assistant" && m.draft && (
+                      <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
+                        Draft
+                      </span>
+                    )}
+                  </div>
+
+                  {m.role === "user" ? (
+                    <div>
+                      {m.attachments && m.attachments.length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-2">
+                          {m.attachments.map((att, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-xs text-zinc-300"
+                            >
+                              <Paperclip className="h-3 w-3 text-zinc-500" />
+                              {att.filename}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                        {m.content}
+                      </p>
+                    </div>
+                  ) : (
+                    <AssistantMessage
+                      m={m}
+                      renderAction={renderAction}
+                      conversationId={conversationId}
+                      hasFeedback={!!feedbackMap?.[m.serverId || m.id]}
+                      feedbackUp={feedbackMap?.[m.serverId || m.id]?.thumbs_up}
+                      onFeedbackSubmitted={onFeedbackSubmitted}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
     </div>

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 import AdminLayout from "@/components/AdminLayout";
+import AdminAgentTemplates from "@/pages/AdminAgentTemplates";
 import AdminAgents from "@/pages/AdminAgents";
 import AdminConnectors from "@/pages/AdminConnectors";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
@@ -46,6 +47,7 @@ export default function App() {
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/agents" replace />} />
         <Route path="agents" element={<AdminAgents />} />
+        <Route path="agent-templates" element={<AdminAgentTemplates />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="connectors" element={<AdminConnectors />} />
         <Route path="upload-settings" element={<AdminUploadSettings />} />

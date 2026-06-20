@@ -21,4 +21,5 @@ class AgentSpec:
     default_model: str = "gpt-5-nano"
     tools: list[str] = field(default_factory=list)
     is_orchestrator: bool = False
+    is_router: bool = False
     routes_to: list[str] = field(default_factory=list)

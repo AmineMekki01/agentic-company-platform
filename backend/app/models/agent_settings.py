@@ -37,6 +37,7 @@ class AgentSettings(Base):
     connected_sources: Mapped[list[Any] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
     tools: Mapped[list[str] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
     is_orchestrator: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    is_router: Mapped[bool] = mapped_column(nullable=False, server_default="false")
     routes_to: Mapped[list[str] | None] = mapped_column(JSON(), nullable=True)
     mode_profile: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     visibility: Mapped[str] = mapped_column(
@@ -68,4 +69,5 @@ class AgentSettings(Base):
         order_by="AgentVersion.version_number.desc()",
         lazy="selectin",
         foreign_keys="AgentVersion.agent_settings_id",
+        cascade="all, delete-orphan",
     )

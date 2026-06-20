@@ -148,16 +148,27 @@ async def chat_stream(
             detail=f"Unknown agent '{agent}'",
         )
 
-    if not body.force_agent:
+    # entry_agent = what the user selected (conversation owner / routing entry point)
+    # agent = who actually handles this turn (may be persisted specialist for direct mode)
+    entry_agent = body.agent or default_agent
+    agent = entry_agent
+
+    entry_spec = runtime.agent_registry.get(entry_agent)
+    is_router_entry = entry_spec is not None and (entry_spec.is_router or entry_spec.is_orchestrator)
+
+    if not body.force_agent and not is_router_entry:
+        # Direct specialist chat: allow state persistence across turns
         try:
             config = {"configurable": {"thread_id": str(conversation_id)}}
             existing = await runtime.graph.aget_state(config)
             persisted = existing.values.get("current_agent") if existing else None
             if persisted and persisted in runtime.agent_registry:
                 agent = persisted
-                logger.info("Using persisted agent=%s for conv=%s", agent, conversation_id)
+                logger.info("Direct mode: using persisted agent=%s for conv=%s", agent, conversation_id)
         except Exception:
             pass
+    elif is_router_entry:
+        logger.info("Router mode: entry=%s for conv=%s", entry_agent, conversation_id)
 
     agent_row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == agent))
     if user.role != UserRole.ADMIN and agent_row and not _agent_visible(agent_row, user):
@@ -177,6 +188,7 @@ async def chat_stream(
         model_name = draft.get("llm_model") or agent_row.llm_model
         tools = draft.get("tools") if "tools" in draft else agent_row.tools
         is_orchestrator = draft.get("is_orchestrator") if "is_orchestrator" in draft else agent_row.is_orchestrator
+        is_router = draft.get("is_router") if "is_router" in draft else agent_row.is_router
         routes_to = draft.get("routes_to") if "routes_to" in draft else agent_row.routes_to
         connected_sources = draft.get("connected_sources") if "connected_sources" in draft else agent_row.connected_sources
         retrieval_top_k = draft.get("retrieval_top_k") if "retrieval_top_k" in draft else agent_row.retrieval_top_k
@@ -194,6 +206,7 @@ async def chat_stream(
                     default_model=model_name or "gpt-5-nano",
                     tools=tools or [],
                     is_orchestrator=bool(is_orchestrator),
+                    is_router=bool(is_router),
                     routes_to=routes_to or [],
                 )
                 settings_map[a.slug] = {
@@ -211,6 +224,7 @@ async def chat_stream(
                     default_model=a.llm_model or "gpt-5-nano",
                     tools=a.tools or [],
                     is_orchestrator=bool(a.is_orchestrator),
+                    is_router=bool(a.is_router) if a.is_router is not None else False,
                     routes_to=a.routes_to or [],
                 )
                 settings_map[a.slug] = {
@@ -314,7 +328,7 @@ async def chat_stream(
             input_state = {
                 "messages": [HumanMessage(content=llm_content)],
                 "current_agent": agent,
-                "orchestrator_agent": agent,
+                "orchestrator_agent": entry_agent,  # sticky to user's selected entry point
                 "forced_agent": None,
                 "mode": body.mode,
                 "step_count": 0,
@@ -385,7 +399,10 @@ async def chat_stream(
                     output = event.get("data", {}).get("output", {})
                     if isinstance(output, dict):
                         if output.get("current_agent"):
-                            routed_agent = output["current_agent"]
+                            new_agent = output["current_agent"]
+                            if new_agent != routed_agent:
+                                routed_agent = new_agent
+                                yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
                         if output.get("sources"):
                             sources = output["sources"]
 

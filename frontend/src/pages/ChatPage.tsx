@@ -50,8 +50,9 @@ export default function ChatPage() {
       .then((loaded) => {
         setAgents(loaded);
         if (loaded.length && !selectedAgent) {
-          const general = loaded.find((a) => a.slug === "general");
-          setSelectedAgent(general ? general.slug : loaded[0].slug);
+          const router = loaded.find((a) => a.slug.includes("general") || a.name?.toLowerCase().includes("router"));
+          const entry = router ? router.slug : loaded[0].slug;
+          setSelectedAgent(entry);
         }
       })
       .catch(() => {})
@@ -171,7 +172,6 @@ export default function ChatPage() {
 
     await send(conversationId, content.trim(), agent, isForced, mode, {
       onAgent: (slug) => {
-        setSelectedAgent(slug);
         setMessages((ms) =>
           ms.map((m) => (m.id === placeholderId ? { ...m, agent_id: slug } : m))
         );
@@ -197,7 +197,7 @@ export default function ChatPage() {
       onDone: ({ message_id, title }) => {
         setMessages((ms) =>
           ms.map((m) =>
-            m.id === placeholderId ? { ...m, id: message_id, streaming: false, step: undefined } : m
+            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
           )
         );
         setConversations((cs) =>

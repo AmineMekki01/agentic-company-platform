@@ -76,6 +76,7 @@ def upgrade() -> None:
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("agent_id", sa.String(length=50), nullable=True),
         sa.Column("citations", sa.JSON(), nullable=True),
+        sa.Column("tool_calls_log", sa.JSON(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -101,6 +102,7 @@ def upgrade() -> None:
         sa.Column("tools", sa.JSON(), nullable=True, server_default="[]"),
         sa.Column("mode_profile", sa.JSON(), nullable=True),
         sa.Column("is_orchestrator", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("is_router", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("routes_to", sa.JSON(), nullable=True),
         sa.Column("visibility", sa.String(length=20), nullable=False, server_default="all"),
         sa.Column("created_by", sa.String(length=255), nullable=True),
@@ -367,8 +369,146 @@ def upgrade() -> None:
         ["folder_id"],
     )
 
+    # message_feedback
+    op.create_table(
+        "message_feedback",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "message_id",
+            sa.Uuid(),
+            sa.ForeignKey("messages.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "conversation_id",
+            sa.Uuid(),
+            sa.ForeignKey("conversations.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "user_id",
+            sa.Uuid(),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("agent_id", sa.String(length=50), nullable=True),
+        sa.Column("thumbs_up", sa.Boolean(), nullable=True),
+        sa.Column("comment", sa.Text(), nullable=True),
+        sa.Column("screenshot_attachment_id", sa.Uuid(), nullable=True),
+        sa.Column("conversation_snapshot", sa.JSON(), nullable=True),
+        sa.Column("tool_calls_log", sa.JSON(), nullable=True),
+        sa.Column("retrieved_sources", sa.JSON(), nullable=True),
+        sa.Column("conversation_actions", sa.JSON(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+    op.create_index("ix_message_feedback_message_id", "message_feedback", ["message_id"])
+    op.create_index("ix_message_feedback_conversation_id", "message_feedback", ["conversation_id"])
+    op.create_index("ix_message_feedback_user_id", "message_feedback", ["user_id"])
+
+    # feedback_attachments
+    op.create_table(
+        "feedback_attachments",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "feedback_id",
+            sa.Uuid(),
+            sa.ForeignKey("message_feedback.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("filename", sa.String(length=255), nullable=False),
+        sa.Column("mime_type", sa.String(length=100), nullable=True),
+        sa.Column("s3_bucket", sa.String(length=255), nullable=False),
+        sa.Column("s3_key", sa.Text(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
+    # agent_eval_tests
+    op.create_table(
+        "agent_eval_tests",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("agent_slug", sa.String(length=50), nullable=False),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("prompt", sa.Text(), nullable=False),
+        sa.Column("expected_keywords", sa.JSON(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
+    # agent_eval_runs
+    op.create_table(
+        "agent_eval_runs",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("agent_slug", sa.String(length=50), nullable=False),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column(
+            "status",
+            sa.String(length=20),
+            nullable=False,
+            server_default="pending",
+        ),
+        sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("result", sa.JSON(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
+    # agent_eval_results
+    op.create_table(
+        "agent_eval_results",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "run_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_eval_runs.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "test_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_eval_tests.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column("passed", sa.Boolean(), nullable=True),
+        sa.Column("response", sa.Text(), nullable=True),
+        sa.Column("keywords_matched", sa.JSON(), nullable=True),
+        sa.Column("duration_ms", sa.Integer(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("agent_eval_results")
+    op.drop_table("agent_eval_runs")
+    op.drop_table("agent_eval_tests")
+    op.drop_table("feedback_attachments")
+    op.drop_index("ix_message_feedback_user_id", table_name="message_feedback")
+    op.drop_index("ix_message_feedback_conversation_id", table_name="message_feedback")
+    op.drop_index("ix_message_feedback_message_id", table_name="message_feedback")
+    op.drop_table("message_feedback")
     op.drop_index("ix_conversations_folder_id", table_name="conversations")
     op.drop_column("conversations", "folder_id")
     op.drop_index("ix_conversation_folders_user_id", table_name="conversation_folders")

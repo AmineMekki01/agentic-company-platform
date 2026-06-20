@@ -30,7 +30,7 @@ export default function AgentSwitcher({ agents, selected, onSelect }: AgentSwitc
         className="flex items-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/80 px-3 py-1.5 text-sm font-medium transition hover:bg-zinc-800 hover:border-zinc-600"
       >
         <Bot className="h-4 w-4 text-indigo-400" />
-        {current?.name ?? selected}
+        <span className="truncate max-w-[200px]">{current?.name ?? selected}</span>
         <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />
       </button>
 

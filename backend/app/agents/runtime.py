@@ -68,6 +68,7 @@ class AgentRuntime:
                 default_model=row.llm_model or "gpt-5-nano",
                 tools=row.tools or [],
                 is_orchestrator=row.is_orchestrator if row.is_orchestrator is not None else False,
+                is_router=row.is_router if row.is_router is not None else False,
                 routes_to=row.routes_to or [],
             )
         return registry
