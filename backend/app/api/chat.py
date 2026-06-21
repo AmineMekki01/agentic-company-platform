@@ -67,6 +67,7 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
             description=r.description,
             tools=r.tools or [],
             allow_uploads=r.allow_uploads,
+            agent_type=r.agent_type if r.agent_type else "standard",
         )
         for r in rows
         if _agent_visible(r, user)
@@ -208,12 +209,16 @@ async def chat_stream(
                     is_orchestrator=bool(is_orchestrator),
                     is_router=bool(is_router),
                     routes_to=routes_to or [],
+                    agent_type=draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
+                    research_config=draft.get("research_config") if "research_config" in draft else a.research_config,
                 )
                 settings_map[a.slug] = {
                     "model": model_name,
                     "system_prompt": system_prompt,
                     "retrieval_top_k": retrieval_top_k or 5,
                     "connected_sources": connected_sources or [],
+                    "agent_type": draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
+                    "research_config": draft.get("research_config") if "research_config" in draft else a.research_config,
                 }
             else:
                 registry[a.slug] = AgentSpec(
@@ -226,12 +231,16 @@ async def chat_stream(
                     is_orchestrator=bool(a.is_orchestrator),
                     is_router=bool(a.is_router) if a.is_router is not None else False,
                     routes_to=a.routes_to or [],
+                    agent_type=a.agent_type or "standard",
+                    research_config=a.research_config,
                 )
                 settings_map[a.slug] = {
                     "model": a.llm_model,
                     "system_prompt": a.system_prompt,
                     "retrieval_top_k": a.retrieval_top_k or 5,
                     "connected_sources": a.connected_sources or [],
+                    "agent_type": a.agent_type or "standard",
+                    "research_config": a.research_config,
                 }
         graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
         draft_registry = registry
@@ -363,7 +372,6 @@ async def chat_stream(
                     yield {"event": "step", "data": json.dumps({"step": "routing"})}
                 elif kind == "on_chain_start" and name == "tools":
                     yield {"event": "step", "data": json.dumps({"step": "searching"})}
-                    # Capture tool call args at start
                     tool_input = event.get("data", {}).get("input", {})
                     state_tools = tool_input.get("messages", []) if isinstance(tool_input, dict) else []
                     for msg in state_tools:
@@ -383,7 +391,6 @@ async def chat_stream(
                 elif kind in ("on_chain_start", "on_chain_stream") and name in agent_slugs:
                     yield {"event": "step", "data": json.dumps({"step": "thinking"})}
                 elif kind == "on_tool_end":
-                    # Robust tool call capture — fires for every tool execution
                     data = event.get("data", {})
                     tool_name = event.get("name") or ""
                     tool_input = data.get("input", {}) if isinstance(data, dict) else {}
@@ -415,14 +422,12 @@ async def chat_stream(
                                     tool_id = getattr(msg, "tool_call_id", None) if not isinstance(msg, dict) else msg.get("tool_call_id")
                                     result = _chunk_text(msg)
                                     if tool_id:
-                                        # Match by tool_call_id for accuracy
                                         for entry in tool_calls_log:
                                             if entry.get("tool_call_id") == tool_id and entry.get("status") == "started":
                                                 entry["result"] = result
                                                 entry["status"] = "completed"
                                                 break
                                         else:
-                                            # Fallback: match first started entry
                                             for entry in tool_calls_log:
                                                 if entry.get("status") == "started":
                                                     entry["result"] = result
@@ -430,7 +435,6 @@ async def chat_stream(
                                                     entry["status"] = "completed"
                                                     break
                                     else:
-                                        # No tool_call_id — match first started entry
                                         for entry in tool_calls_log:
                                             if entry.get("status") == "started":
                                                 entry["result"] = result

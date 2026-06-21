@@ -57,6 +57,10 @@ class AgentSettings(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    agent_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="standard"
+    )
+    research_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     draft_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean(), nullable=False, server_default="false")
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

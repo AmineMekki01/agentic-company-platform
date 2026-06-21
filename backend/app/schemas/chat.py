@@ -104,6 +104,7 @@ class AgentOut(BaseModel):
     description: str | None = None
     tools: list[str] | None = None
     allow_uploads: bool = True
+    agent_type: str = "standard"
 
 
 class ChatAttachmentOut(BaseModel):

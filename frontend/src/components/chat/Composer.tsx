@@ -11,6 +11,8 @@ interface ComposerProps {
   focusKey: number;
   onSend: (content: string, agent: string | null, files: File[]) => void;
   onStop: () => void;
+  awaitingClarification?: boolean;
+  onClarificationResponse?: (answer: string) => void;
 }
 
 export default function Composer({
@@ -21,6 +23,8 @@ export default function Composer({
   focusKey,
   onSend,
   onStop,
+  awaitingClarification,
+  onClarificationResponse,
 }: ComposerProps) {
   const [value, setValue] = useState("");
   const [forcedAgent, setForcedAgent] = useState<string | null>(null);
@@ -107,6 +111,13 @@ export default function Composer({
     const content = value.trim();
     const allowedFiles = canUpload ? files : [];
     if ((!content && allowedFiles.length === 0) || disabled) return;
+    if (awaitingClarification && onClarificationResponse) {
+      onClarificationResponse(content);
+      setValue("");
+      setFiles([]);
+      setMentionQuery(null);
+      return;
+    }
     onSend(content, forcedAgent, allowedFiles);
     setValue("");
     setFiles([]);
@@ -240,7 +251,7 @@ export default function Composer({
               value={value}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
-              placeholder="Message… (use @ to call a specific agent)"
+              placeholder={awaitingClarification ? "Answer the question and press Enter to continue research…" : "Message… (use @ to call a specific agent)"}
               className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-zinc-600"
               style={{ height: "auto" }}
               onInput={(e) => {
@@ -260,9 +271,13 @@ export default function Composer({
             ) : (
               <button
                 onClick={submit}
-                disabled={disabled || !value.trim()}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/20 transition-all hover:from-indigo-500 hover:to-violet-500 active:scale-95 disabled:opacity-40 disabled:active:scale-100 disabled:shadow-none"
-                aria-label="Send message"
+                disabled={disabled || (!value.trim() && !awaitingClarification)}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-lg transition-all active:scale-95 disabled:opacity-40 disabled:active:scale-100 disabled:shadow-none ${
+                  awaitingClarification
+                    ? "bg-gradient-to-br from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                    : "bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-indigo-500/20"
+                }`}
+                aria-label={awaitingClarification ? "Send clarification answer" : "Send message"}
               >
                 <SendHorizonal className="h-4 w-4" />
               </button>

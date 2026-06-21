@@ -23,3 +23,5 @@ class AgentSpec:
     is_orchestrator: bool = False
     is_router: bool = False
     routes_to: list[str] = field(default_factory=list)
+    agent_type: str = "standard"
+    research_config: dict | None = None

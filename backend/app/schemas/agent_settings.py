@@ -37,6 +37,8 @@ class AgentSettingOut(BaseModel):
     allow_uploads: bool
     allowed_users: list[str] | None
     beta_users: list[str] | None
+    agent_type: str = "standard"
+    research_config: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
     draft_config: dict[str, Any] | None = None
@@ -76,6 +78,8 @@ class AgentSettingUpdate(BaseModel):
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
     beta_users: list[str] | None = None
+    agent_type: str = "standard"
+    research_config: dict[str, Any] | None = None
 
 
 class AgentSettingCreate(BaseModel):
@@ -106,6 +110,8 @@ class AgentSettingCreate(BaseModel):
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
     beta_users: list[str] | None = None
+    agent_type: str = "standard"
+    research_config: dict[str, Any] | None = None
 
 
 class AgentVersionOut(BaseModel):
@@ -153,6 +159,8 @@ class AgentDraftSave(BaseModel):
     allow_uploads: bool = True
     allowed_users: list[str] | None = None
     beta_users: list[str] | None = None
+    agent_type: str = "standard"
+    research_config: dict[str, Any] | None = None
 
 
 class AgentTemplateOut(BaseModel):

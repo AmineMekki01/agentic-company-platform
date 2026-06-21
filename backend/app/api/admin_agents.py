@@ -25,6 +25,7 @@ _AGENT_SETTING_COLUMNS = """
 SELECT id, slug, name, description, llm_model, system_prompt, retrieval_top_k,
        retrieval_enabled, web_search_enabled, connected_sources, tools, is_orchestrator, is_router,
        routes_to, mode_profile, visibility, created_by, allow_uploads, allowed_users, beta_users,
+       agent_type, research_config,
        created_at, updated_at, draft_config, is_published, published_at, published_version_id
 FROM agent_settings
 """
@@ -337,6 +338,8 @@ async def publish_agent(
         "created_by": row.created_by,
         "allow_uploads": row.allow_uploads,
         "allowed_users": row.allowed_users,
+        "agent_type": row.agent_type,
+        "research_config": row.research_config,
     }
 
     if row.is_published or row.published_version_id is not None:
@@ -415,6 +418,8 @@ async def restore_agent_version(
         "created_by": row.created_by,
         "allow_uploads": row.allow_uploads,
         "allowed_users": row.allowed_users,
+        "agent_type": row.agent_type,
+        "research_config": row.research_config,
     }
 
     version_num = await _next_version_number(db, str(row.id))
@@ -555,12 +560,16 @@ async def test_agent_draft(
                 tools=tools or [],
                 is_orchestrator=bool(is_orchestrator),
                 routes_to=routes_to or [],
+                agent_type=draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
+                research_config=draft.get("research_config") if "research_config" in draft else a.research_config,
             )
             settings_map[a.slug] = {
                 "model": model_name,
                 "system_prompt": system_prompt,
                 "retrieval_top_k": retrieval_top_k or 5,
                 "connected_sources": connected_sources or [],
+                "agent_type": draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
+                "research_config": draft.get("research_config") if "research_config" in draft else a.research_config,
             }
         else:
             registry[a.slug] = AgentSpec(
@@ -572,12 +581,16 @@ async def test_agent_draft(
                 tools=a.tools or [],
                 is_orchestrator=bool(a.is_orchestrator),
                 routes_to=a.routes_to or [],
+                agent_type=a.agent_type or "standard",
+                research_config=a.research_config,
             )
             settings_map[a.slug] = {
                 "model": a.llm_model,
                 "system_prompt": a.system_prompt,
                 "retrieval_top_k": a.retrieval_top_k or 5,
                 "connected_sources": a.connected_sources or [],
+                "agent_type": a.agent_type or "standard",
+                "research_config": a.research_config,
             }
 
     graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
