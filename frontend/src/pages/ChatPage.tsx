@@ -240,6 +240,14 @@ export default function ChatPage() {
               m.id === placeholderId ? { ...m, content: m.content + delta, awaitingClarification: false } : m
             )
           ),
+        onSources: (sources) => {
+          console.log("[DR-CB] onSources", { placeholderId, count: sources.length });
+          setMessages((ms) =>
+            ms.map((m) =>
+              m.id === placeholderId ? { ...m, sources } : m
+            )
+          );
+        },
         onDone: (messageId) => {
           console.log("[DR-CB] onDone", { placeholderId, messageId });
           setMessages((ms) =>
@@ -357,6 +365,14 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, content: m.content + delta } : m
           )
         ),
+      onSources: (sources) => {
+        console.log("[DR-CB] (resume) onSources", { placeholderId, count: sources.length });
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, sources } : m
+          )
+        );
+      },
       onDone: (messageId) => {
         setMessages((ms) =>
           ms.map((m) =>
