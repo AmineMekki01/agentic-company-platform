@@ -290,7 +290,8 @@ export default function ChatPage() {
         ) : (
           <>
             <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-3 backdrop-blur-sm z-10">
-              <div className="flex items-center gap-3">
+              {/* Left: Agent + Mode */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <AgentSwitcher
                   agents={agents}
                   selected={selectedAgent}
@@ -304,9 +305,20 @@ export default function ChatPage() {
                 />
                 <ModeSelector selected={mode} onSelect={setMode} />
               </div>
-              <div className="flex items-center gap-3">
+
+              {/* Center: Conversation title */}
+              <div className="flex-1 flex justify-center min-w-0 px-4">
+                <h1 className="truncate text-sm font-medium text-zinc-300 max-w-md">
+                  {activeId
+                    ? (conversations.find((c) => c.id === activeId)?.title ?? "Untitled conversation")
+                    : "New chat"}
+                </h1>
+              </div>
+
+              {/* Right: Admin controls + Streaming */}
+              <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
                 {isAdmin() && (
-                  <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none">
+                  <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none shrink-0">
                     <input
                       type="checkbox"
                       checked={testDraft}
@@ -317,13 +329,13 @@ export default function ChatPage() {
                   </label>
                 )}
                 {streaming && (
-                  <>
+                  <div className="flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 shrink-0">
                     <span className="relative flex h-2 w-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
                       <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
                     </span>
-                    <span className="text-xs text-zinc-400">Agent is responding…</span>
-                  </>
+                    <span className="text-xs font-medium text-indigo-300">Agent is responding…</span>
+                  </div>
                 )}
               </div>
             </header>

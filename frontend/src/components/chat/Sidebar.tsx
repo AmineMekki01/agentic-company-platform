@@ -260,6 +260,11 @@ export default function Sidebar({
         {/* Unfiled conversations */}
         {unfiled.length > 0 && (
           <div className="space-y-0.5">
+            {folders.length > 0 && (
+              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+                Unfiled
+              </div>
+            )}
             {unfiled.map((c) => (
               <ConversationItem key={c.id} c={c} />
             ))}
@@ -287,7 +292,9 @@ export default function Sidebar({
                     style={{ backgroundColor: folder.color ?? "#3b82f6" }}
                   />
                   <span className="truncate">{folder.name}</span>
-                  <span className="text-zinc-600">({items.length})</span>
+                  <span className="ml-1 rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-400">
+                    {items.length}
+                  </span>
                 </button>
                 <button
                   onClick={() => onDeleteFolder(folder.id)}
@@ -311,10 +318,13 @@ export default function Sidebar({
           );
         })}
 
-        {conversations.length === 0 && folders.length === 0 && (
+        {conversations.length === 0 && (
           <div className="px-3 py-8 text-center">
-            <MessageSquare className="mx-auto mb-2 h-5 w-5 text-zinc-700" />
-            <p className="text-xs text-zinc-600">No conversations yet</p>
+            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900">
+              <MessageSquare className="h-5 w-5 text-zinc-700" />
+            </div>
+            <p className="text-xs font-medium text-zinc-500">No conversations yet</p>
+            <p className="mt-1 text-[11px] text-zinc-600">Start a new chat to begin</p>
           </div>
         )}
       </nav>
