@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText, Activity } from "lucide-react";
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
@@ -119,6 +119,9 @@ const makeDefaultNewAgent = (ownerEmail = ""): AgentSettingCreate => ({
 export default function AdminAgents() {
   const { user: currentUser } = useAuth();
   const location = useLocation();
+  const { agentSlug: urlAgentSlug } = useParams();
+  const navigate = useNavigate();
+  const didAutoOpen = useRef(false);
   const [agents, setAgents] = useState<AgentSetting[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [users, setUsers] = useState<DbUser[]>([]);
@@ -188,6 +191,7 @@ export default function AdminAgents() {
   const closeSelected = () => {
     setSelected(null);
     setActiveTab("overview");
+    navigate("/admin/agents");
   };
 
   const formatOwnerLabel = (email: string | null | undefined) => {
@@ -212,18 +216,29 @@ export default function AdminAgents() {
       setUsers(userData);
       setModels(modelData);
 
-      // auto-select from template gallery redirect
-      const state = location.state as { selectedSlug?: string } | null;
-      if (state?.selectedSlug) {
-        const target = mergedAgents.find((a) => a.slug === state.selectedSlug) ?? null;
+      // auto-select from URL slug
+      if (urlAgentSlug && !didAutoOpen.current) {
+        const target = mergedAgents.find((a) => a.slug === urlAgentSlug) ?? null;
         if (target) {
+          didAutoOpen.current = true;
           setSelected(target);
-          // clear state so it doesn't re-select on manual refresh
-          window.history.replaceState({}, document.title);
+          setActiveTab("overview");
         }
-      } else if (selected) {
-        const updated = mergedAgents.find((a) => a.slug === selected.slug) ?? null;
-        setSelected(updated);
+      }
+      // auto-select from template gallery redirect
+      else {
+        const state = location.state as { selectedSlug?: string } | null;
+        if (state?.selectedSlug) {
+          const target = mergedAgents.find((a) => a.slug === state.selectedSlug) ?? null;
+          if (target) {
+            setSelected(target);
+            // clear state so it doesn't re-select on manual refresh
+            window.history.replaceState({}, document.title);
+          }
+        } else if (selected) {
+          const updated = mergedAgents.find((a) => a.slug === selected.slug) ?? null;
+          setSelected(updated);
+        }
       }
     } catch (e: unknown) {
       const err = e as Error;
@@ -560,7 +575,7 @@ export default function AdminAgents() {
                     return (
                       <tr
                         key={a.slug}
-                        onClick={() => { setSelected(a); setActiveTab("overview"); }}
+                        onClick={() => { setSelected(a); setActiveTab("overview"); navigate(`/admin/agents/${a.slug}`); }}
                         className={
                           "cursor-pointer transition " +
                           (active ? "bg-zinc-800/70" : "hover:bg-zinc-800/50")

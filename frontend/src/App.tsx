@@ -44,9 +44,14 @@ export default function App() {
         path="/"
         element={user ? <ChatPage /> : <Navigate to="/login" replace />}
       />
+      <Route
+        path="/:conversationId"
+        element={user ? <ChatPage /> : <Navigate to="/login" replace />}
+      />
       <Route path="/admin" element={<AdminLayout />}>
         <Route index element={<Navigate to="/admin/agents" replace />} />
         <Route path="agents" element={<AdminAgents />} />
+        <Route path="agents/:agentSlug" element={<AdminAgents />} />
         <Route path="agent-templates" element={<AdminAgentTemplates />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="connectors" element={<AdminConnectors />} />

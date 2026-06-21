@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Sparkles } from "lucide-react";
 
 import AgentSwitcher from "@/components/chat/AgentSwitcher";
@@ -12,6 +13,8 @@ import { api, type Agent, type Conversation, type ConversationFolder } from "@/l
 import { useAuth } from "@/stores/auth";
 
 export default function ChatPage() {
+  const { conversationId: urlConversationId } = useParams();
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [folders, setFolders] = useState<ConversationFolder[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -25,6 +28,7 @@ export default function ChatPage() {
   const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
   const { send, stop, streaming } = useChatStream();
   const { isAdmin } = useAuth();
+  const didAutoOpen = useRef(false);
 
   const loadFolders = useCallback(async () => {
     try {
@@ -59,6 +63,15 @@ export default function ChatPage() {
       .finally(() => setHasLoaded(true));
   }, [loadConversations, loadFolders]);
 
+  // Update URL when active conversation changes
+  useEffect(() => {
+    if (activeId) {
+      navigate(`/${activeId}`, { replace: true });
+    } else {
+      navigate("/", { replace: true });
+    }
+  }, [activeId, navigate]);
+
   const openConversation = useCallback(async (id: string) => {
     setActiveId(id);
     setFocusKey((k) => k + 1);
@@ -92,6 +105,18 @@ export default function ChatPage() {
       return current;
     });
   }, []);
+
+  // Auto-open conversation from URL param once on initial load
+  useEffect(() => {
+    if (didAutoOpen.current) return;
+    if (urlConversationId && conversations.length) {
+      const exists = conversations.some((c) => c.id === urlConversationId);
+      if (exists) {
+        didAutoOpen.current = true;
+        openConversation(urlConversationId);
+      }
+    }
+  }, [urlConversationId, conversations, openConversation]);
 
   function newChat() {
     setActiveId(null);

@@ -109,7 +109,7 @@ async def get_conversation(
     result = await db.scalars(
         select(Message)
         .where(Message.conversation_id == conversation.id)
-        .order_by(Message.created_at.asc(), Message.id.asc())
+        .order_by(Message.created_at.asc())
         .options(selectinload(Message.attachments))
     )
     messages = [MessageOut.model_validate(m) for m in result.all()]

@@ -566,7 +566,7 @@ async def generate_jira_ticket_draft(
     result = await db.scalars(
         sa_select(Message)
         .where(Message.conversation_id == conversation.id)
-        .order_by(Message.created_at.asc(), Message.id.asc())
+        .order_by(Message.created_at.asc())
     )
     messages = result.all()
     transcript_lines = []
