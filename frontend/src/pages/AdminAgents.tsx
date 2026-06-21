@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench, Rocket, Globe, ChevronLeft, ChevronDown, ChevronUp, Workflow, RotateCcw, History, AlertTriangle, Eye, EyeOff, ThumbsUp, X, MessageSquare, FileText, Activity } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail } from "@/lib/api";
+import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail, type UploadSettings } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import AgentListTable from "@/components/admin/agents/AgentListTable";
@@ -192,6 +192,7 @@ export default function AdminAgents() {
   });
   const [selectedEvalRun, setSelectedEvalRun] = useState<AgentEvalRunDetail | null>(null);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
+  const [uploadSettings, setUploadSettings] = useState<UploadSettings | null>(null);
 
   const closeSelected = () => {
     setSelected(null);
@@ -203,12 +204,14 @@ export default function AdminAgents() {
     setLoading(true);
     setError(null);
     try {
-      const [agentData, sourceData, userData, modelData] = await Promise.all([
+      const [agentData, sourceData, userData, modelData, uploadData] = await Promise.all([
         api.listAgentSettings(),
         api.listKnowledgeSources(),
         api.listUsers(),
         api.listModels(),
+        api.getUploadSettings().catch(() => null),
       ]);
+      setUploadSettings(uploadData);
       const mergedAgents = agentData.map(mergeAgentDraft);
       setAgents(mergedAgents);
       setSources(sourceData);
@@ -982,17 +985,27 @@ export default function AdminAgents() {
                       </label>
                     </div>
 
-                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5">
+                    <label
+                      className={`flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 ${uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+                      title={
+                        uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
+                          ? ""
+                          : "Go to Upload Settings and enable file uploads with an S3 connector + bucket first."
+                      }
+                    >
                       <input
                         type="checkbox"
                         checked={selected.allow_uploads !== false}
                         onChange={(e) => setSelected({ ...selected, allow_uploads: e.target.checked })}
+                        disabled={!(uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket)}
                         className="accent-indigo-500"
                       />
                       <span>
                         <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
                         <span className="block text-xs text-zinc-500">
-                          Shows the attach button in chat when this agent is selected.
+                          {uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
+                            ? "Shows the attach button in chat when this agent is selected."
+                            : "Upload Settings must be configured (S3 connector + bucket) before enabling."}
                         </span>
                       </span>
                     </label>
@@ -1625,6 +1638,7 @@ export default function AdminAgents() {
         currentUserEmail={currentUser?.email}
         error={error}
         onClearError={() => setError(null)}
+        uploadSettings={uploadSettings}
       />
 
       {/* Delete confirmation */}

@@ -9,7 +9,7 @@ from sqlalchemy import func, select, text
 
 from app.agents.context import MODEL_CONTEXT_WINDOWS
 from app.api.deps import AdminUser, DbSession
-from app.models import AgentSettings, AgentVersion
+from app.models import AgentSettings, AgentVersion, Connector, UploadSettings
 from app.schemas.agent_settings import (
     AgentDraftSave,
     AgentPublishRequest,
@@ -113,6 +113,7 @@ async def create_agent_setting(
     if existing:
         raise HTTPException(status_code=409, detail="Agent slug already exists")
     data = body.model_dump(exclude_unset=True)
+    await _validate_upload_settings(db, data.get("allow_uploads", True))
     data["retrieval_enabled"] = bool(data.get("connected_sources"))
     data["created_by"] = (data.get("created_by") or user.email).strip().lower()
     if data.get("visibility") == "restricted":
@@ -163,6 +164,8 @@ async def update_agent_setting(
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
     data = body.model_dump(exclude_unset=True)
+    if "allow_uploads" in data:
+        await _validate_upload_settings(db, data["allow_uploads"])
 
     if "connected_sources" in data:
         data["retrieval_enabled"] = bool(data["connected_sources"])
@@ -231,6 +234,34 @@ async def delete_agent_setting(
         await runtime.refresh_graph()
 
 
+async def _validate_upload_settings(db: DbSession, allow_uploads: bool) -> None:
+    """Raise if uploads are enabled for an agent but global settings are missing."""
+    if not allow_uploads:
+        return
+    settings = await db.scalar(select(UploadSettings))
+    if settings is None or not settings.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File uploads are not globally enabled. Go to Upload Settings first.",
+        )
+    if not settings.s3_connector_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No S3 connector assigned in Upload Settings.",
+        )
+    connector = await db.get(Connector, settings.s3_connector_id)
+    if connector is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Assigned S3 connector does not exist. Check Upload Settings.",
+        )
+    if not settings.s3_bucket or not settings.s3_bucket.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="S3 bucket is not configured in Upload Settings.",
+        )
+
+
 async def _next_version_number(db: DbSession, agent_id: str) -> int:
     result = await db.scalar(
         select(func.max(AgentVersion.version_number)).where(
@@ -269,6 +300,8 @@ async def save_agent_draft(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     data = body.model_dump(exclude_unset=True)
+    if "allow_uploads" in data:
+        await _validate_upload_settings(db, data["allow_uploads"])
     if "connected_sources" in data:
         data["retrieval_enabled"] = bool(data["connected_sources"])
     if "created_by" in data and data["created_by"] is not None:
@@ -357,6 +390,8 @@ async def publish_agent(
 
     if row.draft_config:
         draft = row.draft_config
+        if "allow_uploads" in draft:
+            await _validate_upload_settings(db, draft["allow_uploads"])
         if "connected_sources" in draft:
             draft["retrieval_enabled"] = bool(draft["connected_sources"])
         for key, value in draft.items():
@@ -364,6 +399,7 @@ async def publish_agent(
                 setattr(row, key, value)
         row.draft_config = None
 
+    await _validate_upload_settings(db, row.allow_uploads)
     row.is_published = True
     row.published_at = func.now()
     await db.commit()

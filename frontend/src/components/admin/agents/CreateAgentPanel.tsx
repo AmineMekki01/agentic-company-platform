@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Bot, Loader2, Plus } from "lucide-react";
-import type { AgentSetting, AgentSettingCreate, DbUser } from "@/lib/api";
+import type { AgentSetting, AgentSettingCreate, DbUser, UploadSettings } from "@/lib/api";
 
 const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
 
@@ -17,6 +17,7 @@ interface CreateAgentPanelProps {
   currentUserEmail?: string;
   error: string | null;
   onClearError: () => void;
+  uploadSettings?: UploadSettings | null;
 }
 
 function toggleTool(agent: AgentSettingCreate, tool: string): AgentSettingCreate {
@@ -50,6 +51,7 @@ export default function CreateAgentPanel({
   currentUserEmail,
   error,
   onClearError,
+  uploadSettings,
 }: CreateAgentPanelProps) {
   useEffect(() => {
     if (!open) return;
@@ -175,17 +177,27 @@ export default function CreateAgentPanel({
           </div>
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+        <label
+          className={`flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5 ${uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+          title={
+            uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
+              ? ""
+              : "Go to Upload Settings and enable file uploads with an S3 connector + bucket first."
+          }
+        >
           <input
             type="checkbox"
             checked={agent.allow_uploads !== false}
             onChange={(e) => onChange({ ...agent, allow_uploads: e.target.checked })}
+            disabled={!(uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket)}
             className="accent-indigo-500"
           />
           <span>
             <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
             <span className="block text-xs text-zinc-500">
-              Shows the attach button in chat when this agent is selected.
+              {uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
+                ? "Shows the attach button in chat when this agent is selected."
+                : "Upload Settings must be configured (S3 connector + bucket) before enabling."}
             </span>
           </span>
         </label>
