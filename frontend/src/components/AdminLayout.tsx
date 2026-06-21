@@ -10,6 +10,37 @@ const links = [
   { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
 ];
 
+function Breadcrumbs() {
+  const location = useLocation();
+  const segments = location.pathname.split("/").filter(Boolean);
+  if (segments.length <= 1) return null;
+
+  const crumbs = segments.map((seg, i) => {
+    const path = "/" + segments.slice(0, i + 1).join("/");
+    const isLast = i === segments.length - 1;
+    const label = seg.replace(/-/g, " ").replace(/_/g, " ");
+    return (
+      <span key={path} className="flex items-center gap-1.5">
+        <span className="text-zinc-700">/</span>
+        {isLast ? (
+          <span className="text-zinc-300 font-medium capitalize">{label}</span>
+        ) : (
+          <Link to={path} className="text-zinc-500 hover:text-zinc-300 transition capitalize">
+            {label}
+          </Link>
+        )}
+      </span>
+    );
+  });
+
+  return (
+    <nav className="flex items-center gap-1.5 text-xs mb-5">
+      <Link to="/admin" className="text-zinc-500 hover:text-zinc-300 transition">Admin</Link>
+      {crumbs.slice(1)}
+    </nav>
+  );
+}
+
 export default function AdminLayout() {
   const auth = useAuth();
   const location = useLocation();
@@ -62,6 +93,7 @@ export default function AdminLayout() {
         </div>
       </aside>
       <main className="flex-1 overflow-auto bg-zinc-950 p-6">
+        <Breadcrumbs />
         <Outlet />
       </main>
     </div>

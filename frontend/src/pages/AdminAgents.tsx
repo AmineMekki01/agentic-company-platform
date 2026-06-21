@@ -4,6 +4,8 @@ import { Loader2, Plus, RefreshCw, Save, Trash2, Bot, Settings, BookOpen, Wrench
 import { api, type AgentSetting, type AgentSettingUpdate, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type AgentPublishRequest, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
+import AgentListTable from "@/components/admin/agents/AgentListTable";
+import CreateAgentPanel from "@/components/admin/agents/CreateAgentPanel";
 import { useAuth } from "@/stores/auth";
 
 type TabKey = "overview" | "tools" | "knowledge" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
@@ -192,12 +194,6 @@ export default function AdminAgents() {
     setSelected(null);
     setActiveTab("overview");
     navigate("/admin/agents");
-  };
-
-  const formatOwnerLabel = (email: string | null | undefined) => {
-    if (!email) return "Unassigned";
-    const owner = users.find((u) => u.email === email);
-    return owner ? formatUserLabel(owner) : email;
   };
 
   const refresh = async () => {
@@ -549,71 +545,21 @@ export default function AdminAgents() {
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Agents table */}
         <div className={selected ? "hidden" : "w-full"}>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-              <div>
-                <h2 className="text-sm font-semibold text-zinc-100">Agents</h2>
-                <p className="text-xs text-zinc-500">Click a row to edit that agent.</p>
-              </div>
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-zinc-800 text-left text-sm">
-                <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Name</th>
-                    <th className="px-4 py-3 font-medium">Owner</th>
-                    <th className="px-4 py-3 font-medium">Created</th>
-                    <th className="px-4 py-3 font-medium">Modified</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800 bg-zinc-900">
-                  {agents.map((a) => {
-                    const active = selected?.slug === a.slug;
-                    return (
-                      <tr
-                        key={a.slug}
-                        onClick={() => { setSelected(a); setActiveTab("overview"); navigate(`/admin/agents/${a.slug}`); }}
-                        className={
-                          "cursor-pointer transition " +
-                          (active ? "bg-zinc-800/70" : "hover:bg-zinc-800/50")
-                        }
-                      >
-                        <td className="px-4 py-3 align-top">
-                          <div className="font-medium text-zinc-100 truncate">{a.name || a.slug}</div>
-                        </td>
-                        <td className="px-4 py-3 align-top text-zinc-300">{formatOwnerLabel(a.created_by)}</td>
-                        <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.created_at)}</td>
-                        <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.updated_at)}</td>
-                        <td className="px-4 py-3 align-top text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteConfirm(a.slug);
-                            }}
-                            className="rounded-md p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
-                            title="Delete agent"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {!loading && agents.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center">
-                        <Bot className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
-                        <p className="text-sm text-zinc-500">No agents configured yet</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AgentListTable
+            agents={agents}
+            users={users}
+            loading={loading}
+            selectedSlug={selected?.slug ?? null}
+            onSelect={(slug: string) => {
+              const a = agents.find((ag) => ag.slug === slug);
+              if (a) {
+                setSelected(a);
+                setActiveTab("overview");
+                navigate(`/admin/agents/${slug}`);
+              }
+            }}
+            onDelete={(slug: string) => setDeleteConfirm(slug)}
+          />
         </div>
 
         {/* Detail panel */}
@@ -1472,267 +1418,20 @@ export default function AdminAgents() {
         </div>
       </div>
 
-      {/* Create modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="flex items-center gap-2 pb-3 border-b border-zinc-800">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
-                <Bot className="h-4 w-4 text-indigo-400" />
-              </div>
-              <h2 className="font-semibold text-lg">Create New Agent</h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Slug *</span>
-                <input
-                  value={newAgent.slug}
-                  onChange={(e) => setNewAgent({ ...newAgent, slug: e.target.value })}
-                  placeholder="e.g. finance"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                />
-                <p className="text-xs text-zinc-500 mt-0.5">Unique identifier, no spaces.</p>
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Name</span>
-                <input
-                  value={newAgent.name}
-                  onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
-                  placeholder="e.g. Finance Specialist"
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-                />
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Description</span>
-              <textarea
-                value={newAgent.description}
-                onChange={(e) => setNewAgent({ ...newAgent, description: e.target.value })}
-                rows={2}
-                placeholder="What this agent does..."
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Owner</span>
-              <select
-                value={newAgent.created_by || ""}
-                onChange={(e) => setNewAgent({ ...newAgent, created_by: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-              >
-                <option value="">Use current admin as owner ({currentUser?.email || "unknown"})</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.email}>
-                    {formatUserLabel(u)} — {u.email}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-zinc-500 mt-1">
-                Owner metadata only. All admins can manage every agent. If you want access restrictions, set Visibility to Restricted and include allowed users.
-              </p>
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-400">LLM Model</span>
-              <select
-                value={newAgent.llm_model || "gpt-5.4-nano"}
-                onChange={(e) => setNewAgent({ ...newAgent, llm_model: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-              >
-                {models.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-400">System Prompt</span>
-              <textarea
-                value={newAgent.system_prompt}
-                onChange={(e) => setNewAgent({ ...newAgent, system_prompt: e.target.value })}
-                rows={4}
-                placeholder="Define how this agent behaves..."
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
-              />
-            </label>
-
-            <div className="block">
-              <span className="text-xs font-medium text-zinc-400">Tools</span>
-              <div className="mt-2 flex flex-wrap gap-3">
-                {AVAILABLE_TOOLS.map((tool) => (
-                  <label key={tool} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={(newAgent.tools || []).includes(tool)}
-                      onChange={() => toggleTool(newAgent, tool)}
-                      className="accent-indigo-500"
-                    />
-                    <span className="capitalize">{tool.replace(/_/g, " ")}</span>
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-zinc-500 mt-1.5">
-                {(newAgent.connected_sources || []).length > 0
-                  ? "Retrieval is enabled automatically because knowledge sources are connected."
-                  : "Connect knowledge sources to enable retrieval."}
-              </p>
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={newAgent.allow_uploads !== false}
-                onChange={(e) => setNewAgent({ ...newAgent, allow_uploads: e.target.checked })}
-                className="accent-indigo-500"
-              />
-              <span>
-                <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
-                <span className="block text-xs text-zinc-500">
-                  Shows the attach button in chat when this agent is selected.
-                </span>
-              </span>
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Visibility</span>
-              <select
-                value={newAgent.visibility || "all"}
-                onChange={(e) => setNewAgent({ ...newAgent, visibility: e.target.value })}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
-              >
-                <option value="all">All users</option>
-                <option value="admin_only">Admins only</option>
-                <option value="restricted">Restricted to specific users</option>
-              </select>
-            </label>
-
-            {newAgent.visibility === "restricted" && (
-              <div className="block">
-                <span className="text-xs font-medium text-zinc-400">Allowed Users</span>
-                <div className="mt-1 space-y-1 max-h-40 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-                  {users.length === 0 && (
-                    <p className="text-xs text-zinc-500">No users found.</p>
-                  )}
-                  {users.map((u) => {
-                    const checked = (newAgent.allowed_users || []).includes(u.email);
-                    const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
-                    return (
-                      <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-800 rounded-md px-1 py-0.5 transition">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleAllowedUser(newAgent, u.email)}
-                          className="accent-indigo-500"
-                        />
-                        <span>{display}</span>
-                        <span className="text-xs text-zinc-500">{u.email}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Routing */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={newAgent.is_router}
-                onChange={(e) => setNewAgent({ ...newAgent, is_router: e.target.checked, is_orchestrator: false })}
-                className="accent-amber-500"
-              />
-              <span className="text-sm text-zinc-300">Enable Routing (route to a specialist agent)</span>
-            </label>
-
-            {newAgent.is_router && (
-              <div className="block">
-                <span className="text-xs font-medium text-zinc-400">Routes To</span>
-                <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-                  {agents.length === 0 && (
-                    <p className="text-xs text-zinc-500">No other agents available.</p>
-                  )}
-                  {agents
-                    .filter((a) => a.slug !== newAgent.slug)
-                    .map((a) => {
-                      const checked = (newAgent.routes_to || []).includes(a.slug);
-                      return (
-                        <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-800 rounded-md px-1 py-0.5 transition">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleRoute(newAgent, a.slug)}
-                            className="accent-amber-500"
-                          />
-                          <span>{a.name || a.slug}</span>
-                          <span className="text-xs text-zinc-500">@{a.slug}</span>
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* Orchestration */}
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={newAgent.is_orchestrator}
-                onChange={(e) => setNewAgent({ ...newAgent, is_orchestrator: e.target.checked, is_router: false })}
-                className="accent-violet-500"
-              />
-              <span className="text-sm text-zinc-300">Enable Orchestration (supervisor with child agents)</span>
-            </label>
-
-            {newAgent.is_orchestrator && (
-              <div className="block">
-                <span className="text-xs font-medium text-zinc-400">Child Agents</span>
-                <div className="mt-1 space-y-1 max-h-32 overflow-y-auto bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-                  {agents.length === 0 && (
-                    <p className="text-xs text-zinc-500">No other agents available.</p>
-                  )}
-                  {agents
-                    .filter((a) => a.slug !== newAgent.slug)
-                    .map((a) => {
-                      const checked = (newAgent.routes_to || []).includes(a.slug);
-                      return (
-                        <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-800 rounded-md px-1 py-0.5 transition">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleRoute(newAgent, a.slug)}
-                            className="accent-violet-500"
-                          />
-                          <span>{a.name || a.slug}</span>
-                          <span className="text-xs text-zinc-500">@{a.slug}</span>
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
-              <button
-                onClick={() => { setShowCreate(false); setError(null); }}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={create}
-                disabled={creating}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
-              >
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                {creating ? "Creating…" : "Create Agent"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateAgentPanel
+        open={showCreate}
+        onClose={() => { setShowCreate(false); setError(null); }}
+        agent={newAgent}
+        onChange={setNewAgent}
+        onCreate={create}
+        creating={creating}
+        users={users}
+        models={models}
+        agents={agents}
+        currentUserEmail={currentUser?.email}
+        error={error}
+        onClearError={() => setError(null)}
+      />
 
       {/* Delete confirmation */}
       {deleteConfirm && (
