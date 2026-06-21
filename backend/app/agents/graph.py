@@ -314,6 +314,8 @@ def make_agent_node(
     registry: dict[str, AgentSpec] | None = None,
     workflow_def: dict | None = None,
     settings_map: dict[str, dict] | None = None,
+    agent_type: str = "standard",
+    research_config: dict | None = None,
 ):
     """Build an agent node that reasons and may emit tool_calls (ReAct pattern).
 
@@ -329,6 +331,62 @@ def make_agent_node(
     Returns:
         Agent node function
     """
+    if agent_type == "deep_research":
+        from app.agents.deep_research import DeepResearchConfig, run_deep_research
+
+        dr_config = DeepResearchConfig.from_dict(research_config)
+        if source_ids and not dr_config.connected_sources:
+            dr_config.connected_sources = source_ids
+
+        async def _deep_research_node(state: AgentState) -> dict:
+            last_user_msg = ""
+            for m in reversed(state["messages"]):
+                if getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user":
+                    last_user_msg = str(getattr(m, "content", ""))
+                    break
+
+            logger.info("Deep research agent=%s starting research", spec.slug)
+            report_text = ""
+            async for event in run_deep_research(
+                user_message=last_user_msg,
+                config=dr_config,
+                thread_id=f"{spec.slug}-research",
+            ):
+                if event.get("type") == "report":
+                    report_text = event["content"]
+                elif event.get("type") == "clarification":
+                    question = event.get("question", "")
+                    logger.info("Deep research agent=%s clarification needed (SSE mode - auto-answering)", spec.slug)
+
+                    async for event2 in run_deep_research(
+                        user_message=last_user_msg,
+                        config=dr_config,
+                        thread_id=f"{spec.slug}-research-resume",
+                        resume_answer="Please proceed with a broad research approach covering all aspects mentioned.",
+                    ):
+                        if event2.get("type") == "report":
+                            report_text = event2["content"]
+                        elif event2.get("type") == "error":
+                            report_text = f"Deep research failed: {event2.get('detail', 'unknown error')}"
+                elif event.get("type") == "error":
+                    report_text = f"Deep research failed: {event.get('detail', 'unknown error')}"
+                    logger.error("Deep research error: %s", event.get("detail"))
+
+            if not report_text:
+                report_text = "Deep research completed but no report was generated."
+
+            logger.info("Deep research agent=%s report_len=%d", spec.slug, len(report_text))
+            return {
+                "messages": [AIMessage(content=report_text)],
+                "response_text": report_text,
+                "sources": state.get("sources"),
+                "step_count": (state.get("step_count") or 0) + 1,
+                "mode": state.get("mode") or "auto",
+            }
+
+        _deep_research_node.__name__ = f"{spec.slug}_deep_research"
+        return _deep_research_node
+
     llm = get_chat_model(model or spec.default_model)
     prompt = system_prompt or spec.system_prompt or _FALLBACK_PROMPT
     model_name = model or spec.default_model
@@ -399,7 +457,7 @@ def make_agent_node(
             if accessible:
                 lines = "\n".join(f"- @{slug}: {registry[slug].description}" for slug in accessible if slug in registry)
                 access_block = (
-                    "MANDATORY ACCESS RESTRICTION — You may ONLY mention, route to, or acknowledge the following specialist agents. "
+                    "MANDATORY ACCESS RESTRICTION - You may ONLY mention, route to, or acknowledge the following specialist agents. "
                     "If a user asks about a topic belonging to a specialist NOT on this list, you must NOT mention that specialist or suggest routing to them. "
                     "Instead, answer from your own knowledge if possible, or politely explain you cannot help with that specialist topic.\n\n"
                     f"Allowed specialists:\n{lines}\n\n"
@@ -412,7 +470,7 @@ def make_agent_node(
                 )
             else:
                 access_block = (
-                    "MANDATORY ACCESS RESTRICTION — This user has access to NO specialist agents. "
+                    "MANDATORY ACCESS RESTRICTION - This user has access to NO specialist agents. "
                     "You must NEVER mention any specialist agent (@it, @hr, @finance, or any other). "
                     "Answer all questions from your own knowledge. If a topic clearly requires a specialist you cannot access, politely explain you don't have access to that specialist and suggest contacting an administrator.\n\n"
                 )
@@ -548,7 +606,7 @@ async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, Agen
     general_slug = general_slugs[0] if general_slugs else ""
 
     agent_lines = "\n".join(
-        f"  {slug}: {spec.name or slug} — {spec.description or ''}" for slug, spec in registry.items()
+        f"  {slug}: {spec.name or slug} - {spec.description or ''}" for slug, spec in registry.items()
     )
 
     prompt = (
@@ -919,6 +977,8 @@ def build_graph(
             "Agent[%s] graph config: model=%s connected_sources=%s retrieval_top_k=%s prompt_override=%s tools=%s",
             slug, model, source_ids, retrieval_top_k, bool(system_prompt), spec.tools,
         )
+        agent_type = cfg.get("agent_type") or spec.agent_type or "standard"
+        research_config = cfg.get("research_config") or spec.research_config
         builder.add_node(
             slug,
             make_agent_node(
@@ -930,6 +990,8 @@ def build_graph(
                 registry=registry,
                 workflow_def=workflow_map.get(slug),
                 settings_map=settings_map,
+                agent_type=agent_type,
+                research_config=research_config,
             ),
         )
 

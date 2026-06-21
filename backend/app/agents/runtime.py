@@ -24,6 +24,17 @@ class AgentRuntime:
         self.graph = None
         self.agent_registry: dict[str, AgentSpec] = {}
         self._pool: AsyncConnectionPool | None = None
+        self._checkpointer = None
+
+    @property
+    def checkpointer(self):
+        """Return the current checkpointer (or None if not initialized)."""
+        if self._checkpointer is not None:
+            return self._checkpointer
+        if self._pool is not None:
+            self._checkpointer = AsyncPostgresSaver(self._pool)
+            return self._checkpointer
+        return None
 
     async def _normalize_sources(self, session, sources: list[str] | None) -> list[str] | None:
         """
@@ -70,6 +81,8 @@ class AgentRuntime:
                 is_orchestrator=row.is_orchestrator if row.is_orchestrator is not None else False,
                 is_router=row.is_router if row.is_router is not None else False,
                 routes_to=row.routes_to or [],
+                agent_type=row.agent_type if row.agent_type else "standard",
+                research_config=row.research_config,
             )
         return registry
 
@@ -109,6 +122,8 @@ class AgentRuntime:
                         "system_prompt": row.system_prompt,
                         "retrieval_top_k": row.retrieval_top_k,
                         "connected_sources": sources,
+                        "agent_type": row.agent_type if row.agent_type else "standard",
+                        "research_config": row.research_config,
                     }
                     logger.warning(
                         "Agent config loaded: slug=%s connected_sources=%s (raw=%s)",
@@ -146,6 +161,8 @@ class AgentRuntime:
                             "system_prompt": agent_row.system_prompt,
                             "retrieval_top_k": agent_row.retrieval_top_k,
                             "connected_sources": sources,
+                            "agent_type": agent_row.agent_type if agent_row.agent_type else "standard",
+                            "research_config": agent_row.research_config,
                         }
                         logger.warning(
                             "Agent config refreshed: slug=%s connected_sources=%s (raw=%s)",

@@ -1,0 +1,36 @@
+{
+  "name": "Deep Research Agent",
+  "description": "Autonomous multi-agent research pipeline that plans, searches, and synthesizes comprehensive reports. Uses parallel sub-researchers with web search and optional internal knowledge base. Includes a clarification step to refine the research scope before starting.",
+  "tags": ["research", "advanced", "deep"],
+  "agent_config": {
+    "slug": "",
+    "name": "",
+    "description": "",
+    "llm_model": "gpt-5.4",
+    "system_prompt": "",
+    "agent_type": "deep_research",
+    "tools": ["web_search"],
+    "retrieval_enabled": false,
+    "web_search_enabled": true,
+    "connected_sources": [],
+    "is_orchestrator": false,
+    "is_router": false,
+    "routes_to": [],
+    "visibility": "restricted",
+    "allow_uploads": false,
+    "allowed_users": [],
+    "beta_users": [],
+    "research_config": {
+      "max_researcher_iterations": 5,
+      "max_concurrent_research_units": 3,
+      "max_react_tool_calls": 8,
+      "clarification_model": "gpt-5.4-nano",
+      "research_model": "gpt-5.4",
+      "compression_model": "gpt-5.4",
+      "final_report_model": "gpt-5.4",
+      "search_tools": ["web_search"],
+      "connected_sources": []
+    }
+  },
+  "workflows": []
+}

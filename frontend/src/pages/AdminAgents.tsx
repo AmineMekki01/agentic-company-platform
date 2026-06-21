@@ -416,6 +416,8 @@ export default function AdminAgents() {
         allow_uploads: selected.allow_uploads !== false,
         allowed_users: selected.allowed_users || undefined,
         beta_users: selected.beta_users || undefined,
+        agent_type: selected.agent_type || "standard",
+        research_config: selected.research_config || undefined,
       };
       await api.updateAgentSetting(selected.slug, payload);
       await refresh();
@@ -650,7 +652,10 @@ export default function AdminAgents() {
                     Sections
                   </div>
                   <div className="space-y-1">
-                    {ALL_TABS.map((t) => {
+                    {(selected.agent_type === "deep_research"
+                      ? ALL_TABS.filter((t) => ["overview", "knowledge", "deploy", "versions", "feedback"].includes(t.key))
+                      : ALL_TABS
+                    ).map((t) => {
                       const Icon = t.icon;
                       const active = activeTab === t.key;
                       return (
@@ -727,6 +732,193 @@ export default function AdminAgents() {
                       </select>
                     </label>
 
+                    {/* Agent Type Selector */}
+                    <label className="block">
+                      <span className="text-xs font-medium text-zinc-400">Agent Type</span>
+                      <select
+                        value={selected.agent_type || "standard"}
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          const updates: Partial<AgentSetting> = { agent_type: newType };
+                          if (newType === "deep_research" && !selected.research_config) {
+                            updates.research_config = {
+                              max_researcher_iterations: 5,
+                              max_concurrent_research_units: 3,
+                              max_react_tool_calls: 8,
+                              clarification_model: "gpt-5.4-nano",
+                              research_model: "gpt-5.4",
+                              compression_model: "gpt-5.4",
+                              final_report_model: "gpt-5.4",
+                              search_tools: ["web_search"],
+                              connected_sources: [],
+                            };
+                            updates.tools = ["web_search"];
+                            updates.web_search_enabled = true;
+                            updates.is_orchestrator = false;
+                            updates.is_router = false;
+                            updates.routes_to = [];
+                          }
+                          setSelected({ ...selected, ...updates });
+                        }}
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                      >
+                        <option value="standard">Standard Agent</option>
+                        <option value="deep_research">Deep Research Agent</option>
+                      </select>
+                    </label>
+
+                    {/* Deep Research Config Panel */}
+                    {selected.agent_type === "deep_research" && selected.research_config && (
+                      <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-indigo-300">
+                          <Workflow className="h-4 w-4" />
+                          Deep Research Configuration
+                        </div>
+
+                        {/* Search Tools */}
+                        <div>
+                          <span className="text-xs font-medium text-zinc-400">Search Tools</span>
+                          <div className="mt-2 flex flex-wrap gap-3">
+                            <label className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selected.research_config.search_tools.includes("web_search")}
+                                onChange={() => {
+                                  const rc = { ...selected.research_config! };
+                                  const has = rc.search_tools.includes("web_search");
+                                  rc.search_tools = has
+                                    ? rc.search_tools.filter((t) => t !== "web_search")
+                                    : [...rc.search_tools, "web_search"];
+                                  setSelected({ ...selected, research_config: rc });
+                                }}
+                                className="accent-indigo-500"
+                              />
+                              <span>Web Search (Tavily)</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selected.research_config.search_tools.includes("retrieve")}
+                                onChange={() => {
+                                  const rc = { ...selected.research_config! };
+                                  const has = rc.search_tools.includes("retrieve");
+                                  rc.search_tools = has
+                                    ? rc.search_tools.filter((t) => t !== "retrieve")
+                                    : [...rc.search_tools, "retrieve"];
+                                  setSelected({ ...selected, research_config: rc });
+                                }}
+                                className="accent-indigo-500"
+                              />
+                              <span>Internal Knowledge Base</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Sliders */}
+                        <div className="grid grid-cols-3 gap-4">
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Max Research Iterations</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={selected.research_config.max_researcher_iterations}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, max_researcher_iterations: parseInt(e.target.value) || 5 };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Max Concurrent Researchers</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={selected.research_config.max_concurrent_research_units}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, max_concurrent_research_units: parseInt(e.target.value) || 3 };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Max Tool Calls / Researcher</span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={20}
+                              value={selected.research_config.max_react_tool_calls}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, max_react_tool_calls: parseInt(e.target.value) || 8 };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            />
+                          </label>
+                        </div>
+
+                        {/* Model Roles */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Clarification Model</span>
+                            <select
+                              value={selected.research_config.clarification_model}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, clarification_model: e.target.value };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            >
+                              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Research Model</span>
+                            <select
+                              value={selected.research_config.research_model}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, research_model: e.target.value };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            >
+                              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Compression Model</span>
+                            <select
+                              value={selected.research_config.compression_model}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, compression_model: e.target.value };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            >
+                              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-zinc-400">Final Report Model</span>
+                            <select
+                              value={selected.research_config.final_report_model}
+                              onChange={(e) => {
+                                const rc = { ...selected.research_config!, final_report_model: e.target.value };
+                                setSelected({ ...selected, research_config: rc });
+                              }}
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                            >
+                              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {selected.agent_type !== "deep_research" && (
                     <label className="block">
                       <span className="text-xs font-medium text-zinc-400">Instructions (System Prompt)</span>
                       <textarea
@@ -737,6 +929,7 @@ export default function AdminAgents() {
                         placeholder="Define how this agent behaves, what it can do, and how it should respond..."
                       />
                     </label>
+                    )}
 
                   </>
                 )}

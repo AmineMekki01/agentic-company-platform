@@ -9,6 +9,7 @@ import MessageList, { type DisplayMessage } from "@/components/chat/MessageList"
 import ModeSelector, { type Mode } from "@/components/chat/ModeSelector";
 import Sidebar from "@/components/chat/Sidebar";
 import { useChatStream, type SourceInfo } from "@/hooks/useChatStream";
+import { useDeepResearchChat } from "@/hooks/useDeepResearchChat";
 import { api, type Agent, type Conversation, type ConversationFolder } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 
@@ -27,6 +28,7 @@ export default function ChatPage() {
   const [testDraft, setTestDraft] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
   const { send, stop, streaming } = useChatStream();
+  const dr = useDeepResearchChat();
   const { isAdmin } = useAuth();
   const didAutoOpen = useRef(false);
 
@@ -73,11 +75,13 @@ export default function ChatPage() {
   }, [activeId, navigate]);
 
   const openConversation = useCallback(async (id: string) => {
+    console.log("[CHAT] openConversation START -> setMessages([]) (WIPE)", { id });
     setActiveId(id);
     setFocusKey((k) => k + 1);
     setMessages([]);
     setFeedbackMap({});
     const detail = await api.getConversation(id);
+    console.log("[CHAT] openConversation loaded from server", { id, count: detail.messages.length });
     setActiveId((current) => {
       if (current === id) {
         setMessages(
@@ -108,10 +112,14 @@ export default function ChatPage() {
 
   // Auto-open conversation from URL param once on initial load
   useEffect(() => {
-    if (didAutoOpen.current) return;
+    if (didAutoOpen.current) {
+      console.log("[CHAT] auto-open effect skipped (didAutoOpen=true)", { urlConversationId });
+      return;
+    }
     if (urlConversationId && conversations.length) {
       const exists = conversations.some((c) => c.id === urlConversationId);
       if (exists) {
+        console.log("[CHAT] auto-open effect FIRING -> openConversation", { urlConversationId });
         didAutoOpen.current = true;
         openConversation(urlConversationId);
       }
@@ -152,15 +160,21 @@ export default function ChatPage() {
 
   async function handleSend(content: string, forcedAgent: string | null, files: File[] = []) {
     let conversationId = activeId;
+    console.log("[CHAT] handleSend START", { activeId, hasActive: !!activeId });
     if (!conversationId) {
       const created = await api.createConversation();
       conversationId = created.id;
+      // Mark auto-open as handled so the URL-driven auto-open effect does not
+      // re-open this conversation and wipe the optimistic messages we add below.
+      didAutoOpen.current = true;
+      console.log("[CHAT] handleSend created NEW conversation, didAutoOpen=true", { conversationId });
       setActiveId(created.id);
       setConversations((cs) => [created, ...cs]);
     }
 
     const activeAgentSlug = forcedAgent ?? selectedAgent;
     const canUpload = agents.find((a) => a.slug === activeAgentSlug)?.allow_uploads !== false;
+    const isDeepResearch = agents.find((a) => a.slug === activeAgentSlug)?.agent_type === "deep_research";
 
     const attachmentIds: string[] = [];
     const uploadedAttachments: { filename: string; extractedText: string | null }[] = [];
@@ -189,11 +203,65 @@ export default function ChatPage() {
       attachments: uploadedAttachments.length > 0 ? uploadedAttachments : undefined,
     };
     const placeholderId = `local-assistant-${Date.now()}`;
-    setMessages((ms) => [
-      ...ms,
-      userMsg,
-      { id: placeholderId, role: "assistant", content: "", agent_id: agent, streaming: true, step: "routing", draft: testDraft },
-    ]);
+    console.log("[CHAT] handleSend inserting optimistic messages", { placeholderId, isDeepResearch });
+    setMessages((ms) => {
+      const next = [
+        ...ms,
+        userMsg,
+        { id: placeholderId, role: "assistant" as const, content: "", agent_id: agent, streaming: true, step: isDeepResearch ? "clarifying" : "routing", draft: testDraft },
+      ];
+      console.log("[CHAT] messages after optimistic insert", { count: next.length, ids: next.map((m) => m.id) });
+      return next;
+    });
+
+    if (isDeepResearch) {
+      await dr.send(conversationId, content.trim(), agent, mode, {
+        onStep: (stepInfo) => {
+          console.log("[DR-CB] onStep", { step: stepInfo.step, placeholderId });
+          setMessages((ms) =>
+            ms.map((m) =>
+              m.id === placeholderId ? { ...m, step: stepInfo.step } : m
+            )
+          );
+        },
+        onClarification: (question) => {
+          console.log("[DR-CB] onClarification", { placeholderId, question });
+          setMessages((ms) => {
+            const found = ms.some((m) => m.id === placeholderId);
+            console.log("[DR-CB] onClarification placeholder present?", found, { ids: ms.map((m) => m.id) });
+            return ms.map((m) =>
+              m.id === placeholderId ? { ...m, content: question, step: undefined, streaming: false, awaitingClarification: true } : m
+            );
+          });
+        },
+        onToken: (delta) =>
+          setMessages((ms) =>
+            ms.map((m) =>
+              m.id === placeholderId ? { ...m, content: m.content + delta, awaitingClarification: false } : m
+            )
+          ),
+        onDone: (messageId) => {
+          console.log("[DR-CB] onDone", { placeholderId, messageId });
+          setMessages((ms) =>
+            ms.map((m) =>
+              m.id === placeholderId ? { ...m, serverId: messageId, streaming: false, step: undefined, awaitingClarification: false } : m
+            )
+          );
+          loadConversations();
+        },
+        onError: (detail) => {
+          console.log("[DR-CB] onError", { placeholderId, detail });
+          setMessages((ms) =>
+            ms.map((m) =>
+              m.id === placeholderId
+                ? { ...m, content: `⚠️ ${detail}`, streaming: false, step: undefined, awaitingClarification: false }
+                : m
+            )
+          );
+        },
+      });
+      return;
+    }
 
     await send(conversationId, content.trim(), agent, isForced, mode, {
       onAgent: (slug) => {
@@ -246,6 +314,66 @@ export default function ChatPage() {
           )
         ),
     }, attachmentIds, testDraft);
+  }
+
+  async function handleClarificationResponse(answer: string) {
+    const agent = selectedAgent;
+    const awaitingMsg = messages.find((m) => m.awaitingClarification);
+    console.log("[CHAT] handleClarificationResponse START", { hasAwaiting: !!awaitingMsg, awaitingId: awaitingMsg?.id });
+    if (!awaitingMsg) return;
+
+    const answerMsg: DisplayMessage = {
+      id: `local-user-clar-${Date.now()}`,
+      role: "user",
+      content: answer.trim(),
+      agent_id: null,
+    };
+    const placeholderId = `local-assistant-${Date.now()}`;
+    console.log("[CHAT] clarification: inserting answer + new placeholder", { placeholderId });
+    setMessages((ms) => {
+      const next = [
+        ...ms.map((m) =>
+          m.id === awaitingMsg.id ? { ...m, awaitingClarification: false } : m
+        ),
+        answerMsg,
+        { id: placeholderId, role: "assistant" as const, content: "", agent_id: agent, streaming: true, step: "planning" },
+      ];
+      console.log("[CHAT] messages after clarification insert", { count: next.length, ids: next.map((m) => m.id) });
+      return next;
+    });
+
+    await dr.sendClarificationResponse(answer.trim(), agent, {
+      onStep: (stepInfo) => {
+        console.log("[DR-CB] (resume) onStep", { step: stepInfo.step, placeholderId });
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, step: stepInfo.step } : m
+          )
+        );
+      },
+      onToken: (delta) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, content: m.content + delta } : m
+          )
+        ),
+      onDone: (messageId) => {
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, serverId: messageId, streaming: false, step: undefined } : m
+          )
+        );
+        loadConversations();
+      },
+      onError: (detail) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId
+              ? { ...m, content: `⚠️ ${detail}`, streaming: false, step: undefined }
+              : m
+          )
+        ),
+    });
   }
 
   if (!hasLoaded) {
@@ -402,11 +530,13 @@ export default function ChatPage() {
             <Composer
               agents={agents}
               selectedAgent={selectedAgent}
-              disabled={streaming}
-              streaming={streaming}
+              disabled={(streaming || dr.streaming) && !dr.clarification}
+              streaming={streaming || dr.streaming}
               focusKey={focusKey}
               onSend={handleSend}
-              onStop={stop}
+              onStop={dr.streaming ? dr.stop : stop}
+              awaitingClarification={!!dr.clarification}
+              onClarificationResponse={handleClarificationResponse}
             />
           </>
         )}

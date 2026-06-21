@@ -29,6 +29,7 @@ export interface DisplayMessage {
   step?: string;
   attachments?: AttachmentInfo[];
   draft?: boolean;
+  awaitingClarification?: boolean;
 }
 
 interface MessageListProps {
@@ -127,7 +128,13 @@ function AssistantMessage({
         <span className="ml-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-medium text-indigo-300 border border-indigo-500/20">
           <Loader2 className="h-3 w-3 animate-spin" />
           {m.step === "routing" && "Routing…"}
+          {m.step === "clarifying" && "Analyzing request…"}
+          {m.step === "planning" && "Planning research…"}
+          {m.step === "supervising" && "Coordinating research…"}
           {m.step === "searching" && "Searching sources…"}
+          {m.step === "compressing" && "Synthesizing findings…"}
+          {m.step === "writing_report" && "Writing report…"}
+          {m.step === "resuming" && "Continuing research…"}
           {m.step === "thinking" && "Thinking…"}
           {m.step === "verifying" && "Verifying answer…"}
           {(!m.step || m.step === "generating") && "Generating…"}
