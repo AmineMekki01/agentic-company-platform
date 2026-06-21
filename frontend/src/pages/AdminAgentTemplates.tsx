@@ -197,7 +197,7 @@ export default function AdminAgentTemplates() {
               <div className="flex items-center gap-2 text-sm text-zinc-300">
                 <Eye className="h-4 w-4 text-zinc-500" />
                 <span className="font-medium">Model:</span>
-                <span className="text-zinc-400">{(agentConfig.llm_model as string) || "default"}</span>
+                <span className="text-zinc-400">{(agentConfig.llm_model as string) || "—"}</span>
               </div>
               {tools.length > 0 && (
                 <div className="flex items-start gap-2 text-sm text-zinc-300">

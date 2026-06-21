@@ -24,3 +24,5 @@ class AgentState(TypedDict):
     user_allowed_slugs: list[str] | None
     response_text: str | None
     orchestrator_history: list[dict] | None
+    user_id: str | None
+    conversation_id: str | None

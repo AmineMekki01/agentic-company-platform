@@ -17,8 +17,42 @@ from app.agents.registry import AgentSpec
 from app.agents.state import AgentState
 from app.agents.tools import retrieve, web_search
 from app.agents.tools_jira import create_jira_ticket
+from app.services.token_tracker import record_usage as _record_token_usage
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_and_record_tokens(
+    response,
+    agent_slug: str,
+    model_name: str,
+    state: AgentState,
+) -> None:
+    """Extract usage_metadata from an LLM response and fire-and-forget record it."""
+    try:
+        usage = getattr(response, "usage_metadata", None)
+        if usage is None:
+            return
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        if input_tokens == 0 and output_tokens == 0:
+            return
+        import asyncio
+        user_id = state.get("user_id")
+        conv_id = state.get("conversation_id")
+        loop = asyncio.get_event_loop()
+        loop.create_task(
+            _record_token_usage(
+                user_id=user_id,
+                agent_slug=agent_slug,
+                model=model_name,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                conversation_id=conv_id,
+            )
+        )
+    except Exception:
+        logger.debug("Could not extract/record token usage", exc_info=True)
 
 _TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket}
 
@@ -35,7 +69,7 @@ def _clean_citations(text: str) -> str:
     return text
 
 
-async def _expand_query(query: str, model: str = "gpt-5-nano") -> str:
+async def _expand_query(query: str, model: str = "gpt-5.4-nano") -> str:
     """Rewrite a vague/short user query into a precise search query for RAG."""
     if not query or len(query.split()) < 3:
         return query
@@ -148,6 +182,21 @@ async def _invoke_agent_direct(
 
     logger.info("Workflow direct invoke agent=%s model=%s", spec.slug, model_name)
     response = await llm.ainvoke(final_messages)
+    try:
+        usage = getattr(response, "usage_metadata", None)
+        if usage:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            loop.create_task(_record_token_usage(
+                user_id=None,
+                agent_slug=spec.slug,
+                model=model_name,
+                input_tokens=usage.get("input_tokens", 0),
+                output_tokens=usage.get("output_tokens", 0),
+                conversation_id=None,
+            ))
+    except Exception:
+        logger.debug("Could not record workflow token usage", exc_info=True)
     raw_text = str(getattr(response, "content", response))
     return _clean_citations(raw_text)
 
@@ -339,6 +388,8 @@ def make_agent_node(
             dr_config.connected_sources = source_ids
 
         async def _deep_research_node(state: AgentState) -> dict:
+            dr_config.user_id = state.get("user_id")
+            dr_config.conversation_id = state.get("conversation_id")
             last_user_msg = ""
             for m in reversed(state["messages"]):
                 if getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user":
@@ -540,6 +591,7 @@ def make_agent_node(
         )
 
         response = await llm_with_tools.ainvoke(messages)
+        _extract_and_record_tokens(response, spec.slug, model_name, state)
         raw_text = str(getattr(response, "content", response))
         cleaned_text = _clean_citations(raw_text)
         if cleaned_text != raw_text and hasattr(response, "content"):
@@ -600,7 +652,7 @@ def _extract_mention(text: str, registry: dict[str, AgentSpec]) -> str | None:
 
 
 async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, AgentSpec]) -> str:
-    """Use gpt-5-nano to classify intent and pick the best agent slug."""
+    """Use gpt-5.4-nano to classify intent and pick the best agent slug."""
     registry_slugs = sorted(registry.keys())
     general_slugs = [s for s, sp in registry.items() if sp.is_router or sp.is_orchestrator]
     general_slug = general_slugs[0] if general_slugs else ""
@@ -623,7 +675,7 @@ async def _llm_route(user_msg: str, current_agent: str, registry: dict[str, Agen
         "slug:"
     )
 
-    llm = get_chat_model("gpt-5-nano", temperature=0.0)
+    llm = get_chat_model("gpt-5.4-nano", temperature=0.0)
     response = await llm.ainvoke([SystemMessage(content=prompt)])
     text = str(getattr(response, "content", response)).strip().lower()
 
@@ -666,7 +718,7 @@ async def _orchestrator_delegate(
         f"3. If the query is simple enough to answer directly, return 'SYNTHESIZE'.\n\n"
         f"Return ONLY the agent slug or the word SYNTHESIZE. No explanation."
     )
-    llm = get_chat_model("gpt-5-nano", temperature=0.1)
+    llm = get_chat_model("gpt-5.4-nano", temperature=0.1)
     response = await llm.ainvoke([SystemMessage(content=prompt)])
     text = str(getattr(response, "content", response)).strip().lower()
     if text == "synthesize":
@@ -879,7 +931,7 @@ def make_reflect_node():
             Return ONLY one word: SATISFACTORY or INCOMPLETE.
         """
 
-        llm = get_chat_model("gpt-5-nano", temperature=0.1)
+        llm = get_chat_model("gpt-5.4-nano", temperature=0.1)
         verdict = await llm.ainvoke([SystemMessage(content=prompt)])
         text = str(getattr(verdict, "content", verdict)).strip().upper()
 

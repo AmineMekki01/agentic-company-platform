@@ -76,7 +76,7 @@ class AgentRuntime:
                 name=row.name or row.slug,
                 description=row.description or "",
                 system_prompt=row.system_prompt,
-                default_model=row.llm_model or "gpt-5-nano",
+                default_model=row.llm_model or "gpt-5.4-nano",
                 tools=row.tools or [],
                 is_orchestrator=row.is_orchestrator if row.is_orchestrator is not None else False,
                 is_router=row.is_router if row.is_router is not None else False,

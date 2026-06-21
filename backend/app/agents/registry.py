@@ -18,7 +18,7 @@ class AgentSpec:
     name: str
     description: str
     system_prompt: str | None = None
-    default_model: str = "gpt-5-nano"
+    default_model: str = "gpt-5.4-nano"
     tools: list[str] = field(default_factory=list)
     is_orchestrator: bool = False
     is_router: bool = False

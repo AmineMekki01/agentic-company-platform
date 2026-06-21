@@ -45,7 +45,7 @@ async def _fetch_agent_settings(db: DbSession, slug: str | None = None) -> list[
 @router.get("/models", response_model=list[str])
 async def list_models(user: AdminUser) -> list[str]:
     """Return available LLM model names."""
-    models = [k for k in MODEL_CONTEXT_WINDOWS.keys() if k != "default"]
+    models = list(MODEL_CONTEXT_WINDOWS.keys())
 
     if "gpt-5.4-nano" in models:
         models.remove("gpt-5.4-nano")
@@ -556,7 +556,7 @@ async def test_agent_draft(
                 name=draft.get("name") or a.name or a.slug,
                 description=draft.get("description") or a.description or "",
                 system_prompt=system_prompt,
-                default_model=model_name or "gpt-5-nano",
+                default_model=model_name or "gpt-5.4-nano",
                 tools=tools or [],
                 is_orchestrator=bool(is_orchestrator),
                 routes_to=routes_to or [],
@@ -577,7 +577,7 @@ async def test_agent_draft(
                 name=a.name or a.slug,
                 description=a.description or "",
                 system_prompt=a.system_prompt,
-                default_model=a.llm_model or "gpt-5-nano",
+                default_model=a.llm_model or "gpt-5.4-nano",
                 tools=a.tools or [],
                 is_orchestrator=bool(a.is_orchestrator),
                 routes_to=a.routes_to or [],

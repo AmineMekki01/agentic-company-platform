@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle } from "lucide-react";
 
 import AgentSwitcher from "@/components/chat/AgentSwitcher";
 import Composer from "@/components/chat/Composer";
@@ -27,6 +27,7 @@ export default function ChatPage() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [testDraft, setTestDraft] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
+  const [budgetWarning, setBudgetWarning] = useState<string | null>(null);
   const { send, stop, streaming } = useChatStream();
   const dr = useDeepResearchChat();
   const { isAdmin } = useAuth();
@@ -175,6 +176,7 @@ export default function ChatPage() {
     const activeAgentSlug = forcedAgent ?? selectedAgent;
     const canUpload = agents.find((a) => a.slug === activeAgentSlug)?.allow_uploads !== false;
     const isDeepResearch = agents.find((a) => a.slug === activeAgentSlug)?.agent_type === "deep_research";
+    setBudgetWarning(null);
 
     const attachmentIds: string[] = [];
     const uploadedAttachments: { filename: string; extractedText: string | null }[] = [];
@@ -267,6 +269,7 @@ export default function ChatPage() {
             )
           );
         },
+        onBudgetWarning: (msg) => setBudgetWarning(msg),
       });
       return;
     }
@@ -321,6 +324,7 @@ export default function ChatPage() {
               : m
           )
         ),
+      onBudgetWarning: (msg) => setBudgetWarning(msg),
     }, attachmentIds, testDraft);
   }
 
@@ -389,6 +393,7 @@ export default function ChatPage() {
               : m
           )
         ),
+      onBudgetWarning: (msg) => setBudgetWarning(msg),
     });
   }
 
@@ -487,6 +492,21 @@ export default function ChatPage() {
                 )}
               </div>
             </header>
+
+            {budgetWarning && (
+              <div className="flex items-center justify-between gap-3 border-b border-amber-800/40 bg-amber-900/20 px-4 py-2.5">
+                <div className="flex items-center gap-2 text-sm text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{budgetWarning}</span>
+                </div>
+                <button
+                  onClick={() => setBudgetWarning(null)}
+                  className="text-amber-400 hover:text-amber-200 transition text-xs"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
 
             <MessageList
               messages={messages}

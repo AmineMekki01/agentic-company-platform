@@ -18,6 +18,7 @@ from app.models import AgentSettings, ChatAttachment, Conversation, Message, Use
 from app.schemas.chat import AgentOut, ChatRequest, JiraTicketDraft, JiraTicketCreateRequest, JiraTicketOut
 from app.services.jira import get_first_jira_connector, get_jira_service_from_connector
 from app.services.titles import generate_title
+from app.services.token_tracker import check_budget as _check_token_budget
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +205,7 @@ async def chat_stream(
                     name=draft.get("name") or a.name or a.slug,
                     description=draft.get("description") or a.description or "",
                     system_prompt=system_prompt,
-                    default_model=model_name or "gpt-5-nano",
+                    default_model=model_name or "gpt-5.4-nano",
                     tools=tools or [],
                     is_orchestrator=bool(is_orchestrator),
                     is_router=bool(is_router),
@@ -226,7 +227,7 @@ async def chat_stream(
                     name=a.name or a.slug,
                     description=a.description or "",
                     system_prompt=a.system_prompt,
-                    default_model=a.llm_model or "gpt-5-nano",
+                    default_model=a.llm_model or "gpt-5.4-nano",
                     tools=a.tools or [],
                     is_orchestrator=bool(a.is_orchestrator),
                     is_router=bool(a.is_router) if a.is_router is not None else False,
@@ -346,6 +347,8 @@ async def chat_stream(
                 "sources": all_sources,
                 "source_offset": len(all_sources),
                 "user_allowed_slugs": user_allowed_slugs,
+                "user_id": str(user.id),
+                "conversation_id": str(conversation_id),
             }
             if body.force_agent:
                 forced = body.agent or default_agent
@@ -354,6 +357,14 @@ async def chat_stream(
                 input_state["orchestrator_agent"] = forced
 
             logger.warning("Chat stream start conv=%s agent=%s mode=%s draft=%s", conversation_id, agent, body.mode, body.draft)
+
+            budget_exceeded, budget_used, budget_limit = await _check_token_budget(str(user.id), agent)
+            if budget_exceeded:
+                yield {"event": "budget_warning", "data": json.dumps({
+                    "used": budget_used,
+                    "limit": budget_limit,
+                    "message": f"Monthly budget exceeded (${budget_used:.4f} / ${budget_limit:.4f} USD). Contact an administrator.",
+                })}
 
             assistant_text = ""
             routed_agent = agent
@@ -580,7 +591,7 @@ async def generate_jira_ticket_draft(
     transcript = "\n\n".join(transcript_lines)
 
     from app.agents.llm import get_chat_model
-    llm = get_chat_model("gpt-5-nano")
+    llm = get_chat_model("gpt-5.4-nano")
 
     prompt = f"""
         Based on the following conversation, generate a Jira ticket summary (title) and description.

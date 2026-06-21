@@ -293,7 +293,6 @@ async def _ensure_agent(session, agent_def: dict, source_id: str | None) -> None
             await session.commit()
             print(f"Agent '{slug}' updated & published (v{version_num}).")
         else:
-            # Unpublished: update live fields directly and publish
             for key, value in new_config.items():
                 if hasattr(existing, key):
                     setattr(existing, key, value)
@@ -303,7 +302,6 @@ async def _ensure_agent(session, agent_def: dict, source_id: str | None) -> None
             print(f"Agent '{slug}' updated & published (was draft).")
         return
 
-    # Create new agent (published by default for seed data)
     row = AgentSettings(
         slug=slug,
         name=agent_def["name"],

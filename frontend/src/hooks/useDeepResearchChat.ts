@@ -14,6 +14,7 @@ export interface DeepResearchCallbacks {
   onSources?: (sources: any[]) => void;
   onDone?: (messageId: string) => void;
   onError?: (detail: string) => void;
+  onBudgetWarning?: (message: string) => void;
 }
 
 export function useDeepResearchChat() {
@@ -69,6 +70,8 @@ export function useDeepResearchChat() {
             cb.onDone?.(data.message_id || "");
             ws.close();
             wsRef.current = null;
+          } else if (type === "budget_warning") {
+            cb.onBudgetWarning?.(data.message || "");
           } else if (type === "error") {
             setStreaming(false);
             cb.onError?.(data.detail || "Unknown error");

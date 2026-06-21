@@ -17,27 +17,27 @@ MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     # Local LLMs
 
     # will add this afer 
-
-
-    "default": 128_000,
 }
 
 
 def resolve_context_window(model_name: str) -> int:
     """
-    Look up a model's context window. Falls back to default.
+    Look up a model's context window.
 
     Args:
         model_name: The name of the model to look up.
 
     Returns:
-        The context window size for the model, or the default if not found.
+        The context window size for the model.
+
+    Raises:
+        ValueError: If the model is not in MODEL_CONTEXT_WINDOWS.
     """
     key = model_name.lower().replace("-", "").replace(".", "")
     for known, limit in MODEL_CONTEXT_WINDOWS.items():
         if known.lower().replace("-", "").replace(".", "") in key:
             return limit
-    return MODEL_CONTEXT_WINDOWS["default"]
+    raise ValueError(f"Unknown model '{model_name}' — no context window configured")
 
 
 @dataclass(frozen=True)
