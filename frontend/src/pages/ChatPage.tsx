@@ -289,9 +289,9 @@ export default function ChatPage() {
           </div>
         ) : (
           <>
-            <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-3 backdrop-blur-sm z-10">
+            <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-2.5 backdrop-blur-sm z-10">
               {/* Left: Agent + Mode */}
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <AgentSwitcher
                   agents={agents}
                   selected={selectedAgent}
@@ -303,29 +303,33 @@ export default function ChatPage() {
                     }
                   }}
                 />
+                <div className="h-4 w-px bg-zinc-800" />
                 <ModeSelector selected={mode} onSelect={setMode} />
               </div>
 
               {/* Center: Conversation title */}
               <div className="flex-1 flex justify-center min-w-0 px-4">
-                <h1 className="truncate text-sm font-medium text-zinc-300 max-w-md">
-                  {activeId
-                    ? (conversations.find((c) => c.id === activeId)?.title ?? "Untitled conversation")
-                    : "New chat"}
-                </h1>
+                <div className="flex items-center gap-2 max-w-md">
+                  <div className={`h-1.5 w-1.5 rounded-full ${activeId ? "bg-emerald-400" : "bg-zinc-600"}`} />
+                  <h1 className="truncate text-sm font-medium text-zinc-300">
+                    {activeId
+                      ? (conversations.find((c) => c.id === activeId)?.title ?? "Untitled conversation")
+                      : "New chat"}
+                  </h1>
+                </div>
               </div>
 
               {/* Right: Admin controls + Streaming */}
               <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
                 {isAdmin() && (
-                  <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer select-none shrink-0">
+                  <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1.5 transition hover:border-zinc-700 hover:text-zinc-300">
                     <input
                       type="checkbox"
                       checked={testDraft}
                       onChange={(e) => setTestDraft(e.target.checked)}
-                      className="accent-indigo-500"
+                      className="accent-indigo-500 h-3.5 w-3.5"
                     />
-                    Test Draft
+                    <span>Test Draft</span>
                   </label>
                 )}
                 {streaming && (
@@ -359,15 +363,38 @@ export default function ChatPage() {
                 return <JiraTicketButton conversationId={activeId} />;
               }}
               emptyState={
-                <div className="text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/20">
-                    <Sparkles className="h-6 w-6 text-indigo-400" />
+                <div className="animate-fade-in-up flex flex-col items-center justify-center h-full px-4">
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 bg-indigo-500/20 rounded-3xl blur-xl" />
+                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 ring-1 ring-white/10">
+                      <Sparkles className="h-8 w-8 text-indigo-400" />
+                    </div>
                   </div>
-                  <h2 className="text-lg font-semibold">How can I help you today?</h2>
-                  <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                    Ask anything, or use <span className="text-indigo-400">@</span> to call
+                  <h2 className="text-lg font-semibold text-white">How can I help you today?</h2>
+                  <p className="mt-2 max-w-sm text-sm text-zinc-500 text-center leading-relaxed">
+                    Ask anything, or use <span className="font-mono text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded">@agent-name</span> to call
                     a specific agent directly.
                   </p>
+
+                  {/* Quick suggestion chips */}
+                  <div className="mt-8 flex flex-wrap justify-center gap-2 max-w-md">
+                    {["What is our expense policy?", "Create a Jira ticket for...", "Summarize last quarter", "@finance check budget"].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          const composer = document.querySelector("textarea[placeholder]") as HTMLTextAreaElement | null;
+                          if (composer) {
+                            composer.value = s;
+                            composer.dispatchEvent(new Event("input", { bubbles: true }));
+                            composer.focus();
+                          }
+                        }}
+                        className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3.5 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-300 hover:bg-zinc-800/60"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               }
             />

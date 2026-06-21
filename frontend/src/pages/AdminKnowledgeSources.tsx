@@ -9,6 +9,7 @@ import {
   type S3Bucket,
 } from "@/lib/api";
 import ServiceIcon from "@/components/ServiceIcon";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -191,31 +192,31 @@ export default function AdminKnowledgeSources() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Knowledge Sources</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Manage data sources for agent retrieval</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {showForm ? "Cancel" : "Add Source"}
-          </button>
-          <button
-            onClick={refresh}
-            className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Knowledge Sources"
+        description="Manage data sources for agent retrieval"
+        icon={BookOpen}
+        iconColor="text-amber-400"
+        iconBg="bg-amber-500/10"
+      >
+        <button
+          onClick={() => setShowForm((s) => !s)}
+          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          {showForm ? "Cancel" : "Add Source"}
+        </button>
+        <button
+          onClick={refresh}
+          className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh
+        </button>
+      </AdminPageHeader>
 
       {showForm && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6 space-y-3 max-w-lg shadow-sm">
+        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 mb-6 space-y-3 max-w-lg shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
           <h2 className="font-medium text-zinc-200">New Knowledge Source</h2>
           <input
             value={form.slug}
@@ -289,7 +290,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseNotion}
                   disabled={browseLoading}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
                 >
                   {browseLoading ? "Browsing…" : "Browse Notion"}
                 </button>
@@ -356,7 +357,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseS3}
                   disabled={s3BrowseLoading}
-                  className="text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
                 >
                   {s3BrowseLoading ? "Loading…" : "List Buckets"}
                 </button>
@@ -472,7 +473,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={() => triggerSync(s.slug)}
                   disabled={syncingSlugs.has(s.slug)}
-                  className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition"
+                  className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${syncingSlugs.has(s.slug) ? "animate-spin" : ""}`} />
                   {syncingSlugs.has(s.slug) ? "Syncing…" : "Sync"}

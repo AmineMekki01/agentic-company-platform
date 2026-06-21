@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   api,
   type AgentSetting,
@@ -8,14 +8,16 @@ import {
   type WorkflowNode,
 } from "@/lib/api";
 import {
+  ArrowLeft,
   Loader2,
   Plus,
   Save,
   Trash2,
-  ChevronRight,
   ToggleLeft,
   ToggleRight,
   Bot,
+  WandSparkles,
+  X,
 } from "lucide-react";
 import WorkflowDiagramEditor from "@/components/WorkflowDiagramEditor";
 
@@ -72,7 +74,6 @@ const makeStep = (index: number, prevOutputVar?: string): WorkflowNode => ({
 });
 
 export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
-  const editorRef = useRef<HTMLDivElement | null>(null);
   const [workflows, setWorkflows] = useState<AgentWorkflow[]>([]);
   const [, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -92,8 +93,6 @@ export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
         if (!stillExists) {
           setSelectedWorkflowId(null);
           setEditing(null);
-        } else if (editing && "id" in editing) {
-          setEditing(stillExists);
         }
       }
     } catch (e: unknown) {
@@ -111,28 +110,23 @@ export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
     setShowCreate(true);
     setEditing(makeEmptyWorkflow());
     setSelectedWorkflowId(null);
-    queueMicrotask(() => {
-      editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   };
 
   const startEdit = (wf: AgentWorkflow) => {
     setShowCreate(false);
     setSelectedWorkflowId(wf.id);
     setEditing({ ...wf, definition: { ...wf.definition, nodes: [...wf.definition.nodes], edges: [...wf.definition.edges] } });
-    queueMicrotask(() => {
-      editorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   };
 
   const handleWorkflowChange = useCallback((next: AgentWorkflow | AgentWorkflowCreate) => {
     setEditing(next);
   }, []);
 
-  const cancelEdit = () => {
+  const closeEditor = () => {
     setShowCreate(false);
     setEditing(null);
     setSelectedWorkflowId(null);
+    setError(null);
   };
 
   const save = async () => {
@@ -150,6 +144,7 @@ export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
         setEditing(updated);
       }
       await refresh();
+      closeEditor();
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -162,9 +157,7 @@ export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
     try {
       await api.deleteAgentWorkflow(agentSlug, id);
       if (selectedWorkflowId === id) {
-        setSelectedWorkflowId(null);
-        setEditing(null);
-        setShowCreate(false);
+        closeEditor();
       }
       await refresh();
     } catch (e: unknown) {
@@ -182,113 +175,191 @@ export default function AgentWorkflowEditor({ agentSlug, agents }: Props) {
     }
   };
 
+  const updateMeta = (field: "name" | "description", value: string) => {
+    setEditing((prev) => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const toggleWorkflowEnabled = () => {
+    setEditing((prev) => {
+      if (!prev) return prev;
+      if ("enabled" in prev) {
+        return { ...prev, enabled: !prev.enabled };
+      }
+      return prev;
+    });
+  };
+
   const isEditing = editing !== null;
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <div className="bg-red-950/40 border border-red-800/50 text-red-300 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
-          {error}
-        </div>
-      )}
+    <>
+      {/* Workflow list — stays in the agent page */}
+      <div className="space-y-4">
+        {error && !isEditing && (
+          <div className="bg-red-950/40 border border-red-800/50 text-red-300 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+            {error}
+          </div>
+        )}
 
-      {/* Workflow list */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-zinc-200">Workflows</h3>
-        <button
-          onClick={startCreate}
-          className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 px-2.5 py-1.5 rounded-md font-medium transition"
-        >
-          <Plus className="h-3 w-3" />
-          New Workflow
-        </button>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-zinc-200">Workflows</h3>
+          <button
+            onClick={startCreate}
+            className="flex items-center gap-1.5 text-xs bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-2.5 py-1.5 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+          >
+            <Plus className="h-3 w-3" />
+            New Workflow
+          </button>
+        </div>
+
+        {workflows.length === 0 && !showCreate && (
+          <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-6 text-center shadow-sm backdrop-blur-sm">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/60 ring-1 ring-white/5">
+              <Bot className="h-6 w-6 text-zinc-600" />
+            </div>
+            <p className="text-sm text-zinc-500">No workflows yet. Create one to define an agent-to-agent pipeline.</p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {workflows.map((wf) => (
+            <div
+              key={wf.id}
+              onClick={() => startEdit(wf)}
+              className="group flex items-center justify-between rounded-xl border border-zinc-800/60 bg-zinc-900/40 px-3 py-3 cursor-pointer transition-all duration-200 hover:border-zinc-700/60 hover:bg-zinc-900/60"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleEnabled(wf);
+                  }}
+                  className="shrink-0"
+                  title={wf.enabled ? "Enabled" : "Disabled"}
+                >
+                  {wf.enabled ? (
+                    <ToggleRight className="h-5 w-5 text-emerald-400" />
+                  ) : (
+                    <ToggleLeft className="h-5 w-5 text-zinc-600" />
+                  )}
+                </button>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-zinc-200 truncate">{wf.name}</div>
+                  <div className="text-xs text-zinc-500 truncate">{wf.description || "No description"}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-600 group-hover:text-zinc-500 transition">
+                  {wf.enabled ? "Active" : "Inactive"}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    remove(wf.id);
+                  }}
+                  className="rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition"
+                  title="Delete workflow"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {workflows.length === 0 && !showCreate && (
-        <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-6 text-center">
-          <Bot className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
-          <p className="text-sm text-zinc-500">No workflows yet. Create one to define an agent-to-agent pipeline.</p>
-        </div>
-      )}
+      {/* Full-screen workflow configuration overlay */}
+      {isEditing && (
+        <div className="fixed inset-0 z-[90] flex flex-col bg-zinc-950 animate-fade-in">
+          {/* Header bar */}
+          <div className="flex items-center gap-4 border-b border-zinc-800/60 px-6 py-4 bg-zinc-950/80 backdrop-blur-sm">
+            <button
+              onClick={closeEditor}
+              className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to Agent</span>
+            </button>
 
-      <div className="space-y-2">
-        {workflows.map((wf) => (
-          <div
-            key={wf.id}
-            onClick={() => startEdit(wf)}
-            className={
-              "flex items-center justify-between rounded-lg border px-3 py-2.5 cursor-pointer transition " +
-              (selectedWorkflowId === wf.id
-                ? "border-indigo-500/40 bg-indigo-500/5"
-                : "border-zinc-800 bg-zinc-950 hover:bg-zinc-900")
-            }
-          >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="h-6 w-px bg-zinc-800/60" />
+
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 ring-1 ring-white/5">
+              <WandSparkles className="h-4 w-4 text-indigo-400" />
+            </div>
+
+            <div className="flex flex-1 items-center gap-3 min-w-0">
+              <input
+                value={editing.name}
+                onChange={(e) => updateMeta("name", e.target.value)}
+                placeholder="Workflow name"
+                className="min-w-0 flex-1 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 py-2 text-sm font-medium text-zinc-100 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+              />
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleEnabled(wf);
-                }}
-                className="shrink-0"
-                title={wf.enabled ? "Enabled" : "Disabled"}
+                onClick={toggleWorkflowEnabled}
+                className="flex items-center gap-2 rounded-xl border border-zinc-800/60 bg-zinc-900/60 px-3 py-2 text-sm transition hover:bg-zinc-800/60"
+                title="Toggle enabled"
               >
-                {wf.enabled ? (
+                {"enabled" in editing && editing.enabled ? (
                   <ToggleRight className="h-5 w-5 text-emerald-400" />
                 ) : (
                   <ToggleLeft className="h-5 w-5 text-zinc-600" />
                 )}
+                <span className="text-xs font-medium text-zinc-400">
+                  {"enabled" in editing && editing.enabled ? "Enabled" : "Disabled"}
+                </span>
               </button>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-zinc-200 truncate">{wf.name}</div>
-                <div className="text-xs text-zinc-500 truncate">{wf.description || "No description"}</div>
-              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  remove(wf.id);
-                }}
-                className="rounded-md p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
-                title="Delete workflow"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-              <ChevronRight className="h-4 w-4 text-zinc-500" />
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {isEditing && (
-        <div ref={editorRef} className="space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-          <WorkflowDiagramEditor
-            workflowKey={selectedWorkflowId ?? (showCreate ? "new-workflow" : "workflow")}
-            agentSlug={agentSlug}
-            agents={agents}
-            workflow={editing}
-            onChange={handleWorkflowChange}
-          />
-
-          <div className="flex justify-end gap-2 border-t border-zinc-800 pt-4">
-            <button
-              onClick={cancelEdit}
-              className="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-300 transition hover:bg-zinc-900"
-            >
-              Cancel
-            </button>
             <button
               onClick={save}
               disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-50 shadow-lg shadow-indigo-500/15"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {saving ? "Saving…" : "Save Changes"}
+              {saving ? "Saving…" : "Save & Close"}
             </button>
+
+            <button
+              onClick={closeEditor}
+              className="rounded-xl p-2 text-zinc-600 hover:bg-zinc-900/60 hover:text-zinc-300 transition"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Description bar */}
+          <div className="flex items-center gap-3 border-b border-zinc-800/40 px-6 py-3 bg-zinc-950/40">
+            <span className="text-xs font-medium text-zinc-500 shrink-0">Description</span>
+            <input
+              value={editing.description || ""}
+              onChange={(e) => updateMeta("description", e.target.value)}
+              placeholder="What does this workflow do?"
+              className="flex-1 rounded-xl border border-zinc-800/40 bg-zinc-900/40 px-3 py-1.5 text-sm text-zinc-300 outline-none transition focus:border-indigo-500/40 focus:ring-2 focus:ring-indigo-500/10"
+            />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mx-6 mt-3 bg-red-950/40 border border-red-800/50 text-red-300 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Diagram editor — fills remaining space */}
+          <div className="flex-1 min-h-0 p-4">
+            <WorkflowDiagramEditor
+              workflowKey={selectedWorkflowId ?? (showCreate ? "new-workflow" : "workflow")}
+              agentSlug={agentSlug}
+              agents={agents}
+              workflow={editing}
+              onChange={handleWorkflowChange}
+            />
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

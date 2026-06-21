@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Store, Bot, ChevronRight, Wrench, Rocket, BookOpen, Eye, X, Check, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { api, type AgentTemplate, type AgentTemplateDetail, type AgentTemplateDeployRequest, type Connector, type AgentSetting } from "@/lib/api";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 const TAG_COLORS: Record<string, string> = {
   starter: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -109,21 +110,14 @@ export default function AdminAgentTemplates() {
   const workflows = selectedTemplate?.workflows || [];
   const isOrchestrator = Boolean(agentConfig.is_orchestrator);
   const isRouter = Boolean(agentConfig.is_router);
-  const hasWorkflows = workflows.length > 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
-            <Store className="h-5 w-5 text-indigo-400" />
-            Agent Template Gallery
-          </h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Browse pre-configured agents and deploy them with one click.
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Agent Template Gallery"
+        description="Browse pre-configured agents and deploy them with one click"
+        icon={Store}
+      />
 
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -142,21 +136,21 @@ export default function AdminAgentTemplates() {
             <button
               key={t.id}
               onClick={() => openPreview(t.id)}
-              className="group relative flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
+              className="group relative flex flex-col gap-3 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 text-left shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-zinc-700/60 hover:bg-zinc-900/60 hover:shadow-md"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 ring-1 ring-white/5 transition group-hover:bg-indigo-500/15">
                     <Bot className="h-5 w-5 text-indigo-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-medium text-zinc-200 group-hover:text-zinc-100">
+                    <h3 className="text-sm font-medium text-zinc-200 group-hover:text-white transition">
                       {t.name}
                     </h3>
                     <p className="text-xs text-zinc-500">{t.id}</p>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-600 transition group-hover:text-zinc-400" />
+                <ChevronRight className="h-4 w-4 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-zinc-400" />
               </div>
               <p className="text-sm text-zinc-400 line-clamp-2">{t.description}</p>
               <div className="mt-auto flex flex-wrap gap-1.5">
@@ -176,8 +170,8 @@ export default function AdminAgentTemplates() {
 
       {/* Preview / Deploy Modal */}
       {selectedTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="animate-scale-in w-full max-w-lg rounded-2xl border border-zinc-800/80 bg-zinc-950 p-6 shadow-2xl">
             <div className="mb-5 flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10">

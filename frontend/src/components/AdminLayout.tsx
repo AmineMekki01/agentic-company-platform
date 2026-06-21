@@ -1,13 +1,23 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, HardDrive, MessageSquare, Plug, Store } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, HardDrive, LogOut, MessageSquare, Plug, Store } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 
-const links = [
-  { to: "/admin/agents", label: "Agents", icon: Bot },
-  { to: "/admin/agent-templates", label: "Templates", icon: Store },
-  { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
-  { to: "/admin/connectors", label: "Connectors", icon: Plug },
-  { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
+const navGroups = [
+  {
+    label: "Agents",
+    items: [
+      { to: "/admin/agents", label: "Agents", icon: Bot },
+      { to: "/admin/agent-templates", label: "Templates", icon: Store },
+    ],
+  },
+  {
+    label: "Data & Integrations",
+    items: [
+      { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
+      { to: "/admin/connectors", label: "Connectors", icon: Plug },
+      { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
+    ],
+  },
 ];
 
 function Breadcrumbs() {
@@ -21,7 +31,7 @@ function Breadcrumbs() {
     const label = seg.replace(/-/g, " ").replace(/_/g, " ");
     return (
       <span key={path} className="flex items-center gap-1.5">
-        <span className="text-zinc-700">/</span>
+        <ChevronRight className="h-3 w-3 text-zinc-700" />
         {isLast ? (
           <span className="text-zinc-300 font-medium capitalize">{label}</span>
         ) : (
@@ -34,7 +44,7 @@ function Breadcrumbs() {
   });
 
   return (
-    <nav className="flex items-center gap-1.5 text-xs mb-5">
+    <nav className="flex items-center gap-0.5 text-xs mb-6">
       <Link to="/admin" className="text-zinc-500 hover:text-zinc-300 transition">Admin</Link>
       {crumbs.slice(1)}
     </nav>
@@ -51,50 +61,93 @@ export default function AdminLayout() {
 
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100">
-      <aside className="w-60 border-r border-zinc-800/80 bg-zinc-950 p-4 flex flex-col gap-0.5">
-        <div className="flex items-center gap-2.5 px-3 py-3 mb-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+      {/* Sidebar */}
+      <aside className="w-64 border-r border-zinc-800/40 bg-zinc-950/80 backdrop-blur-sm flex flex-col">
+        {/* Brand header */}
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-zinc-800/30">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20 ring-1 ring-white/10">
             <Bot className="h-4 w-4 text-white" />
           </div>
-          <span className="font-semibold text-sm tracking-tight">Admin Panel</span>
+          <div>
+            <span className="font-semibold text-sm text-white tracking-tight">Admin Panel</span>
+            <p className="text-[10px] text-zinc-500 leading-none mt-0.5">Management Console</p>
+          </div>
         </div>
-        <div className="space-y-0.5">
-          {links.map((l) => {
-            const Icon = l.icon;
-            const active = location.pathname === l.to;
-            return (
-              <Link
-                key={l.to}
-                to={l.to}
-                className={
-                  "relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition " +
-                  (active
-                    ? "bg-zinc-900 font-medium text-zinc-100"
-                    : "hover:bg-zinc-900/60 text-zinc-400 hover:text-zinc-200")
-                }
-              >
-                {active && (
-                  <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-indigo-500" />
-                )}
-                <Icon className={`h-4 w-4 ${active ? "text-indigo-400" : "text-zinc-500"}`} />
-                {l.label}
-              </Link>
-            );
-          })}
-        </div>
-        <div className="mt-auto pt-4 border-t border-zinc-800/60">
+
+        {/* Navigation */}
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          {navGroups.map((group) => (
+            <div key={group.label} className="mb-5">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((l) => {
+                  const Icon = l.icon;
+                  const active = location.pathname === l.to ||
+                    (l.to === "/admin/agents" && location.pathname.startsWith("/admin/agents/"));
+                  return (
+                    <Link
+                      key={l.to}
+                      to={l.to}
+                      className={
+                        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 " +
+                        (active
+                          ? "bg-zinc-900/60 font-medium text-white"
+                          : "text-zinc-400 hover:bg-zinc-900/30 hover:text-zinc-200")
+                      }
+                    >
+                      {active && (
+                        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-indigo-400 to-violet-400" />
+                      )}
+                      <Icon className={`h-[18px] w-[18px] transition-colors ${active ? "text-indigo-400" : "text-zinc-600 group-hover:text-zinc-400"}`} />
+                      <span className="leading-tight">{l.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Back to chat */}
+        <div className="px-3 pb-2 border-t border-zinc-800/30 pt-3">
           <Link
             to="/"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 transition"
+            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200 transition-all duration-200"
           >
-            <MessageSquare className="h-4 w-4" />
-            Back to Chat
+            <MessageSquare className="h-[18px] w-[18px] text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <span className="leading-tight">Back to Chat</span>
           </Link>
         </div>
+
+        {/* User profile + logout */}
+        <div className="flex items-center gap-2.5 border-t border-zinc-800/30 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-indigo-300 ring-1 ring-white/5">
+            {auth.user?.email[0] ?? "?"}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-zinc-300">{auth.user?.email}</p>
+            <p className="text-[10px] uppercase tracking-wide text-zinc-600">
+              {auth.user?.role}
+            </p>
+          </div>
+          <button
+            onClick={auth.logout}
+            className="rounded-lg p-1.5 text-zinc-600 transition hover:bg-zinc-800/60 hover:text-zinc-300"
+            aria-label="Log out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </aside>
-      <main className="flex-1 overflow-auto bg-zinc-950 p-6">
-        <Breadcrumbs />
-        <Outlet />
+
+      {/* Main content */}
+      <main className="flex-1 overflow-auto bg-gradient-to-b from-zinc-950 to-zinc-950/95">
+        <div className="mx-auto w-full p-8">
+          <Breadcrumbs />
+          <Outlet />
+        </div>
       </main>
     </div>
   );

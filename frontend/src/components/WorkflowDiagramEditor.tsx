@@ -567,8 +567,8 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
 
   const editorContent = (
     <>
-      <div className={fullscreen ? "grid h-full grid-cols-[minmax(0,1fr)_400px] gap-4" : "grid min-h-[720px] grid-cols-[minmax(0,1fr)_360px] gap-4"}>
-        <div className={fullscreen ? "relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950" : "relative h-[720px] overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"}>
+      <div className={fullscreen ? "grid h-full grid-cols-[minmax(0,1fr)_400px] gap-4" : "grid h-full grid-cols-[minmax(0,1fr)_360px] gap-4"}>
+        <div className={fullscreen ? "relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950" : "relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"}>
         <Panel position="top-left" className="pointer-events-none z-10">
           <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/95 px-3 py-2 shadow-lg backdrop-blur">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
@@ -660,7 +660,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
         </div>
         </div>
 
-        <aside className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl shadow-black/20">
+        <aside className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl shadow-black/20 overflow-y-auto min-h-0">
         <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3">
           <div>
             <div className="text-sm font-semibold text-zinc-100">Selected node</div>

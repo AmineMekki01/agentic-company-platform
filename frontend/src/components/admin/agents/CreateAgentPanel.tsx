@@ -63,8 +63,8 @@ export default function CreateAgentPanel({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div className="animate-fade-in fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="animate-scale-in bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center gap-2 pb-3 border-b border-zinc-800">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
             <Bot className="h-4 w-4 text-indigo-400" />

@@ -6,6 +6,7 @@ import AgentIcon from "@/components/AgentIcon";
 import AgentWorkflowEditor from "@/components/AgentWorkflowEditor";
 import AgentListTable from "@/components/admin/agents/AgentListTable";
 import CreateAgentPanel from "@/components/admin/agents/CreateAgentPanel";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { useAuth } from "@/stores/auth";
 
 type TabKey = "overview" | "tools" | "knowledge" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
@@ -512,28 +513,26 @@ export default function AdminAgents() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Agents</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Configure and manage AI agents for your workspace</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setShowCreate(true); setError(null); setNewAgent(makeDefaultNewAgent(currentUser?.email || "")); }}
-            className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Create Agent
-          </button>
-          <button
-            onClick={refresh}
-            className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Agents"
+        description="Configure and manage AI agents for your workspace"
+        icon={Bot}
+      >
+        <button
+          onClick={() => { setShowCreate(true); setError(null); setNewAgent(makeDefaultNewAgent(currentUser?.email || "")); }}
+          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Create Agent
+        </button>
+        <button
+          onClick={refresh}
+          className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+          Refresh
+        </button>
+      </AdminPageHeader>
 
       {error && (
         <div className="mb-4 bg-red-950/40 border border-red-800/50 text-red-300 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
@@ -612,21 +611,21 @@ export default function AdminAgents() {
                     <>
                       <button
                         onClick={() => { setShowTestDraft(true); setTestDraftMessage(""); setTestDraftResponse(""); }}
-                        className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
+                        className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         Test Draft
                       </button>
                       <button
                         onClick={handleDiscardDraft}
-                        className="flex items-center gap-1.5 text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-2 rounded-lg transition"
+                        className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         Discard
                       </button>
                       <button
                         onClick={() => setShowPublishModal(true)}
-                        className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                        className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
                       >
                         <Rocket className="h-3.5 w-3.5" />
                         Publish
@@ -636,7 +635,7 @@ export default function AdminAgents() {
                   {!selected.is_published && (
                     <button
                       onClick={() => setShowPublishModal(true)}
-                      className="flex items-center gap-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                      className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
                     >
                       <Rocket className="h-3.5 w-3.5" />
                       Publish
@@ -1026,7 +1025,7 @@ export default function AdminAgents() {
                     <div className="border-t border-zinc-800 pt-4">
                       <h3 className="text-sm font-medium text-zinc-300 mb-1">Workflows</h3>
                       <p className="text-xs text-zinc-500 mb-3">
-                        Define a fixed step-by-step DAG workflow for this agent. Workflows are independent of Routing and Orchestration modes.
+                        Define step-by-step DAG pipelines for this agent. Click a workflow or create a new one to open the diagram builder.
                       </p>
                       <AgentWorkflowEditor agentSlug={selected.slug} agents={agents} />
                     </div>
@@ -1213,7 +1212,7 @@ export default function AdminAgents() {
                             setEvalTestForm({ name: "", question: "", expected_answer: "" });
                             setShowEvalTestModal(true);
                           }}
-                          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-1.5 rounded-lg text-xs font-medium transition"
                         >
                           <Plus className="h-3.5 w-3.5" /> New Test
                         </button>
@@ -1298,7 +1297,7 @@ export default function AdminAgents() {
                             setShowLaunchRunModal(true);
                           }}
                           disabled={evalTests.length === 0}
-                          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium transition"
                         >
                           <Rocket className="h-3.5 w-3.5" /> Launch Run
                         </button>
@@ -1402,7 +1401,7 @@ export default function AdminAgents() {
                 <button
                   onClick={save}
                   disabled={saving}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
+                  className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Saving…" : "Save Changes"}
@@ -1435,8 +1434,8 @@ export default function AdminAgents() {
 
       {/* Delete confirmation */}
       {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+        <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="animate-scale-in bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
                 <Trash2 className="h-5 w-5 text-red-400" />
@@ -1449,7 +1448,7 @@ export default function AdminAgents() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
               >
                 Cancel
               </button>
@@ -1466,8 +1465,8 @@ export default function AdminAgents() {
 
       {/* Publish modal */}
       {showPublishModal && selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+        <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="animate-scale-in bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10">
                 <Rocket className="h-5 w-5 text-indigo-400" />
@@ -1491,21 +1490,21 @@ export default function AdminAgents() {
                 onChange={(e) => setPublishNotes(e.target.value)}
                 placeholder="What changed in this version?"
                 rows={2}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
               />
             </label>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => { setShowPublishModal(false); setPublishNotes(""); }}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePublish}
                 disabled={publishing}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
               >
                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                 {publishing ? "Publishing…" : "Publish"}
@@ -1517,7 +1516,7 @@ export default function AdminAgents() {
 
       {/* Version diff modal */}
       {versionDetail && selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between">
               <div>
@@ -1608,7 +1607,7 @@ export default function AdminAgents() {
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
               <button
                 onClick={() => setVersionDetail(null)}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
               >
                 Close
               </button>
@@ -1653,7 +1652,7 @@ export default function AdminAgents() {
                     <MessageSquare className="h-3.5 w-3.5" />
                     User Comment
                   </div>
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300">
+                  <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm text-zinc-300">
                     {selectedFeedback.comment}
                   </div>
                 </div>
@@ -1668,7 +1667,7 @@ export default function AdminAgents() {
                   </div>
                   <div className="space-y-2">
                     {selectedFeedback.conversation_actions.map((action, i) => (
-                      <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+                      <div key={i} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 rounded px-1.5 py-0.5 uppercase tracking-wide">
                             {action.type.replace(/_/g, " ")}
@@ -1734,7 +1733,7 @@ export default function AdminAgents() {
                       const expanded = expandedToolCalls.has(i);
                       const resultStr = tc.result !== undefined ? JSON.stringify(tc.result) : "";
                       return (
-                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+                        <div key={i} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2">
                           <div className="flex items-center justify-between mb-1">
                             <div className="text-xs font-semibold text-indigo-300">{tc.tool || "unknown tool"}</div>
                             {resultStr.length > 200 && (
@@ -1785,7 +1784,7 @@ export default function AdminAgents() {
                       return (
                         <div
                           key={i}
-                          className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 cursor-pointer hover:border-zinc-700 transition"
+                          className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 cursor-pointer hover:border-zinc-700 transition"
                           onClick={() => toggleSource(i)}
                         >
                           <div className="flex items-center justify-between">
@@ -1848,7 +1847,7 @@ export default function AdminAgents() {
 
       {/* Test draft chat modal */}
       {showTestDraft && selected && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between">
               <div>
@@ -1873,7 +1872,7 @@ export default function AdminAgents() {
                   onChange={(e) => setTestDraftMessage(e.target.value)}
                   placeholder="Type a test message..."
                   rows={3}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
                 />
               </label>
 
@@ -1881,7 +1880,7 @@ export default function AdminAgents() {
                 <button
                   onClick={handleTestDraft}
                   disabled={testingDraft || !testDraftMessage.trim()}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-2 rounded-lg text-sm font-medium transition"
                 >
                   {testingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                   {testingDraft ? "Testing…" : "Send"}
@@ -1891,7 +1890,7 @@ export default function AdminAgents() {
               {testDraftResponse && (
                 <div className="mt-3">
                   <span className="text-xs font-medium text-zinc-400">Response</span>
-                  <div className="mt-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                  <div className="mt-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm text-zinc-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
                     {testDraftResponse}
                   </div>
                 </div>
@@ -1914,7 +1913,7 @@ export default function AdminAgents() {
                 <input
                   value={evalTestForm.name}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
                   placeholder="e.g., Laptop request for new hire"
                 />
               </label>
@@ -1924,7 +1923,7 @@ export default function AdminAgents() {
                   value={evalTestForm.question}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, question: e.target.value }))}
                   rows={3}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
                   placeholder="What question should the agent answer?"
                 />
               </label>
@@ -1934,13 +1933,13 @@ export default function AdminAgents() {
                   value={evalTestForm.expected_answer}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, expected_answer: e.target.value }))}
                   rows={4}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
                   placeholder="What should the ideal answer contain?"
                 />
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-              <button onClick={() => setShowEvalTestModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition">Cancel</button>
+              <button onClick={() => setShowEvalTestModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition">Cancel</button>
               <button
                 onClick={async () => {
                   if (!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()) return;
@@ -1963,7 +1962,7 @@ export default function AdminAgents() {
                   }
                 }}
                 disabled={!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
               >
                 <Save className="h-4 w-4" /> Save
               </button>
@@ -1986,7 +1985,7 @@ export default function AdminAgents() {
                 <input
                   value={launchRunForm.name}
                   onChange={(e) => setLaunchRunForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
                 />
               </label>
               <div className="space-y-3">
@@ -2036,7 +2035,7 @@ export default function AdminAgents() {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-              <button onClick={() => setShowLaunchRunModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 transition">Cancel</button>
+              <button onClick={() => setShowLaunchRunModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition">Cancel</button>
               <button
                 onClick={async () => {
                   if (!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0) return;
@@ -2060,7 +2059,7 @@ export default function AdminAgents() {
                   }
                 }}
                 disabled={!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0}
-                className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
               >
                 <Rocket className="h-4 w-4" /> Launch
               </button>
@@ -2113,11 +2112,11 @@ export default function AdminAgents() {
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2.5">
+                      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-2.5">
                         <span className="text-zinc-500 block mb-1">Expected</span>
                         <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.test_name ? evalTests.find((t) => t.id === res.test_id)?.expected_answer || "—" : "—"}</p>
                       </div>
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-2.5">
+                      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-2.5">
                         <span className="text-zinc-500 block mb-1">Actual</span>
                         <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.actual_answer || "—"}</p>
                       </div>

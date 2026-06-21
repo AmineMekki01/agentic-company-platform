@@ -267,32 +267,32 @@ export default function MessageList({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         {messages.map((m, idx) => {
           const prevAgent = prevAssistantAgents[idx];
           const isHandoff = m.role === "assistant" && !!m.agent_id && prevAgent !== null && prevAgent !== m.agent_id;
           return (
-            <div key={m.id} className="group">
+            <div key={m.id} className="group animate-fade-in-up">
               {isHandoff && (
-                <div className="mb-2 flex w-full items-center gap-2">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
-                  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-800/80 border border-zinc-700/50 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-                    <ArrowRight className="h-3 w-3" />
+                <div className="mb-3 flex w-full items-center gap-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700/60 to-transparent" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900/80 border border-zinc-800/60 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500 backdrop-blur-sm">
+                    <ArrowRight className="h-3 w-3 text-indigo-400" />
                     Handed off to {agentName(agents, m.agent_id)}
                   </span>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-700/60 to-transparent" />
                 </div>
               )}
               {m.role === "user" ? (
-                <div className="flex flex-row-reverse gap-3.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-600 to-zinc-700">
+                <div className="flex flex-row-reverse gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-600 to-zinc-700 ring-1 ring-white/5">
                     <UserIcon className="h-4 w-4 text-zinc-200" />
                   </div>
                   <div className="min-w-0 max-w-[80%] pt-0.5">
                     <div className="mb-1.5 flex items-baseline justify-end gap-2">
                       <span className="text-xs font-semibold text-zinc-300">You</span>
                     </div>
-                    <div className="rounded-2xl rounded-tr-sm bg-zinc-800 px-4 py-3">
+                    <div className="rounded-2xl rounded-tr-md bg-zinc-800/60 border border-zinc-700/40 px-4 py-3 shadow-sm">
                       {m.attachments && m.attachments.length > 0 && (
                         <div className="mb-2 flex flex-wrap gap-2">
                           {m.attachments.map((att, i) => (
@@ -313,8 +313,8 @@ export default function MessageList({
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-3.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15">
+                <div className="flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15 ring-1 ring-white/5">
                     <Bot className="h-4 w-4 text-white" />
                   </div>
                   <div className="min-w-0 flex-1 pt-0.5">

@@ -108,7 +108,7 @@ export default function Sidebar({
         {menuOpen === c.id && (
           <div
             ref={menuRef}
-            className="absolute right-0 top-6 z-50 w-40 rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+            className="animate-scale-in absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900/95 py-1 shadow-2xl backdrop-blur-sm"
           >
             <button
               onClick={(e) => {
@@ -116,18 +116,19 @@ export default function Sidebar({
                 setMoveMenuOpen(c.id);
                 setMenuOpen(null);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/60"
             >
-              <Folder className="h-3.5 w-3.5" />
+              <Folder className="h-3.5 w-3.5 text-zinc-500" />
               Move to folder…
             </button>
+            <div className="my-1 h-px bg-zinc-800" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(c.id);
                 setMenuOpen(null);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-zinc-800"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
@@ -137,7 +138,7 @@ export default function Sidebar({
         {moveMenuOpen === c.id && (
           <div
             ref={menuRef}
-            className="absolute right-0 top-6 z-50 w-44 rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl"
+            className="animate-scale-in absolute right-0 top-7 z-50 w-48 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900/95 py-1 shadow-2xl backdrop-blur-sm"
           >
             {folders.length === 0 && (
               <p className="px-3 py-2 text-xs text-zinc-500">No folders yet</p>
@@ -179,22 +180,25 @@ export default function Sidebar({
   );
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800/70 bg-zinc-950">
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800/50 bg-zinc-950/80 backdrop-blur-sm">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-800/30">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
           <Bot className="h-4 w-4 text-white" />
         </div>
-        <span className="text-sm font-semibold tracking-tight text-zinc-100">
-          Company Platform
-        </span>
+        <div>
+          <span className="text-sm font-semibold tracking-tight text-zinc-100 block leading-tight">
+            Company Platform
+          </span>
+          <span className="text-[10px] text-zinc-500 leading-none">AI Workspace</span>
+        </div>
       </div>
 
       <div className="px-3">
         <button
           onClick={onNew}
-          className="flex w-full items-center gap-2 rounded-xl border border-zinc-700/80 bg-zinc-900/60 px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800/80 hover:text-zinc-100 hover:border-zinc-600"
+          className="flex w-full items-center gap-2 rounded-xl border border-zinc-700/60 bg-gradient-to-r from-zinc-900/80 to-zinc-900/40 px-3 py-2.5 text-sm font-medium text-zinc-300 transition-all hover:from-zinc-800/80 hover:to-zinc-800/40 hover:text-zinc-100 hover:border-zinc-600/80 shadow-sm"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 text-indigo-400" />
           New chat
         </button>
       </div>
@@ -204,7 +208,7 @@ export default function Sidebar({
         {!creatingFolder ? (
           <button
             onClick={() => setCreatingFolder(true)}
-            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-zinc-900 hover:text-zinc-300"
+            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-zinc-900/60 hover:text-zinc-300"
           >
             <FolderPlus className="h-3.5 w-3.5" />
             New folder
@@ -288,11 +292,11 @@ export default function Sidebar({
                     <ChevronRight className="h-3.5 w-3.5" />
                   )}
                   <span
-                    className="h-2 w-2 rounded-full"
+                    className="h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950"
                     style={{ backgroundColor: folder.color ?? "#3b82f6" }}
                   />
                   <span className="truncate">{folder.name}</span>
-                  <span className="ml-1 rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-400">
+                  <span className="ml-1 rounded-full bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500">
                     {items.length}
                   </span>
                 </button>
@@ -319,8 +323,8 @@ export default function Sidebar({
         })}
 
         {conversations.length === 0 && (
-          <div className="px-3 py-8 text-center">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900">
+          <div className="px-3 py-10 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/60 ring-1 ring-white/5">
               <MessageSquare className="h-5 w-5 text-zinc-700" />
             </div>
             <p className="text-xs font-medium text-zinc-500">No conversations yet</p>
@@ -330,29 +334,29 @@ export default function Sidebar({
       </nav>
 
       {isAdmin() && (
-        <div className="px-3 py-2 border-t border-zinc-800/50">
+        <div className="px-3 py-2 border-t border-zinc-800/30">
           <Link
             to="/admin"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition"
+            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 transition-all"
           >
-            <Settings className="h-4 w-4" />
+            <Settings className="h-4 w-4 text-zinc-500" />
             Admin Panel
           </Link>
         </div>
       )}
-      <div className="flex items-center gap-2.5 border-t border-zinc-800/50 px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-600 text-xs font-semibold uppercase text-zinc-200 ring-2 ring-zinc-800">
+      <div className="flex items-center gap-2.5 border-t border-zinc-800/30 px-4 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-indigo-300 ring-1 ring-white/5">
           {user?.email[0] ?? "?"}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium text-zinc-300">{user?.email}</p>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-500">
+          <p className="text-[10px] uppercase tracking-wide text-zinc-600">
             {user?.role}
           </p>
         </div>
         <button
           onClick={logout}
-          className="rounded-md p-1 text-zinc-500 transition hover:bg-zinc-800 hover:text-zinc-200"
+          className="rounded-lg p-1.5 text-zinc-600 transition hover:bg-zinc-800/60 hover:text-zinc-300"
           aria-label="Log out"
         >
           <LogOut className="h-4 w-4" />

@@ -174,7 +174,7 @@ export default function Composer({
           </div>
         )}
 
-        <div className="rounded-2xl border border-zinc-700 bg-zinc-900 focus-within:border-indigo-500">
+        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 shadow-sm backdrop-blur-sm transition focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/10">
           {forcedAgent && (
             <div className="flex items-center gap-1 px-3 pt-2.5">
               <span className="flex items-center gap-1 rounded-md bg-indigo-600/20 px-2 py-0.5 text-xs font-medium text-indigo-300">
@@ -252,7 +252,7 @@ export default function Composer({
             {streaming ? (
               <button
                 onClick={onStop}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-zinc-700 text-zinc-200 transition hover:bg-zinc-600"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-700 text-zinc-200 transition hover:bg-zinc-600 active:scale-95"
                 aria-label="Stop streaming"
               >
                 <Square className="h-3.5 w-3.5" />
@@ -261,7 +261,7 @@ export default function Composer({
               <button
                 onClick={submit}
                 disabled={disabled || !value.trim()}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition hover:bg-indigo-500 disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/20 transition-all hover:from-indigo-500 hover:to-violet-500 active:scale-95 disabled:opacity-40 disabled:active:scale-100 disabled:shadow-none"
                 aria-label="Send message"
               >
                 <SendHorizonal className="h-4 w-4" />
@@ -272,9 +272,9 @@ export default function Composer({
 
         <div className="mt-2 flex items-center justify-between px-1">
           <p className="text-[11px] text-zinc-600">
-            Press <kbd className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[10px] text-zinc-500">/</kbd> to focus · <kbd className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to send
+            Press <kbd className="rounded-md border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">/</kbd> to focus · <kbd className="rounded-md border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to send
           </p>
-          <span className={`text-[11px] font-mono transition ${
+          <span className={`text-[11px] font-mono tabular-nums transition ${
             value.length > 3000 ? "text-amber-400" : "text-zinc-600"
           }`}>
             {value.length.toLocaleString()}

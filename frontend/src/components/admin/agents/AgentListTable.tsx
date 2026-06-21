@@ -41,27 +41,32 @@ export default function AgentListTable({
   };
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <div>
-          <h2 className="text-sm font-semibold text-zinc-100">Agents</h2>
-          <p className="text-xs text-zinc-500">Click a row to edit that agent.</p>
+    <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 overflow-hidden shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/40">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/10 ring-1 ring-white/5">
+            <Bot className="h-3.5 w-3.5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-100">Agents</h2>
+          </div>
         </div>
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />}
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-zinc-800 text-left text-sm">
-          <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+        <table className="min-w-full text-left text-sm">
+          <thead className="bg-zinc-950/40 text-[11px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60">
             <tr>
-              <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Owner</th>
-              <th className="px-4 py-3 font-medium">Created</th>
-              <th className="px-4 py-3 font-medium">Modified</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+              <th className="px-5 py-2.5 font-medium">Agent</th>
+              <th className="px-5 py-2.5 font-medium">Owner</th>
+              <th className="px-5 py-2.5 font-medium">Created</th>
+              <th className="px-5 py-2.5 font-medium">Modified</th>
+              <th className="px-5 py-2.5 font-medium">Published</th>
+              <th className="px-5 py-2.5 font-medium text-right w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800 bg-zinc-900">
+          <tbody className="divide-y divide-zinc-800/40">
             {agents.map((a) => {
               const active = selectedSlug === a.slug;
               return (
@@ -69,23 +74,41 @@ export default function AgentListTable({
                   key={a.slug}
                   onClick={() => onSelect(a.slug)}
                   className={
-                    "cursor-pointer transition " +
-                    (active ? "bg-zinc-800/70" : "hover:bg-zinc-800/50")
+                    "group cursor-pointer transition-all duration-150 " +
+                    (active
+                      ? "bg-indigo-500/[0.04]"
+                      : "hover:bg-zinc-800/40")
                   }
                 >
-                  <td className="px-4 py-3 align-top">
-                    <div className="font-medium text-zinc-100 truncate">{a.name || a.slug}</div>
+                  <td className="px-5 py-2.5 align-middle">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${active ? "bg-indigo-400" : "bg-zinc-600 group-hover:bg-zinc-500"}`} />
+                      <div>
+                        <div className="font-medium text-sm text-zinc-100 truncate">{a.name || a.slug}</div>
+                        <div className="text-[11px] text-zinc-600 font-mono">{a.slug}</div>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3 align-top text-zinc-300">{formatOwnerLabel(a.created_by)}</td>
-                  <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.created_at)}</td>
-                  <td className="px-4 py-3 align-top text-zinc-400">{formatDateTime(a.updated_at)}</td>
-                  <td className="px-4 py-3 align-top text-right">
+                  <td className="px-5 py-2.5 align-middle text-zinc-400 text-sm">{formatOwnerLabel(a.created_by)}</td>
+                  <td className="px-5 py-2.5 align-middle text-zinc-500 text-sm tabular-nums">{formatDateTime(a.created_at)}</td>
+                  <td className="px-5 py-2.5 align-middle text-zinc-500 text-sm tabular-nums">{formatDateTime(a.updated_at)}</td>
+                  <td className="px-5 py-2.5 align-middle">
+                    {a.is_published ? (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="text-zinc-400 text-sm tabular-nums">{formatDateTime(a.published_at)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-zinc-600 text-sm">Not published</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-2.5 align-middle text-right">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onDelete(a.slug);
                       }}
-                      className="rounded-md p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                      className="rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition opacity-0 group-hover:opacity-100"
                       title="Delete agent"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -96,9 +119,16 @@ export default function AgentListTable({
             })}
             {!loading && agents.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center">
-                  <Bot className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
-                  <p className="text-sm text-zinc-500">No agents configured yet</p>
+                <td colSpan={6} className="px-5 py-14 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/60 ring-1 ring-white/5">
+                      <Bot className="h-6 w-6 text-zinc-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-400">No agents configured yet</p>
+                      <p className="text-xs text-zinc-600 mt-0.5">Create an agent to get started</p>
+                    </div>
+                  </div>
                 </td>
               </tr>
             )}
