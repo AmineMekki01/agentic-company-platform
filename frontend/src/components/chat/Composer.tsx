@@ -48,6 +48,25 @@ export default function Composer({
     textareaRef.current?.focus();
   }, [focusKey]);
 
+  // Keyboard shortcut: '/' focuses composer
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (
+        e.key === "/" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        document.activeElement !== textareaRef.current &&
+        document.activeElement?.tagName !== "INPUT"
+      ) {
+        e.preventDefault();
+        textareaRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
   useEffect(() => {
     if (!canUpload && files.length > 0) {
       setFiles([]);
@@ -251,7 +270,17 @@ export default function Composer({
           </div>
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-zinc-600">
+        <div className="mt-2 flex items-center justify-between px-1">
+          <p className="text-[11px] text-zinc-600">
+            Press <kbd className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[10px] text-zinc-500">/</kbd> to focus · <kbd className="rounded bg-zinc-800 px-1 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to send
+          </p>
+          <span className={`text-[11px] font-mono transition ${
+            value.length > 3000 ? "text-amber-400" : "text-zinc-600"
+          }`}>
+            {value.length.toLocaleString()}
+          </span>
+        </div>
+        <p className="mt-1 text-center text-[11px] text-zinc-600">
           Agents can make mistakes. Verify important company information.
         </p>
       </div>

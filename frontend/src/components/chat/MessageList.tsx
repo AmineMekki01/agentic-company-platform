@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 import FeedbackModal from "./FeedbackModal";
@@ -74,6 +74,7 @@ function AssistantMessage({
   const [highlightedRank, setHighlightedRank] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [modalInitialUp, setModalInitialUp] = useState(true);
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
 
 
   const seenTitles = new Set<string>();
@@ -133,45 +134,55 @@ function AssistantMessage({
         </span>
       )}
       {dedupedSources.length > 0 && (
-        <div className="mt-4 rounded-xl border border-zinc-700/40 bg-zinc-800/30 px-4 py-3">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-zinc-400 uppercase tracking-wide">
+        <div className="mt-3">
+          <button
+            onClick={() => setSourcesExpanded((v) => !v)}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-700/40 bg-zinc-800/30 px-2.5 py-1.5 text-[11px] font-medium text-zinc-400 transition hover:bg-zinc-800/50 hover:text-zinc-300"
+          >
             <FileText className="h-3.5 w-3.5" />
-            Sources
-          </div>
-          <ul className="space-y-0.5">
-            {dedupedSources.map((s) => {
-              const content = (
-                <>
-                  <span className="mr-1 text-indigo-400">[{s.rank}]</span>
-                  {s.title}
-                </>
-              );
-              return (
-                <li
-                  key={s.id}
-                  className={`text-xs rounded-md px-2 py-1 transition ${
-                    highlightedRank === s.rank
-                      ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-                      : "text-zinc-500 border border-transparent hover:bg-zinc-700/30"
-                  }`}
-                >
-                  {s.url ? (
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-indigo-300 hover:underline"
-                      title={s.url}
-                    >
-                      {content}
-                    </a>
-                  ) : (
-                    <span>{content}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+            {sourcesExpanded ? "Hide" : "Show"} {dedupedSources.length} source{dedupedSources.length > 1 ? "s" : ""}
+            {sourcesExpanded ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+          </button>
+          {sourcesExpanded && (
+            <ul className="mt-2 space-y-0.5 rounded-xl border border-zinc-700/40 bg-zinc-800/30 px-3 py-2.5">
+              {dedupedSources.map((s) => {
+                const content = (
+                  <>
+                    <span className="mr-1 text-indigo-400">[{s.rank}]</span>
+                    {s.title}
+                  </>
+                );
+                return (
+                  <li
+                    key={s.id}
+                    className={`text-xs rounded-md px-2 py-1 transition ${
+                      highlightedRank === s.rank
+                        ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
+                        : "text-zinc-500 border border-transparent hover:bg-zinc-700/30"
+                    }`}
+                  >
+                    {s.url ? (
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-indigo-300 hover:underline"
+                        title={s.url}
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <span>{content}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
       {renderAction && !m.streaming && (
@@ -187,7 +198,7 @@ function AssistantMessage({
             className={`rounded-lg p-1.5 transition ${
               hasFeedback && feedbackUp
                 ? "text-emerald-400 bg-emerald-500/10"
-                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                : "text-zinc-500 opacity-40 hover:opacity-100 hover:text-zinc-300 hover:bg-zinc-800"
             }`}
             title="Thumbs up"
           >
@@ -201,7 +212,7 @@ function AssistantMessage({
             className={`rounded-lg p-1.5 transition ${
               hasFeedback && !feedbackUp
                 ? "text-rose-400 bg-rose-500/10"
-                : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
+                : "text-zinc-500 opacity-40 hover:opacity-100 hover:text-zinc-300 hover:bg-zinc-800"
             }`}
             title="Thumbs down"
           >
@@ -272,46 +283,22 @@ export default function MessageList({
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
                 </div>
               )}
-              <div className="flex gap-3.5">
-                <div
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
-                    m.role === "user"
-                      ? "bg-gradient-to-br from-zinc-600 to-zinc-700"
-                      : "bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15"
-                  }`}
-                >
-                  {m.role === "user" ? (
+              {m.role === "user" ? (
+                <div className="flex flex-row-reverse gap-3.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-600 to-zinc-700">
                     <UserIcon className="h-4 w-4 text-zinc-200" />
-                  ) : (
-                    <Bot className="h-4 w-4 text-white" />
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <div className="mb-1.5 flex items-baseline gap-2">
-                    <span className="text-xs font-semibold text-zinc-300">
-                      {m.role === "user" ? "You" : agentName(agents, m.agent_id)}
-                    </span>
-                    {m.role === "assistant" && m.agent_id && (
-                      <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
-                        @{m.agent_id}
-                      </span>
-                    )}
-                    {m.role === "assistant" && m.draft && (
-                      <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
-                        Draft
-                      </span>
-                    )}
                   </div>
-
-                  {m.role === "user" ? (
-                    <div>
+                  <div className="min-w-0 max-w-[80%] pt-0.5">
+                    <div className="mb-1.5 flex items-baseline justify-end gap-2">
+                      <span className="text-xs font-semibold text-zinc-300">You</span>
+                    </div>
+                    <div className="rounded-2xl rounded-tr-sm bg-zinc-800 px-4 py-3">
                       {m.attachments && m.attachments.length > 0 && (
                         <div className="mb-2 flex flex-wrap gap-2">
                           {m.attachments.map((att, i) => (
                             <span
                               key={i}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-1 text-xs text-zinc-300"
+                              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-700/60 px-2 py-1 text-xs text-zinc-300"
                             >
                               <Paperclip className="h-3 w-3 text-zinc-500" />
                               {att.filename}
@@ -323,7 +310,29 @@ export default function MessageList({
                         {m.content}
                       </p>
                     </div>
-                  ) : (
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-3.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/15">
+                    <Bot className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="mb-1.5 flex items-baseline gap-2">
+                      <span className="text-xs font-semibold text-zinc-300">
+                        {agentName(agents, m.agent_id)}
+                      </span>
+                      {m.agent_id && (
+                        <span className="rounded-md bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-indigo-300">
+                          @{m.agent_id}
+                        </span>
+                      )}
+                      {m.draft && (
+                        <span className="rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-400">
+                          Draft
+                        </span>
+                      )}
+                    </div>
                     <AssistantMessage
                       m={m}
                       renderAction={renderAction}
@@ -332,9 +341,9 @@ export default function MessageList({
                       feedbackUp={feedbackMap?.[m.serverId || m.id]?.thumbs_up}
                       onFeedbackSubmitted={onFeedbackSubmitted}
                     />
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           );
         })}
