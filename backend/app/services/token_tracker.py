@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pricing import estimate_cost
@@ -85,30 +85,26 @@ async def check_budget(
             )
             used_cost = float(cost_result or 0.0)
 
-            user_budget = await session.scalar(
+            budgets_result = await session.scalars(
                 select(TokenBudget).where(
-                    TokenBudget.scope == "user",
-                    TokenBudget.scope_id == uid_str,
+                    or_(
+                        and_(TokenBudget.scope == "user", TokenBudget.scope_id == uid_str),
+                        and_(TokenBudget.scope == "user", TokenBudget.scope_id == "*"),
+                        and_(TokenBudget.scope == "agent", TokenBudget.scope_id == agent_slug),
+                    )
                 )
             )
+            budgets = {(b.scope, b.scope_id): b for b in budgets_result.all()}
+            user_budget = budgets.get(("user", uid_str))
+            global_user_budget = budgets.get(("user", "*"))
+            agent_budget = budgets.get(("agent", agent_slug))
+
             if user_budget and used_cost >= user_budget.monthly_cost_limit_usd:
                 return True, round(used_cost, 4), user_budget.monthly_cost_limit_usd
 
-            global_user_budget = await session.scalar(
-                select(TokenBudget).where(
-                    TokenBudget.scope == "user",
-                    TokenBudget.scope_id == "*",
-                )
-            )
             if global_user_budget and used_cost >= global_user_budget.monthly_cost_limit_usd:
                 return True, round(used_cost, 4), global_user_budget.monthly_cost_limit_usd
 
-            agent_budget = await session.scalar(
-                select(TokenBudget).where(
-                    TokenBudget.scope == "agent",
-                    TokenBudget.scope_id == agent_slug,
-                )
-            )
             if agent_budget:
                 agent_cost_result = await session.scalar(
                     select(func.coalesce(func.sum(TokenUsage.estimated_cost_usd), 0.0)).where(
