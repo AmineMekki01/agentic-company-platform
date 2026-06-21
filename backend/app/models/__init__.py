@@ -12,6 +12,8 @@ from app.models.feedback_attachment import FeedbackAttachment
 from app.models.knowledge_source import KnowledgeSource
 from app.models.message import Message
 from app.models.message_feedback import MessageFeedback
+from app.models.token_budget import TokenBudget
+from app.models.token_usage import TokenUsage
 from app.models.upload_settings import UploadSettings
 from app.models.user import User, UserRole
 
@@ -30,6 +32,8 @@ __all__ = [
     "KnowledgeSource",
     "Message",
     "MessageFeedback",
+    "TokenBudget",
+    "TokenUsage",
     "UploadSettings",
     "User",
     "UserRole",

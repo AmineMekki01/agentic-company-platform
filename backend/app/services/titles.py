@@ -42,7 +42,7 @@ async def generate_title(first_message: str) -> str:
         return _truncate(first_message)
 
     try:
-        llm = get_chat_model("gpt-5-nano", temperature=0.2)
+        llm = get_chat_model("gpt-5.4-nano", temperature=0.2)
         response = await llm.ainvoke(
             [SystemMessage(content=_TITLE_PROMPT), HumanMessage(content=first_message[:2000])]
         )

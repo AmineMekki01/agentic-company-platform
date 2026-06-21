@@ -17,6 +17,7 @@ from app.agents.runtime import AgentRuntime
 from app.db.session import async_session_factory
 from app.models import AgentSettings, Conversation, Message, UserRole
 from app.models.user import User
+from app.services.token_tracker import check_budget as _check_token_budget
 
 logger = logging.getLogger(__name__)
 
@@ -189,12 +190,23 @@ async def _handle_message(
             research_config_dict.setdefault("search_tools", ["web_search"])
             research_config_dict["search_tools"].append("retrieve")
         dr_config = DeepResearchConfig.from_dict(research_config_dict)
+        dr_config.user_id = str(user.id)
+        dr_config.conversation_id = str(conversation_id)
 
         from app.main import app
         runtime: AgentRuntime | None = getattr(app.state, "runtime", None)
         checkpointer = runtime.checkpointer if runtime else None
 
         thread_id = f"{conversation_id}:{agent_slug}:research"
+
+        budget_exceeded, budget_used, budget_limit = await _check_token_budget(str(user.id), agent_slug)
+        if budget_exceeded:
+            await websocket.send_text(json.dumps({
+                "type": "budget_warning",
+                "used": budget_used,
+                "limit": budget_limit,
+                "message": f"Monthly budget exceeded (${budget_used:.4f} / ${budget_limit:.4f} USD). Contact an administrator.",
+            }))
 
         report_text = ""
         collected_sources: list[dict] = []
@@ -356,12 +368,23 @@ async def _handle_clarification_response(
             research_config_dict.setdefault("search_tools", ["web_search"])
             research_config_dict["search_tools"].append("retrieve")
         dr_config = DeepResearchConfig.from_dict(research_config_dict)
+        dr_config.user_id = str(user.id)
+        dr_config.conversation_id = str(conversation_id)
 
         from app.main import app
         runtime: AgentRuntime | None = getattr(app.state, "runtime", None)
         checkpointer = runtime.checkpointer if runtime else None
 
         thread_id = f"{conversation_id}:{agent_slug}:research"
+
+        budget_exceeded, budget_used, budget_limit = await _check_token_budget(str(user.id), agent_slug)
+        if budget_exceeded:
+            await websocket.send_text(json.dumps({
+                "type": "budget_warning",
+                "used": budget_used,
+                "limit": budget_limit,
+                "message": f"Monthly budget exceeded (${budget_used:.4f} / ${budget_limit:.4f} USD). Contact an administrator.",
+            }))
 
         report_text = ""
         collected_sources: list[dict] = []

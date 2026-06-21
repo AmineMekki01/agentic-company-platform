@@ -105,6 +105,8 @@ def upgrade() -> None:
         sa.Column("is_router", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("routes_to", sa.JSON(), nullable=True),
         sa.Column("visibility", sa.String(length=20), nullable=False, server_default="all"),
+        sa.Column("agent_type", sa.String(length=20), nullable=False, server_default="standard"),
+        sa.Column("research_config", sa.JSON(), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("allow_uploads", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("allowed_users", sa.JSON(), nullable=True, server_default="[]"),
@@ -499,8 +501,37 @@ def upgrade() -> None:
         ),
     )
 
+    # token_usage
+    op.create_table(
+        "token_usage",
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True),
+        sa.Column("agent_slug", sa.String(50), nullable=False, index=True),
+        sa.Column("conversation_id", sa.Uuid(), sa.ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True),
+        sa.Column("model", sa.String(100), nullable=False),
+        sa.Column("input_tokens", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("output_tokens", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("total_tokens", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("estimated_cost_usd", sa.Float(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False, index=True),
+    )
+
+    # token_budgets
+    op.create_table(
+        "token_budgets",
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("scope", sa.String(10), nullable=False),
+        sa.Column("scope_id", sa.String(255), nullable=False),
+        sa.Column("monthly_cost_limit_usd", sa.Float(), nullable=False, server_default="0.0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.UniqueConstraint("scope", "scope_id", name="uq_token_budgets_scope_scope_id"),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("token_budgets")
+    op.drop_table("token_usage")
     op.drop_table("agent_eval_results")
     op.drop_table("agent_eval_runs")
     op.drop_table("agent_eval_tests")

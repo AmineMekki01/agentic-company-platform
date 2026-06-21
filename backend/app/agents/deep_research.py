@@ -38,8 +38,33 @@ from app.agents.deep_research_prompts import (
 )
 from app.agents.llm import get_chat_model
 from app.agents.tools import retrieve, web_search
+from app.services.token_tracker import record_usage as _record_token_usage
 
 logger = logging.getLogger(__name__)
+
+
+def _dr_record_tokens(response, agent_slug: str, model_name: str, user_id=None, conversation_id=None) -> None:
+    """Extract usage_metadata from a deep research LLM response and fire-and-forget record it."""
+    try:
+        usage = getattr(response, "usage_metadata", None)
+        if usage is None:
+            return
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        if input_tokens == 0 and output_tokens == 0:
+            return
+        import asyncio as _aio
+        loop = _aio.get_event_loop()
+        loop.create_task(_record_token_usage(
+            user_id=user_id,
+            agent_slug=agent_slug,
+            model=model_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            conversation_id=conversation_id,
+        ))
+    except Exception:
+        logger.debug("Could not record DR token usage", exc_info=True)
 
 
 @dataclass
@@ -54,6 +79,8 @@ class DeepResearchConfig:
     final_report_model: str = "gpt-5.4"
     search_tools: list[str] = field(default_factory=lambda: ["web_search"])
     connected_sources: list[str] = field(default_factory=list)
+    user_id: str | None = None
+    conversation_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "DeepResearchConfig":
@@ -69,6 +96,8 @@ class DeepResearchConfig:
             final_report_model=data.get("final_report_model", "gpt-5.4"),
             search_tools=data.get("search_tools", ["web_search"]),
             connected_sources=data.get("connected_sources", []),
+            user_id=data.get("user_id"),
+            conversation_id=data.get("conversation_id"),
         )
 
 
@@ -256,6 +285,7 @@ async def write_research_brief(state: ResearchState, dr_config: DeepResearchConf
         date=_get_today_str(),
     )
     response = await research_model.ainvoke([HumanMessage(content=prompt_content)])
+    _dr_record_tokens(response, "deep_research", dr_config.research_model, dr_config.user_id, dr_config.conversation_id)
 
     supervisor_capabilities = []
     if "retrieve" in dr_config.search_tools and dr_config.connected_sources:
@@ -301,6 +331,7 @@ async def supervisor(state: SupervisorState, dr_config: DeepResearchConfig) -> C
 
     supervisor_messages = state.get("supervisor_messages", [])
     response = await research_model.ainvoke(supervisor_messages)
+    _dr_record_tokens(response, "deep_research", dr_config.research_model, dr_config.user_id, dr_config.conversation_id)
 
     return Command(
         goto="supervisor_tools",
@@ -441,6 +472,7 @@ async def researcher(state: ResearcherState, dr_config: DeepResearchConfig) -> C
     )
     messages = [SystemMessage(content=system_prompt)] + researcher_messages
     response = await research_model.ainvoke(messages)
+    _dr_record_tokens(response, "deep_research", dr_config.research_model, dr_config.user_id, dr_config.conversation_id)
 
     return Command(
         goto="researcher_tools",
@@ -532,6 +564,7 @@ async def compress_research(state: ResearcherState, dr_config: DeepResearchConfi
 
     try:
         response = await model.ainvoke(messages)
+        _dr_record_tokens(response, "deep_research", dr_config.compression_model, dr_config.user_id, dr_config.conversation_id)
         compressed = str(response.content)
     except Exception as e:
         logger.exception("Compression failed")
@@ -582,6 +615,7 @@ async def final_report_generation(state: ResearchState, dr_config: DeepResearchC
 
     try:
         response = await model.ainvoke([HumanMessage(content=prompt)])
+        _dr_record_tokens(response, "deep_research", dr_config.final_report_model, dr_config.user_id, dr_config.conversation_id)
         report = str(response.content)
     except Exception as e:
         logger.exception("Final report generation failed")

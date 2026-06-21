@@ -17,6 +17,7 @@ export interface StreamCallbacks {
   onTitle?: (title: string) => void;
   onDone?: (payload: { message_id: string; title: string | null }) => void;
   onError?: (detail: string) => void;
+  onBudgetWarning?: (message: string) => void;
 }
 
 export function useChatStream() {
@@ -110,6 +111,7 @@ export function useChatStream() {
                 setStreaming(false);
               }
               else if (event === "error") callbacks.onError?.(payload.detail);
+              else if (event === "budget_warning") callbacks.onBudgetWarning?.(payload.message);
             } catch (e) {
               console.error("[SSE] JSON parse error:", e, "data=", data);
             }
