@@ -419,12 +419,17 @@ async def chat_stream(
                         if output.get("current_agent"):
                             new_agent = output["current_agent"]
                             if new_agent != routed_agent:
-                                routed_agent = new_agent
-                                yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
+                                new_spec = draft_registry.get(new_agent)
+                                old_spec = draft_registry.get(routed_agent)
+                                new_is_orchestrator = new_spec and (new_spec.is_router or new_spec.is_orchestrator)
+                                old_is_specialist = old_spec and not (old_spec.is_router or old_spec.is_orchestrator)
+
+                                if not (old_is_specialist and new_is_orchestrator):
+                                    routed_agent = new_agent
+                                    yield {"event": "agent", "data": json.dumps({"agent": routed_agent})}
                         if output.get("sources"):
                             sources = output["sources"]
 
-                        # Capture tool call results at end of tools node
                         if name == "tools":
                             node_messages = output.get("messages", [])
                             for msg in node_messages:
