@@ -112,6 +112,20 @@ def _override_reducer(current_value, new_value):
         return operator.add(current_value, new_value)
 
 
+def _sources_reducer(current_value, new_value):
+    """Accumulate source dicts across nodes, de-duplicating by (id, url, title)."""
+    current = current_value or []
+    incoming = new_value or []
+    merged = list(current)
+    seen = {(s.get("id"), s.get("url"), s.get("title")) for s in merged}
+    for s in incoming:
+        key = (s.get("id"), s.get("url"), s.get("title"))
+        if key not in seen:
+            seen.add(key)
+            merged.append(s)
+    return merged
+
+
 class ResearchState(TypedDict):
     """Main state for the deep research workflow."""
     messages: Annotated[list[AnyMessage], operator.add]
@@ -120,6 +134,7 @@ class ResearchState(TypedDict):
     final_report: str
     clarification_question: str | None
     supervisor_messages: Annotated[list[AnyMessage], _override_reducer]
+    sources: Annotated[list[dict], _sources_reducer]
 
 
 class SupervisorState(TypedDict):
@@ -128,6 +143,7 @@ class SupervisorState(TypedDict):
     research_brief: str
     notes: Annotated[list[str], _override_reducer]
     research_iterations: int
+    sources: Annotated[list[dict], _sources_reducer]
 
 
 class ResearcherState(TypedDict):
@@ -135,12 +151,14 @@ class ResearcherState(TypedDict):
     researcher_messages: Annotated[list[AnyMessage], operator.add]
     research_topic: str
     tool_call_iterations: int
+    sources: Annotated[list[dict], _sources_reducer]
 
 
 class ResearcherOutputState(TypedDict):
     """Output state from individual researchers."""
     compressed_research: str
     notes: Annotated[list[str], _override_reducer]
+    sources: Annotated[list[dict], _sources_reducer]
 
 
 
@@ -162,8 +180,17 @@ def _get_research_tools(config: DeepResearchConfig) -> list:
         if t == "web_search":
             tools.append(web_search)
         elif t == "retrieve":
-            # Wrap retrieve with pre-bound source IDs
+
             async def _retrieve_wrapper(query: str) -> str:
+                """Search the company knowledge base for relevant documents.
+
+                Use this when the user asks about company policies, procedures,
+                pricing, HR topics, IT runbooks, or any internal document.
+                Returns top relevant passages with source titles and citation numbers.
+
+                Args:
+                    query: The search query
+                """
                 import json
                 text, srcs = await _retrieve_and_format(query, config.connected_sources)
                 return json.dumps({"text": text, "sources": srcs})
@@ -171,6 +198,12 @@ def _get_research_tools(config: DeepResearchConfig) -> list:
             wrapper = tool_decorator(_retrieve_wrapper)
             wrapper.name = "retrieve"
             tools.append(wrapper)
+    logger.info(
+        "_get_research_tools: search_tools=%s, built tool names=%s, connected_sources=%s",
+        config.search_tools,
+        [getattr(t, "name", str(t)) for t in tools],
+        config.connected_sources,
+    )
     return tools
 
 
@@ -224,10 +257,25 @@ async def write_research_brief(state: ResearchState, dr_config: DeepResearchConf
     )
     response = await research_model.ainvoke([HumanMessage(content=prompt_content)])
 
+    supervisor_capabilities = []
+    if "retrieve" in dr_config.search_tools and dr_config.connected_sources:
+        supervisor_capabilities.append(
+            "- Internal Knowledge Base: researchers can search company documents, policies, "
+            "pricing, HR, IT, and finance data using the 'retrieve' tool. Delegate internal "
+            "data lookups to researchers with explicit instructions to use 'retrieve'."
+        )
+    if "web_search" in dr_config.search_tools:
+        supervisor_capabilities.append(
+            "- Web Search: researchers can search the public internet for external, market, "
+            "and competitor information using the 'web_search' tool."
+        )
+    supervisor_caps_str = "\n".join(supervisor_capabilities) or "- No external search tools available."
+
     supervisor_system_prompt = SUPERVISOR_PROMPT.format(
         date=_get_today_str(),
         max_concurrent_research_units=dr_config.max_concurrent_research_units,
         max_researcher_iterations=dr_config.max_researcher_iterations,
+        capabilities=supervisor_caps_str,
     )
 
     return Command(
@@ -314,17 +362,26 @@ async def supervisor_tools(state: SupervisorState, dr_config: DeepResearchConfig
         ]
         results = await asyncio.gather(*research_tasks, return_exceptions=True)
 
+        researcher_sources = []
         for obs, tc in zip(results, allowed):
             if isinstance(obs, Exception):
-                logger.exception("Researcher subgraph failed")
+                logger.error(
+                    "Researcher subgraph failed: %r",
+                    obs,
+                    exc_info=(type(obs), obs, obs.__traceback__),
+                )
                 content = f"Research error: {obs}"
             else:
                 content = obs.get("compressed_research", "Error: no research output")
+                researcher_sources.extend(obs.get("sources", []))
             all_tool_messages.append(ToolMessage(
                 content=content,
                 name="ConductResearch",
                 tool_call_id=tc["id"],
             ))
+
+        if researcher_sources:
+            update_payload["sources"] = researcher_sources
 
         for tc in overflow:
             all_tool_messages.append(ToolMessage(
@@ -360,8 +417,26 @@ async def researcher(state: ResearcherState, dr_config: DeepResearchConfig) -> C
     research_model = model.bind_tools(tools)
 
     researcher_messages = state.get("researcher_messages", [])
+
+    tool_instructions = []
+    for t in dr_config.search_tools:
+        if t == "retrieve":
+            tool_instructions.append(
+                "IMPORTANT: You have access to a 'retrieve' tool that searches the company's "
+                "internal knowledge base (documents, policies, pricing, HR, IT, finance). "
+                "You MUST use 'retrieve' for any question about internal/company information, "
+                "pricing, policies, procedures, or anything that may exist in company documents. "
+                "Do NOT rely on web search for internal data — use 'retrieve' first."
+            )
+        elif t == "web_search":
+            tool_instructions.append(
+                "You have access to a 'web_search' tool for external/public information, "
+                "market data, competitors, and anything not in the internal knowledge base."
+            )
+    mcp_prompt = "\n\n".join(tool_instructions) if tool_instructions else ""
+
     system_prompt = RESEARCHER_PROMPT.format(
-        mcp_prompt="",
+        mcp_prompt=mcp_prompt,
         date=_get_today_str(),
     )
     messages = [SystemMessage(content=system_prompt)] + researcher_messages
@@ -385,10 +460,17 @@ async def researcher_tools(state: ResearcherState, dr_config: DeepResearchConfig
     if not tool_calls:
         return Command(goto="compress_research")
 
+    logger.info(
+        "researcher_tools: %d tool calls: %s",
+        len(tool_calls),
+        [(tc["name"], tc.get("args", {}).get("query", "")[:80]) for tc in tool_calls],
+    )
+
     tools = _get_research_tools(dr_config)
     tools_by_name = {t.name: t for t in tools}
 
     tool_outputs = []
+    new_sources = []
     for tc in tool_calls:
         tool_name = tc["name"]
         tool_fn = tools_by_name.get(tool_name)
@@ -401,8 +483,17 @@ async def researcher_tools(state: ResearcherState, dr_config: DeepResearchConfig
             continue
         try:
             result = await tool_fn.ainvoke(tc["args"])
+            result_str = str(result)
+            # Try to parse structured JSON to extract sources
+            try:
+                import json as _json
+                parsed = _json.loads(result_str)
+                if isinstance(parsed, dict) and "sources" in parsed:
+                    new_sources.extend(parsed.get("sources", []))
+            except (ValueError, TypeError):
+                pass
             tool_outputs.append(ToolMessage(
-                content=str(result),
+                content=result_str,
                 name=tool_name,
                 tool_call_id=tc["id"],
             ))
@@ -414,16 +505,20 @@ async def researcher_tools(state: ResearcherState, dr_config: DeepResearchConfig
                 tool_call_id=tc["id"],
             ))
 
+    update_payload: dict[str, Any] = {"researcher_messages": tool_outputs}
+    if new_sources:
+        update_payload["sources"] = new_sources
+
     exceeded = state.get("tool_call_iterations", 0) >= dr_config.max_react_tool_calls
     if exceeded:
         return Command(
             goto="compress_research",
-            update={"researcher_messages": tool_outputs},
+            update=update_payload,
         )
 
     return Command(
         goto="researcher",
-        update={"researcher_messages": tool_outputs},
+        update=update_payload,
     )
 
 
@@ -445,6 +540,7 @@ async def compress_research(state: ResearcherState, dr_config: DeepResearchConfi
     return {
         "compressed_research": compressed,
         "notes": [compressed],
+        "sources": state.get("sources", []),
     }
 
 
@@ -465,11 +561,23 @@ async def final_report_generation(state: ResearchState, dr_config: DeepResearchC
     findings = "\n\n---\n\n".join(notes)
     model = get_chat_model(dr_config.final_report_model, temperature=0.3)
 
+    sources = state.get("sources", [])
+    sources_lines = []
+    for i, s in enumerate(sources, start=1):
+        title = s.get("title", "Untitled")
+        url = s.get("url") or s.get("id") or ""
+        if url and url != title:
+            sources_lines.append(f"[{i}] {title} - {url}")
+        else:
+            sources_lines.append(f"[{i}] {title}")
+    sources_list = "\n".join(sources_lines) if sources_lines else "No sources available."
+
     prompt = FINAL_REPORT_PROMPT.format(
         research_brief=state.get("research_brief", ""),
         messages=get_buffer_string(state.get("messages", [])),
         findings=findings,
         date=_get_today_str(),
+        sources_list=sources_list,
     )
 
     try:
@@ -482,6 +590,7 @@ async def final_report_generation(state: ResearchState, dr_config: DeepResearchC
     return {
         "final_report": report,
         "messages": [AIMessage(content=report)],
+        "sources": state.get("sources", []),
     }
 
 
@@ -565,6 +674,7 @@ async def run_deep_research(
                 "final_report": "",
                 "clarification_question": None,
                 "supervisor_messages": [],
+                "sources": [],
             }
         else:
             yield {"type": "progress", "step": "clarifying", "detail": "Analyzing your research request..."}
@@ -572,9 +682,25 @@ async def run_deep_research(
             messages = [HumanMessage(content=user_message)]
             model = get_chat_model(config.clarification_model, temperature=0.1)
             clarification_model = model.with_structured_output(ClarifyWithUser)
+
+            capability_lines = []
+            if "retrieve" in config.search_tools and config.connected_sources:
+                capability_lines.append(
+                    "- Internal Knowledge Base: you can search the company's internal documents, "
+                    "policies, pricing, and data. Use this to find internal information yourself "
+                    "instead of asking the user for it."
+                )
+            if "web_search" in config.search_tools:
+                capability_lines.append(
+                    "- Web Search: you can search the public internet for external, market, and "
+                    "competitor information."
+                )
+            capabilities = "\n".join(capability_lines) or "- (No external tools; reason from the conversation only.)"
+
             prompt_content = CLARIFY_INSTRUCTIONS.format(
                 messages=get_buffer_string(messages),
                 date=_get_today_str(),
+                capabilities=capabilities,
             )
             response = await clarification_model.ainvoke([HumanMessage(content=prompt_content)])
 
@@ -593,6 +719,7 @@ async def run_deep_research(
                 "final_report": "",
                 "clarification_question": None,
                 "supervisor_messages": [],
+                "sources": [],
             }
 
         async for event in graph.astream_events(input_state, graph_config, version="v2"):
@@ -620,6 +747,10 @@ async def run_deep_research(
                 if isinstance(msg, AIMessage) and msg.content:
                     report = str(msg.content)
                     break
+
+        sources = final_values.get("sources", [])
+        if sources:
+            yield {"type": "sources", "sources": sources}
 
         yield {"type": "report", "content": report}
 

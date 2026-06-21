@@ -6,14 +6,24 @@ before starting the research, or whether the request is clear enough to proceed.
 
 Today's date: {date}
 
+Your research capabilities:
+{capabilities}
+
 User messages:
 {messages}
+
+IMPORTANT: Do NOT ask the user to provide information that you can obtain yourself using your
+research capabilities above. For example, if you have access to an internal knowledge base, do
+not ask the user to paste internal documents, pricing, policies, or data — you can retrieve those
+yourself during research. Only ask a clarifying question when the user's INTENT, SCOPE, or
+SUCCESS CRITERIA are genuinely ambiguous and cannot be resolved by research.
 
 If the topic is clear and specific enough to research, set need_clarification to false and
 provide a brief verification message confirming you will start the research.
 
-If the request is too vague, broad, or ambiguous, set need_clarification to true and provide
-a specific question that will help narrow down the research scope."""
+If the request is too vague, broad, or ambiguous (in intent/scope, not in missing data you can
+retrieve), set need_clarification to true and provide a specific question that will help narrow
+down the research scope."""
 
 
 RESEARCH_BRIEF_PROMPT = """Transform the following user messages into a detailed research brief.
@@ -35,6 +45,9 @@ to individual researchers.
 
 Today's date: {date}
 
+Your research team has the following capabilities:
+{capabilities}
+
 You have access to the following tools:
 1. ConductResearch: Delegate a specific research topic to a sub-researcher. Provide a detailed
    research topic description (at least a paragraph) so the researcher knows exactly what to
@@ -48,6 +61,13 @@ You have access to the following tools:
 Guidelines:
 - Start by analyzing the research brief and identifying 2-5 key research topics.
 - Delegate research topics using ConductResearch with detailed, specific topic descriptions.
+- IMPORTANT: When the research involves internal/company information (pricing, policies,
+  procedures, product details, internal data), you MUST delegate a research topic that
+  explicitly asks the researcher to search the INTERNAL KNOWLEDGE BASE using the 'retrieve'
+  tool. Phrase the topic like: "Search the internal knowledge base for [specific internal
+  data needed]."
+- When the research involves external/market/competitor information, delegate topics that
+  ask the researcher to use web search.
 - After receiving research results, use think_tool to assess whether you have enough information
   or need to research additional aspects.
 - When you have comprehensive coverage of the topic, call ResearchComplete.
@@ -109,6 +129,9 @@ Original User Messages:
 Research Findings:
 {findings}
 
+Sources (with citation numbers):
+{sources_list}
+
 Write a comprehensive, well-structured final report that addresses the user's original question
 based on the research findings. The report should:
 
@@ -118,6 +141,16 @@ based on the research findings. The report should:
 4. Include relevant data points, quotes, and examples
 5. Address different perspectives where applicable
 6. End with conclusions and actionable insights
+
+CRITICAL - CITATION REQUIREMENT:
+Cite sources inline using bracketed citation numbers like [1], [2], [3] that correspond to the
+source numbers in the Sources list above. Place citations after key claims, data points, price
+figures, and specific findings. Do NOT cite after every sentence — only where a specific fact or
+data point came from a identifiable source. For example:
+  - "The product is priced at $50/month [3]"
+  - "Competitor X charges $99/month for the Pro plan [7]"
+  - "The market ranges from $100 to $500/month [12][15]"
+Citation numbers must match the Sources list exactly.
 
 Format the report using markdown with clear headers, bullet points, and emphasis where
 appropriate. Make it professional, thorough, and directly useful to the reader.

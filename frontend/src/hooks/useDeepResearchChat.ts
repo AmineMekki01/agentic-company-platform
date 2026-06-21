@@ -11,6 +11,7 @@ export interface DeepResearchCallbacks {
   onStep?: (step: DeepResearchStep) => void;
   onClarification?: (question: string) => void;
   onToken: (delta: string) => void;
+  onSources?: (sources: any[]) => void;
   onDone?: (messageId: string) => void;
   onError?: (detail: string) => void;
 }
@@ -59,6 +60,8 @@ export function useDeepResearchChat() {
           } else if (type === "clarification") {
             setClarification(data.question);
             cb.onClarification?.(data.question);
+          } else if (type === "sources") {
+            cb.onSources?.(data.sources || []);
           } else if (type === "token") {
             cb.onToken(data.delta || "");
           } else if (type === "done") {

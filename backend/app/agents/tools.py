@@ -82,7 +82,7 @@ async def web_search(query: Annotated[str, "The web search query"]) -> str:
     from app.core.config import settings
 
     if not settings.tavily_api_key:
-        return "Web search is not configured (missing TAVILY_API_KEY)."
+        return json.dumps({"text": "Web search is not configured (missing TAVILY_API_KEY).", "sources": []})
 
     try:
         from tavily import AsyncTavilyClient
@@ -91,15 +91,17 @@ async def web_search(query: Annotated[str, "The web search query"]) -> str:
         resp = await client.search(query, max_results=5, search_depth="basic")
         results = resp.get("results", [])
         if not results:
-            return "No results found on the web."
+            return json.dumps({"text": "No results found on the web.", "sources": []})
 
         lines = []
+        sources = []
         for i, r in enumerate(results, start=1):
             title = r.get("title", "Untitled")
             url = r.get("url", "")
             content = r.get("content", "")
             lines.append(f"[{i}] {title}\n{url}\n{content[:600]}")
-        return "\n\n---\n\n".join(lines)
+            sources.append({"rank": i, "title": title, "url": url, "id": url})
+        return json.dumps({"text": "\n\n---\n\n".join(lines), "sources": sources})
     except Exception as exc:
         logger.exception("Tavily search failed")
-        return f"Web search error: {exc}"
+        return json.dumps({"text": f"Web search error: {exc}", "sources": []})

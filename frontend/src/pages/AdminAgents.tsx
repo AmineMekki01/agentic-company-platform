@@ -111,6 +111,8 @@ function mergeAgentDraft(agent: AgentSetting): AgentSetting {
   if ("allowed_users" in draft) merged.allowed_users = draft.allowed_users as string[] | null;
   if ("beta_users" in draft) merged.beta_users = draft.beta_users as string[] | null;
   if ("mode_profile" in draft) merged.mode_profile = draft.mode_profile as Record<string, unknown> | null;
+  if ("agent_type" in draft) merged.agent_type = draft.agent_type as string;
+  if ("research_config" in draft) merged.research_config = draft.research_config as AgentSetting["research_config"];
   return merged;
 }
 

@@ -185,6 +185,9 @@ async def _handle_message(
 
         if agent_row.connected_sources and not research_config_dict.get("connected_sources"):
             research_config_dict["connected_sources"] = agent_row.connected_sources
+        if research_config_dict.get("connected_sources") and "retrieve" not in research_config_dict.get("search_tools", []):
+            research_config_dict.setdefault("search_tools", ["web_search"])
+            research_config_dict["search_tools"].append("retrieve")
         dr_config = DeepResearchConfig.from_dict(research_config_dict)
 
         from app.main import app
@@ -194,6 +197,7 @@ async def _handle_message(
         thread_id = f"{conversation_id}:{agent_slug}:research"
 
         report_text = ""
+        collected_sources: list[dict] = []
         clarification_needed = False
 
         async for event in run_deep_research(
@@ -230,6 +234,18 @@ async def _handle_message(
                     "detail": event.get("detail", ""),
                 }))
 
+            elif evt_type == "sources":
+                collected_sources = event.get("sources", [])
+                logger.info(
+                    "Sources event (_handle_message): %d sources, sample=%s",
+                    len(collected_sources),
+                    [(s.get("title", "")[:40], s.get("url")) for s in collected_sources[:8]],
+                )
+                await websocket.send_text(json.dumps({
+                    "type": "sources",
+                    "sources": collected_sources,
+                }))
+
             elif evt_type == "report":
                 report_text = event.get("content", "")
 
@@ -249,6 +265,7 @@ async def _handle_message(
                 role="assistant",
                 content=report_text,
                 agent_id=agent_slug,
+                citations=collected_sources if collected_sources else None,
             )
             db.add(ai_msg)
             await db.commit()
@@ -335,6 +352,9 @@ async def _handle_clarification_response(
         research_config_dict = agent_row.research_config or {}
         if agent_row.connected_sources and not research_config_dict.get("connected_sources"):
             research_config_dict["connected_sources"] = agent_row.connected_sources
+        if research_config_dict.get("connected_sources") and "retrieve" not in research_config_dict.get("search_tools", []):
+            research_config_dict.setdefault("search_tools", ["web_search"])
+            research_config_dict["search_tools"].append("retrieve")
         dr_config = DeepResearchConfig.from_dict(research_config_dict)
 
         from app.main import app
@@ -344,6 +364,7 @@ async def _handle_clarification_response(
         thread_id = f"{conversation_id}:{agent_slug}:research"
 
         report_text = ""
+        collected_sources: list[dict] = []
         async for event in run_deep_research(
             user_message=original_user_message,
             config=dr_config,
@@ -358,6 +379,17 @@ async def _handle_clarification_response(
                     "type": "step",
                     "step": event.get("step", ""),
                     "detail": event.get("detail", ""),
+                }))
+            elif evt_type == "sources":
+                collected_sources = event.get("sources", [])
+                logger.info(
+                    "Sources event (_handle_clarification): %d sources, sample=%s",
+                    len(collected_sources),
+                    [(s.get("title", "")[:40], s.get("url")) for s in collected_sources[:8]],
+                )
+                await websocket.send_text(json.dumps({
+                    "type": "sources",
+                    "sources": collected_sources,
                 }))
             elif evt_type == "report":
                 report_text = event.get("content", "")
@@ -374,6 +406,7 @@ async def _handle_clarification_response(
                 role="assistant",
                 content=report_text,
                 agent_id=agent_slug,
+                citations=collected_sources if collected_sources else None,
             )
             db.add(ai_msg)
             await db.commit()
