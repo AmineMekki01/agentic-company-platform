@@ -23,7 +23,7 @@ class Connector(Base):
     slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     connector_type: Mapped[str] = mapped_column(
-        Enum("notion", "s3", "sharepoint", "jira", name="connector_type"),
+        Enum("notion", "s3", "sharepoint", "jira", "gdrive", name="connector_type"),
         nullable=False,
     )
     credentials_encrypted: Mapped[str] = mapped_column(Text(), nullable=False)

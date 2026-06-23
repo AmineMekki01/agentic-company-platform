@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import AdminUser, DbSession
 from app.models import AgentSettings, Connector, KnowledgeSource
 from app.schemas.knowledge_source import KnowledgeSourceCreate, KnowledgeSourceOut
+from app.services.gdrive import sync_gdrive_folder
 from app.services.notion import sync_notion_database, sync_notion_page
 from app.services.rag import RAGService
 from app.services.s3 import sync_s3_prefix
@@ -179,6 +180,26 @@ async def trigger_knowledge_source_sync(
         task = sync_s3_prefix.delay(
             bucket=str(bucket),
             prefix=str(prefix),
+            source_title=ks.name,
+            connector_credentials=connector.credentials_encrypted,
+            slug=ks.slug,
+            knowledge_source_id=str(ks.id),
+        )
+        return {"task_id": task.id, "status": "queued"}
+
+    if ks.source_type == "gdrive":
+        config = ks.config or {}
+        folder_id = config.get("folder_id")
+
+        if not folder_id:
+            raise HTTPException(status_code=400, detail="No folder_id configured for this Google Drive source")
+
+        connector = ks.connector
+        if connector is None:
+            raise HTTPException(status_code=400, detail="No connector linked to this Google Drive source")
+
+        task = sync_gdrive_folder.delay(
+            folder_id=str(folder_id),
             source_title=ks.name,
             connector_credentials=connector.credentials_encrypted,
             slug=ks.slug,

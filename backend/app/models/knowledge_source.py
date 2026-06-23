@@ -25,7 +25,7 @@ class KnowledgeSource(Base):
     slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     source_type: Mapped[str] = mapped_column(
-        Enum("notion", "s3", name="knowledge_source_type"),
+        Enum("notion", "s3", "gdrive", name="knowledge_source_type"),
         nullable=False,
     )
     config: Mapped[dict[str, Any] | None] = mapped_column(

@@ -7,6 +7,7 @@ import {
   type KnowledgeSourceCreate,
   type NotionResource,
   type S3Bucket,
+  type GDriveResource,
 } from "@/lib/api";
 import ServiceIcon from "@/components/ServiceIcon";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -29,6 +30,7 @@ function SourceBadge({ type }: { type: string }) {
   const styles: Record<string, string> = {
     notion: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
     s3: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+    gdrive: "bg-green-500/10 text-green-400 border-green-500/20",
   };
   return (
     <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[type] || "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
@@ -62,6 +64,12 @@ export default function AdminKnowledgeSources() {
   const [s3BrowseLoading, setS3BrowseLoading] = useState(false);
   const [s3BrowseAttempted, setS3BrowseAttempted] = useState(false);
 
+  // Google Drive browse state
+  const [gdriveItems, setGdriveItems] = useState<GDriveResource[]>([]);
+  const [gdriveBrowseLoading, setGdriveBrowseLoading] = useState(false);
+  const [gdriveBrowseAttempted, setGdriveBrowseAttempted] = useState(false);
+  const [gdriveFolderPath, setGdriveFolderPath] = useState<GDriveResource[]>([]);
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -87,6 +95,9 @@ export default function AdminKnowledgeSources() {
     setForm({ slug: "", name: "", source_type: "notion", config: {}, connector_id: null });
     setBrowseItems([]);
     setSelectedItem(null);
+    setGdriveItems([]);
+    setGdriveBrowseAttempted(false);
+    setGdriveFolderPath([]);
     refresh();
   };
 
@@ -184,9 +195,66 @@ export default function AdminKnowledgeSources() {
     }
   };
 
+  const browseGdrive = async (folderId?: string) => {
+    if (!form.connector_id) return;
+    const conn = connectors.find((c) => c.id === form.connector_id);
+    if (!conn) return;
+    setGdriveBrowseLoading(true);
+    setGdriveBrowseAttempted(true);
+    try {
+      const items = folderId
+        ? await api.listGDriveChildren(conn.slug, folderId)
+        : await api.listGDriveRoot(conn.slug);
+      setGdriveItems(items);
+    } catch (e: any) {
+      alert(`Browse failed: ${e.message}`);
+    } finally {
+      setGdriveBrowseLoading(false);
+    }
+  };
+
+  const selectGdriveFolder = (item: GDriveResource) => {
+    if (item.type === "folder") {
+      setGdriveFolderPath([...gdriveFolderPath, item]);
+      browseGdrive(item.id);
+    } else {
+      // Selecting a file is not the use case; we sync folders
+    }
+  };
+
+  const navigateGdriveTo = (index: number) => {
+    if (index < 0) {
+      setGdriveFolderPath([]);
+      browseGdrive();
+    } else {
+      const target = gdriveFolderPath[index];
+      setGdriveFolderPath(gdriveFolderPath.slice(0, index + 1));
+      browseGdrive(target.id);
+    }
+  };
+
+  const selectGdriveRoot = () => {
+    const currentFolderId = gdriveFolderPath.length > 0 ? gdriveFolderPath[gdriveFolderPath.length - 1].id : "root";
+    const currentFolderName = gdriveFolderPath.length > 0 ? gdriveFolderPath[gdriveFolderPath.length - 1].name : "Google Drive Root";
+    setForm({
+      ...form,
+      name: form.name || currentFolderName,
+      config: { ...form.config, folder_id: currentFolderId },
+    });
+  };
+
+  const pickGdriveFolder = (item: GDriveResource) => {
+    setForm({
+      ...form,
+      name: form.name || item.name,
+      config: { ...form.config, folder_id: item.id },
+    });
+  };
+
   const connectorOptions = connectors.filter((c) => {
     if (form.source_type === "notion") return c.connector_type === "notion";
     if (form.source_type === "s3") return c.connector_type === "s3";
+    if (form.source_type === "gdrive") return c.connector_type === "gdrive";
     return true;
   });
 
@@ -246,11 +314,15 @@ export default function AdminKnowledgeSources() {
               setBrowseAttempted(false);
               setS3Buckets([]);
               setS3BrowseAttempted(false);
+              setGdriveItems([]);
+              setGdriveBrowseAttempted(false);
+              setGdriveFolderPath([]);
             }}
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           >
             <option value="notion">Notion</option>
             <option value="s3">S3 Bucket</option>
+            <option value="gdrive">Google Drive</option>
           </select>
 
           {/* Connector selector */}
@@ -260,6 +332,9 @@ export default function AdminKnowledgeSources() {
               setForm({ ...form, connector_id: e.target.value || null });
               setS3Buckets([]);
               setS3BrowseAttempted(false);
+              setGdriveItems([]);
+              setGdriveBrowseAttempted(false);
+              setGdriveFolderPath([]);
             }}
             className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
           >
@@ -405,6 +480,101 @@ export default function AdminKnowledgeSources() {
             </div>
           )}
 
+          {/* Google Drive folder browser */}
+          {form.source_type === "gdrive" && form.connector_id && (
+            <div className="space-y-2">
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => browseGdrive()}
+                  disabled={gdriveBrowseLoading}
+                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                >
+                  {gdriveBrowseLoading ? "Loading…" : "Browse Drive"}
+                </button>
+              </div>
+
+              {/* Breadcrumb navigation */}
+              {gdriveFolderPath.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-zinc-400 flex-wrap">
+                  <button onClick={() => navigateGdriveTo(-1)} className="hover:text-indigo-400 transition">
+                    Root
+                  </button>
+                  {gdriveFolderPath.map((folder, i) => (
+                    <span key={folder.id} className="flex items-center gap-1">
+                      <span className="text-zinc-600">/</span>
+                      <button onClick={() => navigateGdriveTo(i)} className="hover:text-indigo-400 transition">
+                        {folder.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Folder/file listing */}
+              {gdriveItems.length > 0 && (
+                <div className="border border-zinc-800 rounded-lg p-2 space-y-1 max-h-48 overflow-y-auto bg-zinc-950">
+                  {gdriveItems.map((item) => {
+                    const selected = (form.config?.folder_id as string) === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded-md text-sm transition ${
+                          selected ? "bg-emerald-500/10 border border-emerald-500/20" : ""
+                        }`}
+                      >
+                        <button
+                          onClick={() => item.type === "folder" ? selectGdriveFolder(item) : undefined}
+                          className={`text-left flex-1 ${
+                            item.type === "folder" ? "hover:text-indigo-400 text-zinc-200" : "text-zinc-500 cursor-default"
+                          }`}
+                        >
+                          {item.type === "folder" ? "📁" : "📄"} {item.name}
+                        </button>
+                        {item.type === "folder" && (
+                          <button
+                            onClick={() => pickGdriveFolder(item)}
+                            className={`text-xs px-2 py-0.5 rounded transition ${
+                              selected
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-400"
+                            }`}
+                          >
+                            {selected ? "✓ Selected" : "Select"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {!gdriveBrowseLoading && gdriveBrowseAttempted && gdriveItems.length === 0 && (
+                <p className="text-xs text-amber-400">
+                  No items found. Check your Google Drive connector credentials and permissions.
+                </p>
+              )}
+
+              {/* Select current folder button */}
+              {gdriveBrowseAttempted && (
+                <button
+                  onClick={selectGdriveRoot}
+                  className="text-sm bg-emerald-600/80 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition"
+                >
+                  Use this folder
+                </button>
+              )}
+
+              <input
+                value={(form.config?.folder_id as string) || ""}
+                onChange={(e) =>
+                  setForm({ ...form, config: { ...form.config, folder_id: e.target.value } })
+                }
+                placeholder="Or enter folder ID manually"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+              />
+            </div>
+          )}
+
           {form.source_type === "notion" && !form.connector_id && (
             <p className="text-xs text-amber-400">
               Select a Notion connector credential to browse databases or enter the ID manually.
@@ -414,6 +584,12 @@ export default function AdminKnowledgeSources() {
           {form.source_type === "s3" && !form.connector_id && (
             <p className="text-xs text-amber-400">
               Select an S3 connector credential to authenticate.
+            </p>
+          )}
+
+          {form.source_type === "gdrive" && !form.connector_id && (
+            <p className="text-xs text-amber-400">
+              Select a Google Drive connector credential to browse folders.
             </p>
           )}
 
@@ -463,6 +639,15 @@ export default function AdminKnowledgeSources() {
                         const cfg = s.config as Record<string, string> | null;
                         if (cfg?.database_id) return `DB: ${cfg.database_id}`;
                         if (cfg?.page_id) return `Page: ${cfg.page_id}`;
+                        return null;
+                      })()}
+                    </div>
+                  )}
+                  {s.source_type === "gdrive" && (
+                    <div className="text-xs text-zinc-600">
+                      {(() => {
+                        const cfg = s.config as Record<string, string> | null;
+                        if (cfg?.folder_id) return `Folder: ${cfg.folder_id}`;
                         return null;
                       })()}
                     </div>

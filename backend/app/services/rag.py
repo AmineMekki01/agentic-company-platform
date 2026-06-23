@@ -45,7 +45,7 @@ def _extract_source_url(payload: dict[str, Any]) -> str | None:
     Returns:
         Extracted source URL or None
     """
-    for key in ("source_url", "notion_page_url", "url", "s3_url", "sharepoint_url"):
+    for key in ("source_url", "notion_page_url", "url", "s3_url", "sharepoint_url", "gdrive_file_url"):
         val = payload.get(key)
         if val and isinstance(val, str) and val.startswith("http"):
             return val

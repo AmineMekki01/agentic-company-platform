@@ -4,6 +4,7 @@ const ICON_MAP: Record<string, string> = {
   notion: "/icons/notion.svg",
   jira: "/icons/jira.svg",
   s3: "/icons/s3.svg",
+  gdrive: "/icons/gdrive.svg",
 };
 
 interface ServiceIconProps {

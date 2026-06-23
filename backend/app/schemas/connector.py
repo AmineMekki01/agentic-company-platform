@@ -71,3 +71,22 @@ class S3Bucket(BaseModel):
     """
     name: str
     created_at: datetime | None = None
+
+
+class GDriveResource(BaseModel):
+    """
+    Google Drive resource schema.
+    
+    This schema represents a Google Drive resource (folder or file) that can be
+    returned to clients, including:
+    - Resource ID
+    - Resource name
+    - Resource type (folder or file)
+    - MIME type
+    - Resource URL
+    """
+    id: str
+    name: str
+    type: str
+    mime_type: str | None = None
+    url: str | None = None

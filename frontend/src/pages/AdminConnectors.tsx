@@ -10,6 +10,7 @@ function ConnectorBadge({ type }: { type: string }) {
     jira: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     s3: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     sharepoint: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+    gdrive: "bg-green-500/10 text-green-400 border-green-500/20",
   };
   return (
     <span
@@ -116,6 +117,7 @@ export default function AdminConnectors() {
             <option value="notion">Notion</option>
             <option value="jira">Jira</option>
             <option value="s3">S3</option>
+            <option value="gdrive">Google Drive</option>
             <option value="sharepoint">SharePoint (coming soon)</option>
           </select>
           {form.connector_type === "jira" && (
@@ -202,6 +204,27 @@ export default function AdminConnectors() {
               type="password"
               className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
             />
+          )}
+          {form.connector_type === "gdrive" && (
+            <>
+              <textarea
+                value={String((form.credentials as Record<string, string>).service_account_json || "")}
+                onChange={(e) =>
+                  setForm({ ...form, credentials: { ...form.credentials, service_account_json: e.target.value } })
+                }
+                placeholder="Paste Service Account JSON key here"
+                rows={6}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition font-mono"
+              />
+              <input
+                value={String((form.credentials as Record<string, string>).delegated_user || "")}
+                onChange={(e) =>
+                  setForm({ ...form, credentials: { ...form.credentials, delegated_user: e.target.value } })
+                }
+                placeholder="Delegated user email (optional, for domain-wide delegation)"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+              />
+            </>
           )}
           <button
             onClick={create}

@@ -187,7 +187,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
         sa.Column("slug", sa.String(length=50), nullable=False, unique=True),
         sa.Column("name", sa.String(length=200), nullable=False),
-        sa.Column("connector_type", sa.Enum("notion", "s3", "sharepoint", "jira", name="connector_type"), nullable=False),
+        sa.Column("connector_type", sa.Enum("notion", "s3", "sharepoint", "jira", "gdrive", name="connector_type"), nullable=False),
         sa.Column("credentials_encrypted", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
     )
@@ -200,7 +200,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=200), nullable=False),
         sa.Column(
             "source_type",
-            sa.Enum("notion", "s3", name="knowledge_source_type"),
+            sa.Enum("notion", "s3", "gdrive", name="knowledge_source_type"),
             nullable=False,
         ),
         sa.Column("config", sa.JSON(), nullable=True, server_default="{}"),

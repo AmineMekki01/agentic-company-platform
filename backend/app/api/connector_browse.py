@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.api.deps import AdminUser, DbSession
 from app.core.encryption import EncryptionService
 from app.models import Connector
-from app.schemas.connector import NotionResource, S3Bucket
+from app.schemas.connector import GDriveResource, NotionResource, S3Bucket
 from app.services.s3 import _decrypt_credentials, _get_s3_client
 
 router = APIRouter(prefix="/admin/connectors/{slug}/browse", tags=["admin"])
@@ -406,3 +406,109 @@ async def list_s3_buckets(
         logger = logging.getLogger(__name__)
         logger.exception("Failed to list S3 buckets for connector %s", slug)
         raise HTTPException(status_code=502, detail=f"S3 error: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Google Drive browse
+# ---------------------------------------------------------------------------
+
+def _get_gdrive_service(connector: Connector):
+    """Build a Google Drive service from a stored connector row."""
+    from app.services.gdrive import _get_drive_service
+    return _get_drive_service(connector.credentials_encrypted)
+
+
+async def _get_gdrive_connector_or_404(slug: str, db: DbSession) -> Connector:
+    conn = await db.scalar(select(Connector).where(Connector.slug == slug))
+    if conn is None:
+        raise HTTPException(status_code=404, detail="Connector not found")
+    if conn.connector_type != "gdrive":
+        raise HTTPException(status_code=400, detail="Connector is not a Google Drive connector")
+    return conn
+
+
+@router.get("/gdrive/folders", response_model=list[GDriveResource])
+async def list_gdrive_root(
+    slug: str,
+    user: AdminUser,
+    db: DbSession,
+) -> list[GDriveResource]:
+    """List root-level and shared folders/files in the Google Drive."""
+    conn = await _get_gdrive_connector_or_404(slug, db)
+    try:
+        service = _get_gdrive_service(conn)
+        results: list[GDriveResource] = []
+        page_token = None
+        while True:
+            resp = (
+                service.files()
+                .list(
+                    q="trashed = false and ('root' in parents or sharedWithMe = true)",
+                    fields="nextPageToken, files(id, name, mimeType, webViewLink)",
+                    pageSize=200,
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            for item in resp.get("files", []):
+                mime = item.get("mimeType", "")
+                results.append(
+                    GDriveResource(
+                        id=item["id"],
+                        name=item.get("name", "Untitled"),
+                        type="folder" if mime == "application/vnd.google-apps.folder" else "file",
+                        mime_type=mime or None,
+                        url=item.get("webViewLink"),
+                    )
+                )
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return results
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Failed to list Google Drive root for %s", slug)
+        raise HTTPException(status_code=502, detail=f"Google Drive error: {exc}")
+
+
+@router.get("/gdrive/folders/{folder_id}/children", response_model=list[GDriveResource])
+async def list_gdrive_children(
+    slug: str,
+    folder_id: str,
+    user: AdminUser,
+    db: DbSession,
+) -> list[GDriveResource]:
+    """List children (folders and files) of a specific Google Drive folder."""
+    conn = await _get_gdrive_connector_or_404(slug, db)
+    try:
+        service = _get_gdrive_service(conn)
+        results: list[GDriveResource] = []
+        page_token = None
+        while True:
+            resp = (
+                service.files()
+                .list(
+                    q=f"'{folder_id}' in parents and trashed = false",
+                    fields="nextPageToken, files(id, name, mimeType, webViewLink)",
+                    pageSize=200,
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+            for item in resp.get("files", []):
+                mime = item.get("mimeType", "")
+                results.append(
+                    GDriveResource(
+                        id=item["id"],
+                        name=item.get("name", "Untitled"),
+                        type="folder" if mime == "application/vnd.google-apps.folder" else "file",
+                        mime_type=mime or None,
+                        url=item.get("webViewLink"),
+                    )
+                )
+            page_token = resp.get("nextPageToken")
+            if not page_token:
+                break
+        return results
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Failed to list Google Drive folder %s for %s", folder_id, slug)
+        raise HTTPException(status_code=502, detail=f"Google Drive error: {exc}")
