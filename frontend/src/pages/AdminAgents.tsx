@@ -527,14 +527,14 @@ export default function AdminAgents() {
       >
         <button
           onClick={() => { setShowCreate(true); setError(null); setNewAgent(makeDefaultNewAgent(currentUser?.email || "")); }}
-          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 px-3 py-2 rounded-lg font-medium text-white transition shadow-lg shadow-brand/15"
         >
           <Plus className="h-3.5 w-3.5" />
           Create Agent
         </button>
         <button
           onClick={refresh}
-          className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+          className="flex items-center gap-1.5 text-sm bg-card hover:bg-hover border border-line/60 px-3 py-2 rounded-lg transition"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
@@ -542,8 +542,8 @@ export default function AdminAgents() {
       </AdminPageHeader>
 
       {error && (
-        <div className="mb-4 bg-red-950/40 border border-red-800/50 text-red-300 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+        <div className="mb-4 bg-danger-soft border border-danger/30 text-danger text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-danger shrink-0" />
           {error}
         </div>
       )}
@@ -571,45 +571,45 @@ export default function AdminAgents() {
         {/* Detail panel */}
         <div className={selected ? "flex-1 min-w-0 h-full" : "hidden"}>
           {selected ? (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-sm flex flex-col h-full">
+            <div className="bg-card border border-line rounded-xl shadow-sm flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-line">
                 <div className="flex items-center gap-3 min-w-0">
                   <button
                     onClick={closeSelected}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-secondary transition hover:bg-hover"
                   >
                     <ChevronLeft className="h-4 w-4" />
                     Back to list
                   </button>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 border border-brand/20">
                       <AgentIcon slug={selected.slug} size={18} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="font-semibold text-zinc-100">{selected.name || selected.slug}</h2>
+                        <h2 className="font-semibold text-primary">{selected.name || selected.slug}</h2>
                         {/* Status badge */}
                         {selected.is_published ? (
                           hasDraftChanges(selected) ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400 border border-amber-500/20">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning border border-warning/20">
                               <AlertTriangle className="h-3 w-3" />
                               Modified
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400 border border-emerald-500/20">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success border border-success/20">
                               <Eye className="h-3 w-3" />
                               Published
                             </span>
                           )
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-700/30 px-2 py-0.5 text-[11px] font-medium text-zinc-400 border border-zinc-700/50">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-hover/70 px-2 py-0.5 text-[11px] font-medium text-secondary border border-line/70">
                             <EyeOff className="h-3 w-3" />
                             Draft
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-zinc-500 uppercase tracking-wide">{selected.slug}</span>
+                      <span className="text-xs text-tertiary uppercase tracking-wide">{selected.slug}</span>
                     </div>
                   </div>
                 </div>
@@ -618,21 +618,21 @@ export default function AdminAgents() {
                     <>
                       <button
                         onClick={() => { setShowTestDraft(true); setTestDraftMessage(""); setTestDraftResponse(""); }}
-                        className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+                        className="flex items-center gap-1.5 text-sm bg-card hover:bg-hover border border-line/60 px-3 py-2 rounded-lg transition"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         Test Draft
                       </button>
                       <button
                         onClick={handleDiscardDraft}
-                        className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+                        className="flex items-center gap-1.5 text-sm bg-card hover:bg-hover border border-line/60 px-3 py-2 rounded-lg transition"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                         Discard
                       </button>
                       <button
                         onClick={() => setShowPublishModal(true)}
-                        className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                        className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 px-3 py-2 rounded-lg font-medium text-white transition shadow-lg shadow-brand/15"
                       >
                         <Rocket className="h-3.5 w-3.5" />
                         Publish
@@ -642,7 +642,7 @@ export default function AdminAgents() {
                   {!selected.is_published && (
                     <button
                       onClick={() => setShowPublishModal(true)}
-                      className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+                      className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 px-3 py-2 rounded-lg font-medium text-white transition shadow-lg shadow-brand/15"
                     >
                       <Rocket className="h-3.5 w-3.5" />
                       Publish
@@ -652,8 +652,8 @@ export default function AdminAgents() {
               </div>
 
               <div className="flex flex-1 min-h-0">
-                <div className="w-56 shrink-0 border-r border-zinc-800 bg-zinc-950/40 p-3 h-full overflow-y-auto">
-                  <div className="mb-3 px-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                <div className="w-56 shrink-0 border-r border-line bg-canvas p-3 h-full overflow-y-auto">
+                  <div className="mb-3 px-2 text-[11px] font-medium uppercase tracking-wide text-tertiary">
                     Sections
                   </div>
                   <div className="space-y-1">
@@ -672,11 +672,11 @@ export default function AdminAgents() {
                           className={
                             "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition " +
                             (active
-                              ? "border-zinc-800 bg-zinc-900 font-medium text-zinc-100"
-                              : "border-transparent text-zinc-500 hover:border-zinc-800 hover:bg-zinc-900/60 hover:text-zinc-200")
+                              ? "border-brand/20 bg-brand/10 font-medium text-primary"
+                              : "border-transparent text-tertiary hover:border-line hover:bg-hover hover:text-primary")
                           }
                         >
-                          <Icon className={"h-4 w-4 " + (active ? "text-indigo-400" : "text-zinc-500")} />
+                          <Icon className={"h-4 w-4 " + (active ? "text-brand" : "text-tertiary")} />
                           {t.label}
                         </button>
                       );
@@ -690,19 +690,19 @@ export default function AdminAgents() {
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <label className="block">
-                        <span className="text-xs font-medium text-zinc-400">Name</span>
+                        <span className="text-xs font-medium text-secondary">Name</span>
                         <input
                           value={selected.name || ""}
                           onChange={(e) => setSelected({ ...selected, name: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                          className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                         />
                       </label>
                       <label className="block">
-                        <span className="text-xs font-medium text-zinc-400">LLM Model</span>
+                        <span className="text-xs font-medium text-secondary">LLM Model</span>
                         <select
                           value={selected.llm_model || "gpt-5.4-nano"}
                           onChange={(e) => setSelected({ ...selected, llm_model: e.target.value })}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                          className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                         >
                           {models.map((m) => (
                             <option key={m} value={m}>{m}</option>
@@ -712,21 +712,21 @@ export default function AdminAgents() {
                     </div>
 
                     <label className="block">
-                      <span className="text-xs font-medium text-zinc-400">Description</span>
+                      <span className="text-xs font-medium text-secondary">Description</span>
                       <textarea
                         value={selected.description || ""}
                         onChange={(e) => setSelected({ ...selected, description: e.target.value })}
                         rows={2}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                        className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition resize-y"
                       />
                     </label>
 
                     <label className="block">
-                      <span className="text-xs font-medium text-zinc-400">Owner</span>
+                      <span className="text-xs font-medium text-secondary">Owner</span>
                       <select
                         value={selected.created_by || ""}
                         onChange={(e) => setSelected({ ...selected, created_by: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                        className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                       >
                         <option value="">Keep existing owner</option>
                         {users.map((u) => (
@@ -739,7 +739,7 @@ export default function AdminAgents() {
 
                     {/* Agent Type Selector */}
                     <label className="block">
-                      <span className="text-xs font-medium text-zinc-400">Agent Type</span>
+                      <span className="text-xs font-medium text-secondary">Agent Type</span>
                       <select
                         value={selected.agent_type || "standard"}
                         onChange={(e) => {
@@ -765,7 +765,7 @@ export default function AdminAgents() {
                           }
                           setSelected({ ...selected, ...updates });
                         }}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                        className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                       >
                         <option value="standard">Standard Agent</option>
                         <option value="deep_research">Deep Research Agent</option>
@@ -774,17 +774,17 @@ export default function AdminAgents() {
 
                     {/* Deep Research Config Panel */}
                     {selected.agent_type === "deep_research" && selected.research_config && (
-                      <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 space-y-4">
-                        <div className="flex items-center gap-2 text-sm font-medium text-indigo-300">
+                      <div className="rounded-lg border border-brand/20 bg-brand/10 p-4 space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-medium text-brand">
                           <Workflow className="h-4 w-4" />
                           Deep Research Configuration
                         </div>
 
                         {/* Search Tools */}
                         <div>
-                          <span className="text-xs font-medium text-zinc-400">Search Tools</span>
+                          <span className="text-xs font-medium text-secondary">Search Tools</span>
                           <div className="mt-2 flex flex-wrap gap-3">
-                            <label className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                            <label className="flex items-center gap-1.5 text-sm text-secondary cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={selected.research_config.search_tools.includes("web_search")}
@@ -796,11 +796,11 @@ export default function AdminAgents() {
                                     : [...rc.search_tools, "web_search"];
                                   setSelected({ ...selected, research_config: rc });
                                 }}
-                                className="accent-indigo-500"
+                                className="accent-brand"
                               />
                               <span>Web Search (Tavily)</span>
                             </label>
-                            <label className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                            <label className="flex items-center gap-1.5 text-sm text-secondary cursor-pointer">
                               <input
                                 type="checkbox"
                                 checked={selected.research_config.search_tools.includes("retrieve")}
@@ -812,7 +812,7 @@ export default function AdminAgents() {
                                     : [...rc.search_tools, "retrieve"];
                                   setSelected({ ...selected, research_config: rc });
                                 }}
-                                className="accent-indigo-500"
+                                className="accent-brand"
                               />
                               <span>Internal Knowledge Base</span>
                             </label>
@@ -822,7 +822,7 @@ export default function AdminAgents() {
                         {/* Sliders */}
                         <div className="grid grid-cols-3 gap-4">
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Max Research Iterations</span>
+                            <span className="text-xs font-medium text-secondary">Max Research Iterations</span>
                             <input
                               type="number"
                               min={1}
@@ -832,11 +832,11 @@ export default function AdminAgents() {
                                 const rc = { ...selected.research_config!, max_researcher_iterations: parseInt(e.target.value) || 5 };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             />
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Max Concurrent Researchers</span>
+                            <span className="text-xs font-medium text-secondary">Max Concurrent Researchers</span>
                             <input
                               type="number"
                               min={1}
@@ -846,11 +846,11 @@ export default function AdminAgents() {
                                 const rc = { ...selected.research_config!, max_concurrent_research_units: parseInt(e.target.value) || 3 };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             />
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Max Tool Calls / Researcher</span>
+                            <span className="text-xs font-medium text-secondary">Max Tool Calls / Researcher</span>
                             <input
                               type="number"
                               min={1}
@@ -860,7 +860,7 @@ export default function AdminAgents() {
                                 const rc = { ...selected.research_config!, max_react_tool_calls: parseInt(e.target.value) || 8 };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             />
                           </label>
                         </div>
@@ -868,53 +868,53 @@ export default function AdminAgents() {
                         {/* Model Roles */}
                         <div className="grid grid-cols-2 gap-4">
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Clarification Model</span>
+                            <span className="text-xs font-medium text-secondary">Clarification Model</span>
                             <select
                               value={selected.research_config.clarification_model}
                               onChange={(e) => {
                                 const rc = { ...selected.research_config!, clarification_model: e.target.value };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             >
                               {models.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Research Model</span>
+                            <span className="text-xs font-medium text-secondary">Research Model</span>
                             <select
                               value={selected.research_config.research_model}
                               onChange={(e) => {
                                 const rc = { ...selected.research_config!, research_model: e.target.value };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             >
                               {models.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Compression Model</span>
+                            <span className="text-xs font-medium text-secondary">Compression Model</span>
                             <select
                               value={selected.research_config.compression_model}
                               onChange={(e) => {
                                 const rc = { ...selected.research_config!, compression_model: e.target.value };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             >
                               {models.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
                           </label>
                           <label className="block">
-                            <span className="text-xs font-medium text-zinc-400">Final Report Model</span>
+                            <span className="text-xs font-medium text-secondary">Final Report Model</span>
                             <select
                               value={selected.research_config.final_report_model}
                               onChange={(e) => {
                                 const rc = { ...selected.research_config!, final_report_model: e.target.value };
                                 setSelected({ ...selected, research_config: rc });
                               }}
-                              className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                              className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                             >
                               {models.map((m) => <option key={m} value={m}>{m}</option>)}
                             </select>
@@ -925,12 +925,12 @@ export default function AdminAgents() {
 
                     {selected.agent_type !== "deep_research" && (
                     <label className="block">
-                      <span className="text-xs font-medium text-zinc-400">Instructions (System Prompt)</span>
+                      <span className="text-xs font-medium text-secondary">Instructions (System Prompt)</span>
                       <textarea
                         value={selected.system_prompt || ""}
                         onChange={(e) => setSelected({ ...selected, system_prompt: e.target.value })}
                         rows={5}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                        className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition resize-y"
                         placeholder="Define how this agent behaves, what it can do, and how it should respond..."
                       />
                     </label>
@@ -942,15 +942,15 @@ export default function AdminAgents() {
                 {activeTab === "tools" && (
                   <div className="space-y-4">
                     <div className="block">
-                      <span className="text-xs font-medium text-zinc-400">Enabled Tools</span>
+                      <span className="text-xs font-medium text-secondary">Enabled Tools</span>
                       <div className="mt-2 flex flex-wrap gap-3">
                         {AVAILABLE_TOOLS.map((tool) => (
-                          <label key={tool} className="flex items-center gap-1.5 text-sm text-zinc-300 cursor-pointer">
+                          <label key={tool} className="flex items-center gap-1.5 text-sm text-secondary cursor-pointer">
                             <input
                               type="checkbox"
                               checked={(selected.tools || []).includes(tool)}
                               onChange={() => toggleTool(selected, tool)}
-                              className="accent-indigo-500"
+                              className="accent-brand"
                             />
                             <span className="capitalize">{tool.replace(/_/g, " ")}</span>
                           </label>
@@ -965,7 +965,7 @@ export default function AdminAgents() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <label className="block">
-                        <span className="text-xs font-medium text-zinc-400">Retrieval Top-K (1-20)</span>
+                        <span className="text-xs font-medium text-secondary">Retrieval Top-K (1-20)</span>
                         <input
                           type="number"
                           min={1}
@@ -977,16 +977,16 @@ export default function AdminAgents() {
                               retrieval_top_k: Math.min(20, Math.max(1, parseInt(e.target.value || "5", 10))),
                             })
                           }
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                          className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                         />
-                        <p className="text-xs text-zinc-500 mt-1">
+                        <p className="text-xs text-tertiary mt-1">
                           Number of chunks retrieved per query.
                         </p>
                       </label>
                     </div>
 
                     <label
-                      className={`flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5 ${uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+                      className={`flex items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-2.5 ${uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
                       title={
                         uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
                           ? ""
@@ -998,11 +998,11 @@ export default function AdminAgents() {
                         checked={selected.allow_uploads !== false}
                         onChange={(e) => setSelected({ ...selected, allow_uploads: e.target.checked })}
                         disabled={!(uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket)}
-                        className="accent-indigo-500"
+                        className="accent-brand"
                       />
                       <span>
-                        <span className="block text-sm font-medium text-zinc-200">Allow file uploads</span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-sm font-medium text-primary">Allow file uploads</span>
+                        <span className="block text-xs text-tertiary">
                           {uploadSettings?.enabled && uploadSettings?.s3_connector_id && uploadSettings?.s3_bucket
                             ? "Shows the attach button in chat when this agent is selected."
                             : "Upload Settings must be configured (S3 connector + bucket) before enabling."}
@@ -1011,18 +1011,18 @@ export default function AdminAgents() {
                     </label>
 
                     <div>
-                      <h3 className="text-sm font-medium text-zinc-300 mb-1">Connected Knowledge Sources</h3>
-                      <p className="text-xs text-zinc-500 mb-3">
+                      <h3 className="text-sm font-medium text-secondary mb-1">Connected Knowledge Sources</h3>
+                      <p className="text-xs text-tertiary mb-3">
                         Select the knowledge sources this agent can retrieve from. Retrieval is automatically enabled when at least one source is connected.
                       </p>
-                      <div className="space-y-1 max-h-64 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                      <div className="space-y-1 max-h-64 overflow-y-auto bg-canvas border border-line rounded-lg px-3 py-2">
                         {sources.length === 0 && (
-                          <p className="text-xs text-zinc-500">No sources configured. Go to Knowledge Sources to add documents.</p>
+                          <p className="text-xs text-tertiary">No sources configured. Go to Knowledge Sources to add documents.</p>
                         )}
                         {sources.map((s) => {
                           const checked = (selected.connected_sources || []).includes(s.id);
                           return (
-                            <label key={s.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                            <label key={s.id} className="flex items-center gap-2 text-sm text-secondary cursor-pointer hover:bg-hover rounded-md px-1 py-0.5 transition">
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -1033,10 +1033,10 @@ export default function AdminAgents() {
                                     : [...current, s.id];
                                   setSelected({ ...selected, connected_sources: next });
                                 }}
-                                className="accent-indigo-500"
+                                className="accent-brand"
                               />
                               <span>{s.name}</span>
-                              <span className="text-xs text-zinc-500">({s.slug})</span>
+                              <span className="text-xs text-tertiary">({s.slug})</span>
                             </label>
                           );
                         })}
@@ -1044,8 +1044,8 @@ export default function AdminAgents() {
                     </div>
 
                     {(selected.connected_sources || []).length > 0 && (
-                      <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg px-3 py-2">
-                        <p className="text-xs text-indigo-300">
+                      <div className="bg-brand/10 border border-brand/20 rounded-lg px-3 py-2">
+                        <p className="text-xs text-brand">
                           <strong>{(selected.connected_sources || []).length}</strong> source(s) connected. Retrieval is active.
                         </p>
                       </div>
@@ -1056,11 +1056,11 @@ export default function AdminAgents() {
                 {activeTab === "deploy" && (
                   <div className="space-y-4">
                     <label className="block">
-                      <span className="text-xs font-medium text-zinc-400">Visibility</span>
+                      <span className="text-xs font-medium text-secondary">Visibility</span>
                       <select
                         value={selected.visibility || "all"}
                         onChange={(e) => setSelected({ ...selected, visibility: e.target.value })}
-                        className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                        className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                       >
                         <option value="all">All users</option>
                         <option value="admin_only">Admins only</option>
@@ -1070,24 +1070,24 @@ export default function AdminAgents() {
 
                     {selected.visibility === "restricted" && (
                       <div className="block">
-                        <span className="text-xs font-medium text-zinc-400">Allowed Users</span>
-                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        <span className="text-xs font-medium text-secondary">Allowed Users</span>
+                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-canvas border border-line rounded-lg px-3 py-2">
                           {users.length === 0 && (
-                            <p className="text-xs text-zinc-500">No users found.</p>
+                            <p className="text-xs text-tertiary">No users found.</p>
                           )}
                           {users.map((u) => {
                             const checked = (selected.allowed_users || []).includes(u.email);
                             const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
                             return (
-                              <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                              <label key={u.id} className="flex items-center gap-2 text-sm text-secondary cursor-pointer hover:bg-hover rounded-md px-1 py-0.5 transition">
                                 <input
                                   type="checkbox"
                                   checked={checked}
                                   onChange={() => toggleAllowedUser(selected, u.email)}
-                                  className="accent-indigo-500"
+                                  className="accent-brand"
                                 />
                                 <span>{display}</span>
-                                <span className="text-xs text-zinc-500">{u.email}</span>
+                                <span className="text-xs text-tertiary">{u.email}</span>
                               </label>
                             );
                           })}
@@ -1098,25 +1098,25 @@ export default function AdminAgents() {
                     {/* Beta Testers */}
                     <div className="block">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-zinc-400">Beta Testers</span>
+                        <span className="text-xs font-medium text-secondary">Beta Testers</span>
                         {(selected.beta_users || []).length > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-400 border border-amber-500/20">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning border border-warning/20">
                             Staged
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-zinc-500 mb-1">
+                      <p className="text-[11px] text-tertiary mb-1">
                         When beta testers are selected, only these users (and admins) can see the agent. Clear the list to release to all permitted users.
                       </p>
-                      <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                      <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-canvas border border-line rounded-lg px-3 py-2">
                         {users.length === 0 && (
-                          <p className="text-xs text-zinc-500">No users found.</p>
+                          <p className="text-xs text-tertiary">No users found.</p>
                         )}
                         {users.map((u) => {
                           const checked = (selected.beta_users || []).includes(u.email);
                           const display = [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
                           return (
-                            <label key={u.id} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                            <label key={u.id} className="flex items-center gap-2 text-sm text-secondary cursor-pointer hover:bg-hover rounded-md px-1 py-0.5 transition">
                               <input
                                 type="checkbox"
                                 checked={checked}
@@ -1127,10 +1127,10 @@ export default function AdminAgents() {
                                     : [...current, u.email];
                                   setSelected({ ...selected, beta_users: next });
                                 }}
-                                className="accent-indigo-500"
+                                className="accent-brand"
                               />
                               <span>{display}</span>
-                              <span className="text-xs text-zinc-500">{u.email}</span>
+                              <span className="text-xs text-tertiary">{u.email}</span>
                             </label>
                           );
                         })}
@@ -1142,16 +1142,16 @@ export default function AdminAgents() {
                 {activeTab === "agent-to-agent" && (
                   <div className="space-y-6">
                     {/* Routing */}
-                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5">
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-line bg-canvas px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selected.is_router || false}
                         onChange={(e) => setSelected({ ...selected, is_router: e.target.checked, is_orchestrator: false })}
-                        className="accent-amber-500"
+                        className="accent-warning"
                       />
                       <span>
-                        <span className="block text-sm font-medium text-zinc-200">Enable Routing</span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-sm font-medium text-primary">Enable Routing</span>
+                        <span className="block text-xs text-tertiary">
                           This agent classifies user intent and routes the conversation to a single specialist agent.
                         </span>
                       </span>
@@ -1159,34 +1159,34 @@ export default function AdminAgents() {
 
                     {selected.is_router && (
                       <div className="block">
-                        <span className="text-xs font-medium text-zinc-400">Routes To (Specialist Agents)</span>
-                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        <span className="text-xs font-medium text-secondary">Routes To (Specialist Agents)</span>
+                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-canvas border border-line rounded-lg px-3 py-2">
                           {agents
                             .filter((a) => a.slug !== selected.slug)
                             .map((a) => {
                               const checked = (selected.routes_to || []).includes(a.slug);
                               return (
-                                <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                                <label key={a.slug} className="flex items-center gap-2 text-sm text-secondary cursor-pointer hover:bg-hover rounded-md px-1 py-0.5 transition">
                                   <input
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => toggleRoute(selected, a.slug)}
-                                    className="accent-amber-500"
+                                    className="accent-warning"
                                   />
                                   <span>{a.name || a.slug}</span>
-                                  <span className="text-xs text-zinc-500">@{a.slug}</span>
+                                  <span className="text-xs text-tertiary">@{a.slug}</span>
                                 </label>
                               );
                             })}
                           {agents.length <= 1 && (
-                            <p className="text-xs text-zinc-500">No other agents available to route to.</p>
+                            <p className="text-xs text-tertiary">No other agents available to route to.</p>
                           )}
                         </div>
                       </div>
                     )}
 
                     {/* Orchestration */}
-                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2.5">
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-line bg-canvas px-3 py-2.5">
                       <input
                         type="checkbox"
                         checked={selected.is_orchestrator || false}
@@ -1194,8 +1194,8 @@ export default function AdminAgents() {
                         className="accent-violet-500"
                       />
                       <span>
-                        <span className="block text-sm font-medium text-zinc-200">Enable Orchestration</span>
-                        <span className="block text-xs text-zinc-500">
+                        <span className="block text-sm font-medium text-primary">Enable Orchestration</span>
+                        <span className="block text-xs text-tertiary">
                           This agent acts as a supervisor. It can call multiple child agents and synthesize their outputs into a final answer.
                         </span>
                       </span>
@@ -1203,14 +1203,14 @@ export default function AdminAgents() {
 
                     {selected.is_orchestrator && (
                       <div className="block">
-                        <span className="text-xs font-medium text-zinc-400">Child Agents</span>
-                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                        <span className="text-xs font-medium text-secondary">Child Agents</span>
+                        <div className="mt-1 space-y-1 max-h-48 overflow-y-auto bg-canvas border border-line rounded-lg px-3 py-2">
                           {agents
                             .filter((a) => a.slug !== selected.slug)
                             .map((a) => {
                               const checked = (selected.routes_to || []).includes(a.slug);
                               return (
-                                <label key={a.slug} className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer hover:bg-zinc-900 rounded-md px-1 py-0.5 transition">
+                                <label key={a.slug} className="flex items-center gap-2 text-sm text-secondary cursor-pointer hover:bg-hover rounded-md px-1 py-0.5 transition">
                                   <input
                                     type="checkbox"
                                     checked={checked}
@@ -1218,21 +1218,21 @@ export default function AdminAgents() {
                                     className="accent-violet-500"
                                   />
                                   <span>{a.name || a.slug}</span>
-                                  <span className="text-xs text-zinc-500">@{a.slug}</span>
+                                  <span className="text-xs text-tertiary">@{a.slug}</span>
                                 </label>
                               );
                             })}
                           {agents.length <= 1 && (
-                            <p className="text-xs text-zinc-500">No other agents available.</p>
+                            <p className="text-xs text-tertiary">No other agents available.</p>
                           )}
                         </div>
                       </div>
                     )}
 
                     {/* Workflows */}
-                    <div className="border-t border-zinc-800 pt-4">
-                      <h3 className="text-sm font-medium text-zinc-300 mb-1">Workflows</h3>
-                      <p className="text-xs text-zinc-500 mb-3">
+                    <div className="border-t border-line pt-4">
+                      <h3 className="text-sm font-medium text-secondary mb-1">Workflows</h3>
+                      <p className="text-xs text-tertiary mb-3">
                         Define step-by-step DAG pipelines for this agent. Click a workflow or create a new one to open the diagram builder.
                       </p>
                       <AgentWorkflowEditor agentSlug={selected.slug} agents={agents} />
@@ -1243,20 +1243,20 @@ export default function AdminAgents() {
                 {activeTab === "versions" && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-zinc-200">Version History</h3>
-                      {restoring && <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />}
+                      <h3 className="text-sm font-semibold text-primary">Version History</h3>
+                      {restoring && <Loader2 className="h-4 w-4 animate-spin text-tertiary" />}
                     </div>
 
                     {versions.length === 0 ? (
                       <div className="text-center py-10">
-                        <History className="mx-auto h-8 w-8 text-zinc-700 mb-2" />
-                        <p className="text-sm text-zinc-500">No versions yet.</p>
-                        <p className="text-xs text-zinc-600 mt-1">Publish this agent to create the first version.</p>
+                        <History className="mx-auto h-8 w-8 text-tertiary mb-2" />
+                        <p className="text-sm text-tertiary">No versions yet.</p>
+                        <p className="text-xs text-tertiary mt-1">Publish this agent to create the first version.</p>
                       </div>
                     ) : (
-                      <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                      <div className="rounded-lg border border-line overflow-hidden">
                         <table className="min-w-full text-left text-sm">
-                          <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                          <thead className="bg-canvas text-xs uppercase tracking-wide text-tertiary">
                             <tr>
                               <th className="px-4 py-2 font-medium">Version</th>
                               <th className="px-4 py-2 font-medium">Date</th>
@@ -1265,24 +1265,24 @@ export default function AdminAgents() {
                               <th className="px-4 py-2 font-medium text-right">Actions</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-zinc-800 bg-zinc-900">
+                          <tbody className="divide-y divide-line bg-card">
                             {versions.map((v) => (
-                              <tr key={v.id} className="hover:bg-zinc-800/30 transition">
-                                <td className="px-4 py-2.5 font-mono text-xs text-zinc-300">
+                              <tr key={v.id} className="hover:bg-hover/70 transition">
+                                <td className="px-4 py-2.5 font-mono text-xs text-secondary">
                                   <button
                                     onClick={() => handleViewVersion(v.id)}
-                                    className="hover:text-indigo-400 transition"
+                                    className="hover:text-brand transition"
                                   >
                                     v{v.version_number}
                                   </button>
                                 </td>
-                                <td className="px-4 py-2.5 text-zinc-400">{formatDateTime(v.created_at)}</td>
-                                <td className="px-4 py-2.5 text-zinc-400">{v.created_by || "—"}</td>
-                                <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{v.notes || "—"}</td>
+                                <td className="px-4 py-2.5 text-secondary">{formatDateTime(v.created_at)}</td>
+                                <td className="px-4 py-2.5 text-secondary">{v.created_by || "—"}</td>
+                                <td className="px-4 py-2.5 text-secondary max-w-xs truncate">{v.notes || "—"}</td>
                                 <td className="px-4 py-2.5 text-right">
                                   <button
                                     onClick={() => handleViewVersion(v.id)}
-                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition mr-2"
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-secondary hover:bg-hover hover:text-primary transition mr-2"
                                   >
                                     <Eye className="h-3 w-3" />
                                     View
@@ -1290,7 +1290,7 @@ export default function AdminAgents() {
                                   <button
                                     onClick={() => handleRestoreVersion(v.id)}
                                     disabled={restoring}
-                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition disabled:opacity-40"
+                                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-secondary hover:bg-hover hover:text-primary transition disabled:opacity-40"
                                   >
                                     <RotateCcw className="h-3 w-3" />
                                     Restore
@@ -1310,21 +1310,21 @@ export default function AdminAgents() {
                     {/* Analytics cards */}
                     {feedbackSummary && (
                       <div className="grid grid-cols-4 gap-4">
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Total</div>
-                          <div className="mt-1 text-2xl font-bold text-zinc-200">{feedbackSummary.total}</div>
+                        <div className="rounded-xl border border-line bg-canvas p-4">
+                          <div className="text-xs font-medium text-tertiary uppercase tracking-wide">Total</div>
+                          <div className="mt-1 text-2xl font-bold text-primary">{feedbackSummary.total}</div>
                         </div>
-                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                          <div className="text-xs font-medium text-emerald-500 uppercase tracking-wide">Thumbs Up</div>
-                          <div className="mt-1 text-2xl font-bold text-emerald-400">{feedbackSummary.thumbs_up}</div>
+                        <div className="rounded-xl border border-success/20 bg-success-soft/50 p-4">
+                          <div className="text-xs font-medium text-success uppercase tracking-wide">Thumbs Up</div>
+                          <div className="mt-1 text-2xl font-bold text-success">{feedbackSummary.thumbs_up}</div>
                         </div>
-                        <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
-                          <div className="text-xs font-medium text-rose-500 uppercase tracking-wide">Thumbs Down</div>
-                          <div className="mt-1 text-2xl font-bold text-rose-400">{feedbackSummary.thumbs_down}</div>
+                        <div className="rounded-xl border border-danger/20 bg-danger-soft/50 p-4">
+                          <div className="text-xs font-medium text-danger uppercase tracking-wide">Thumbs Down</div>
+                          <div className="mt-1 text-2xl font-bold text-danger">{feedbackSummary.thumbs_down}</div>
                         </div>
-                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-                          <div className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Positive Rate</div>
-                          <div className="mt-1 text-2xl font-bold text-zinc-200">{feedbackSummary.up_rate_pct}%</div>
+                        <div className="rounded-xl border border-line bg-canvas p-4">
+                          <div className="text-xs font-medium text-tertiary uppercase tracking-wide">Positive Rate</div>
+                          <div className="mt-1 text-2xl font-bold text-primary">{feedbackSummary.up_rate_pct}%</div>
                         </div>
                       </div>
                     )}
@@ -1332,16 +1332,16 @@ export default function AdminAgents() {
                     {/* Feedback table */}
                     {feedbackLoading ? (
                       <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                        <Loader2 className="h-6 w-6 animate-spin text-brand" />
                       </div>
                     ) : feedbackList.length === 0 ? (
-                      <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
-                        <p className="text-sm text-zinc-500">No feedback yet for this agent.</p>
+                      <div className="rounded-lg border border-line bg-canvas/70 px-6 py-8 text-center">
+                        <p className="text-sm text-tertiary">No feedback yet for this agent.</p>
                       </div>
                     ) : (
-                      <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                      <div className="rounded-lg border border-line overflow-hidden">
                         <table className="min-w-full text-left text-sm">
-                          <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                          <thead className="bg-canvas text-xs uppercase tracking-wide text-tertiary">
                             <tr>
                               <th className="px-4 py-2 font-medium">Date</th>
                               <th className="px-4 py-2 font-medium">User</th>
@@ -1350,32 +1350,32 @@ export default function AdminAgents() {
                               <th className="px-4 py-2 font-medium">Screenshot</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-zinc-800">
+                          <tbody className="divide-y divide-line">
                             {feedbackList.map((f) => (
-                              <tr key={f.id} className="hover:bg-zinc-800/30 transition cursor-pointer" onClick={() => setSelectedFeedback(f)}>
-                                <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">
+                              <tr key={f.id} className="hover:bg-hover/70 transition cursor-pointer" onClick={() => setSelectedFeedback(f)}>
+                                <td className="px-4 py-2.5 text-secondary whitespace-nowrap">
                                   {new Date(f.created_at).toLocaleString()}
                                 </td>
-                                <td className="px-4 py-2.5 text-zinc-400">{f.user_id.slice(0, 8)}…</td>
+                                <td className="px-4 py-2.5 text-secondary">{f.user_id.slice(0, 8)}…</td>
                                 <td className="px-4 py-2.5">
                                   {f.thumbs_up ? (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-success-soft px-2 py-0.5 text-xs text-success">
                                       <ThumbsUp className="h-3 w-3" /> Up
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-xs text-rose-400">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-danger-soft px-2 py-0.5 text-xs text-danger">
                                       <ThumbsUp className="h-3 w-3" /> Down
                                     </span>
                                   )}
                                 </td>
-                                <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">
+                                <td className="px-4 py-2.5 text-secondary max-w-xs truncate">
                                   {f.comment || "—"}
                                 </td>
                                 <td className="px-4 py-2.5">
                                   {f.screenshot_attachment_id ? (
-                                    <span className="text-xs text-indigo-400">Yes</span>
+                                    <span className="text-xs text-brand">Yes</span>
                                   ) : (
-                                    <span className="text-xs text-zinc-600">No</span>
+                                    <span className="text-xs text-tertiary">No</span>
                                   )}
                                 </td>
                               </tr>
@@ -1391,16 +1391,16 @@ export default function AdminAgents() {
                 {activeTab === "evaluation" && (
                   <div className="w-full space-y-6">
                   {/* Sub-tabs */}
-                  <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+                  <div className="flex items-center gap-2 border-b border-line pb-2">
                     <button
                       onClick={() => setEvalSubTab("tests")}
-                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "tests" ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"}`}
+                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "tests" ? "bg-hover text-primary" : "text-tertiary hover:text-secondary"}`}
                     >
                       Tests
                     </button>
                     <button
                       onClick={() => setEvalSubTab("runs")}
-                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "runs" ? "bg-zinc-800 text-zinc-200" : "text-zinc-500 hover:text-zinc-300"}`}
+                      className={`text-sm font-medium px-3 py-1.5 rounded-md transition ${evalSubTab === "runs" ? "bg-hover text-primary" : "text-tertiary hover:text-secondary"}`}
                     >
                       Runs
                     </button>
@@ -1408,32 +1408,32 @@ export default function AdminAgents() {
 
                   {evalLoading ? (
                     <div className="flex items-center justify-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                      <Loader2 className="h-6 w-6 animate-spin text-brand" />
                     </div>
                   ) : evalSubTab === "tests" ? (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-zinc-300">Evaluation Tests ({evalTests.length})</h3>
+                        <h3 className="text-sm font-medium text-secondary">Evaluation Tests ({evalTests.length})</h3>
                         <button
                           onClick={() => {
                                                         setEditingEvalTest(null);
                             setEvalTestForm({ name: "", question: "", expected_answer: "" });
                             setShowEvalTestModal(true);
                           }}
-                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                          className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition"
                         >
                           <Plus className="h-3.5 w-3.5" /> New Test
                         </button>
                       </div>
                       {evalTests.length === 0 ? (
-                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
-                          <p className="text-sm text-zinc-500">No evaluation tests yet.</p>
-                          <p className="text-xs text-zinc-600 mt-1">Create tests with a question and expected answer to evaluate your agent.</p>
+                        <div className="rounded-lg border border-line bg-canvas/70 px-6 py-8 text-center">
+                          <p className="text-sm text-tertiary">No evaluation tests yet.</p>
+                          <p className="text-xs text-tertiary mt-1">Create tests with a question and expected answer to evaluate your agent.</p>
                         </div>
                       ) : (
-                        <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                        <div className="rounded-lg border border-line overflow-hidden">
                           <table className="min-w-full text-left text-sm">
-                            <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                            <thead className="bg-canvas text-xs uppercase tracking-wide text-tertiary">
                               <tr>
                                 <th className="px-4 py-2 font-medium">Name</th>
                                 <th className="px-4 py-2 font-medium">Question</th>
@@ -1441,12 +1441,12 @@ export default function AdminAgents() {
                                 <th className="px-4 py-2 font-medium w-24"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-800">
+                            <tbody className="divide-y divide-line">
                               {evalTests.map((t) => (
-                                <tr key={t.id} className="hover:bg-zinc-800/30 transition">
-                                  <td className="px-4 py-2.5 text-zinc-300 font-medium">{t.name}</td>
-                                  <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{t.question}</td>
-                                  <td className="px-4 py-2.5 text-zinc-400 max-w-xs truncate">{t.expected_answer}</td>
+                                <tr key={t.id} className="hover:bg-hover/70 transition">
+                                  <td className="px-4 py-2.5 text-secondary font-medium">{t.name}</td>
+                                  <td className="px-4 py-2.5 text-secondary max-w-xs truncate">{t.question}</td>
+                                  <td className="px-4 py-2.5 text-secondary max-w-xs truncate">{t.expected_answer}</td>
                                   <td className="px-4 py-2.5">
                                     <div className="flex items-center gap-2">
                                       <button
@@ -1455,7 +1455,7 @@ export default function AdminAgents() {
                                           setEvalTestForm({ name: t.name, question: t.question, expected_answer: t.expected_answer });
                                           setShowEvalTestModal(true);
                                         }}
-                                        className="text-zinc-500 hover:text-zinc-300 transition"
+                                        className="text-tertiary hover:text-secondary transition"
                                         title="Edit"
                                       >
                                         <Settings className="h-3.5 w-3.5" />
@@ -1477,7 +1477,7 @@ export default function AdminAgents() {
                                             alert("Failed to delete test");
                                           }
                                         }}
-                                        className="text-zinc-500 hover:text-rose-400 transition"
+                                        className="text-tertiary hover:text-danger transition"
                                         title="Delete"
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -1494,7 +1494,7 @@ export default function AdminAgents() {
                   ) : (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-medium text-zinc-300">Evaluation Runs ({evalRuns.length})</h3>
+                        <h3 className="text-sm font-medium text-secondary">Evaluation Runs ({evalRuns.length})</h3>
                         <button
                           onClick={() => {
                                                         setLaunchRunForm({
@@ -1505,20 +1505,20 @@ export default function AdminAgents() {
                             setShowLaunchRunModal(true);
                           }}
                           disabled={evalTests.length === 0}
-                          className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium transition"
+                          className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium text-white transition"
                         >
                           <Rocket className="h-3.5 w-3.5" /> Launch Run
                         </button>
                       </div>
                       {evalRuns.length === 0 ? (
-                        <div className="rounded-lg border border-zinc-800 bg-zinc-950/30 px-6 py-8 text-center">
-                          <p className="text-sm text-zinc-500">No evaluation runs yet.</p>
-                          <p className="text-xs text-zinc-600 mt-1">Launch a run to evaluate your agent against the test cases.</p>
+                        <div className="rounded-lg border border-line bg-canvas/70 px-6 py-8 text-center">
+                          <p className="text-sm text-tertiary">No evaluation runs yet.</p>
+                          <p className="text-xs text-tertiary mt-1">Launch a run to evaluate your agent against the test cases.</p>
                         </div>
                       ) : (
-                        <div className="rounded-lg border border-zinc-800 overflow-hidden">
+                        <div className="rounded-lg border border-line overflow-hidden">
                           <table className="min-w-full text-left text-sm">
-                            <thead className="bg-zinc-950/60 text-xs uppercase tracking-wide text-zinc-500">
+                            <thead className="bg-canvas text-xs uppercase tracking-wide text-tertiary">
                               <tr>
                                 <th className="px-4 py-2 font-medium">Name</th>
                                 <th className="px-4 py-2 font-medium">Status</th>
@@ -1527,9 +1527,9 @@ export default function AdminAgents() {
                                 <th className="px-4 py-2 font-medium w-24"></th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-zinc-800">
+                            <tbody className="divide-y divide-line">
                               {evalRuns.map((r) => (
-                                <tr key={r.id} className="hover:bg-zinc-800/30 transition cursor-pointer" onClick={async () => {
+                                <tr key={r.id} className="hover:bg-hover/70 transition cursor-pointer" onClick={async () => {
                                   if (!selected) return;
                                   try {
                                     const detail = await api.getEvalRunDetail(selected.slug, r.id);
@@ -1538,13 +1538,13 @@ export default function AdminAgents() {
                                     alert("Failed to load run details");
                                   }
                                 }}>
-                                  <td className="px-4 py-2.5 text-zinc-300 font-medium">{r.name}</td>
+                                  <td className="px-4 py-2.5 text-secondary font-medium">{r.name}</td>
                                   <td className="px-4 py-2.5">
                                     <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs ${
-                                      r.status === "completed" ? "bg-emerald-500/10 text-emerald-400" :
-                                      r.status === "running" ? "bg-amber-500/10 text-amber-400" :
-                                      r.status === "failed" ? "bg-rose-500/10 text-rose-400" :
-                                      "bg-zinc-500/10 text-zinc-400"
+                                      r.status === "completed" ? "bg-success-soft text-success" :
+                                      r.status === "running" ? "bg-warning-soft text-warning" :
+                                      r.status === "failed" ? "bg-danger-soft text-danger" :
+                                      "bg-hover text-secondary"
                                     }`}>
                                       {r.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
                                       {r.status}
@@ -1553,19 +1553,19 @@ export default function AdminAgents() {
                                   <td className="px-4 py-2.5">
                                     {r.total_tests > 0 ? (
                                       <div className="flex items-center gap-2">
-                                        <div className="w-20 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="w-20 h-2 bg-hover rounded-full overflow-hidden">
                                           <div
-                                            className="h-full bg-emerald-500 rounded-full"
+                                            className="h-full bg-success rounded-full"
                                             style={{ width: `${(r.pass_count / r.total_tests) * 100}%` }}
                                           />
                                         </div>
-                                        <span className="text-xs text-zinc-400">{r.pass_count}/{r.total_tests}</span>
+                                        <span className="text-xs text-secondary">{r.pass_count}/{r.total_tests}</span>
                                       </div>
                                     ) : (
-                                      <span className="text-xs text-zinc-600">—</span>
+                                      <span className="text-xs text-tertiary">—</span>
                                     )}
                                   </td>
-                                  <td className="px-4 py-2.5 text-zinc-400 whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
+                                  <td className="px-4 py-2.5 text-secondary whitespace-nowrap">{new Date(r.created_at).toLocaleString()}</td>
                                   <td className="px-4 py-2.5">
                                     <button
                                       onClick={async (e) => {
@@ -1585,7 +1585,7 @@ export default function AdminAgents() {
                                           alert("Failed to delete run");
                                         }
                                       }}
-                                      className="text-zinc-500 hover:text-rose-400 transition"
+                                      className="text-tertiary hover:text-danger transition"
                                       title="Delete"
                                     >
                                       <Trash2 className="h-3.5 w-3.5" />
@@ -1605,11 +1605,11 @@ export default function AdminAgents() {
               </div>
 
               {/* Footer save */}
-              <div className="flex justify-end px-5 py-4 border-t border-zinc-800">
+              <div className="flex justify-end px-5 py-4 border-t border-line">
                 <button
                   onClick={save}
                   disabled={saving}
-                  className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
+                  className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition shadow-lg shadow-brand/15"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {saving ? "Saving…" : "Save Changes"}
@@ -1617,8 +1617,8 @@ export default function AdminAgents() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 text-zinc-500">
-              <Bot className="h-10 w-10 text-zinc-700 mb-3" />
+            <div className="flex flex-col items-center justify-center h-64 text-tertiary">
+              <Bot className="h-10 w-10 text-tertiary mb-3" />
               <p className="text-sm">Select an agent to configure</p>
             </div>
           )}
@@ -1644,26 +1644,26 @@ export default function AdminAgents() {
       {/* Delete confirmation */}
       {deleteConfirm && (
         <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="animate-scale-in bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+          <div className="animate-scale-in bg-canvas border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
-                <Trash2 className="h-5 w-5 text-red-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-danger-soft">
+                <Trash2 className="h-5 w-5 text-danger" />
               </div>
               <h2 className="font-semibold text-lg">Delete Agent?</h2>
             </div>
-            <p className="text-sm text-zinc-400">
-              Are you sure you want to delete <strong className="text-zinc-200">{deleteConfirm}</strong>? This cannot be undone.
+            <p className="text-sm text-secondary">
+              Are you sure you want to delete <strong className="text-primary">{deleteConfirm}</strong>? This cannot be undone.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={() => remove(deleteConfirm)}
-                className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-red-500/15"
+                className="bg-danger hover:bg-danger-hover px-4 py-2 rounded-lg text-sm font-medium text-white transition shadow-lg shadow-danger/15"
               >
                 Delete
               </button>
@@ -1675,16 +1675,16 @@ export default function AdminAgents() {
       {/* Publish modal */}
       {showPublishModal && selected && (
         <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="animate-scale-in bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+          <div className="animate-scale-in bg-canvas border border-line rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10">
-                <Rocket className="h-5 w-5 text-indigo-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
+                <Rocket className="h-5 w-5 text-brand" />
               </div>
               <div>
                 <h2 className="font-semibold text-lg">
                   {selected.is_published ? "Publish Changes" : "Publish Agent"}
                 </h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-tertiary">
                   {selected.is_published
                     ? "This will snapshot the current live config and apply your draft changes."
                     : "This will make the agent visible to all permitted users."}
@@ -1693,27 +1693,27 @@ export default function AdminAgents() {
             </div>
 
             <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Notes (optional)</span>
+              <span className="text-xs font-medium text-secondary">Notes (optional)</span>
               <textarea
                 value={publishNotes}
                 onChange={(e) => setPublishNotes(e.target.value)}
                 placeholder="What changed in this version?"
                 rows={2}
-                className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition resize-y"
               />
             </label>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => { setShowPublishModal(false); setPublishNotes(""); }}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePublish}
                 disabled={publishing}
-                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-500/15"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium text-white transition shadow-lg shadow-brand/15"
               >
                 {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
                 {publishing ? "Publishing…" : "Publish"}
@@ -1726,19 +1726,19 @@ export default function AdminAgents() {
       {/* Version diff modal */}
       {versionDetail && selected && (
         <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
+          <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-2xl space-y-4 shadow-2xl max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-lg">
                   Version v{versionDetail.version_number}
                 </h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-tertiary">
                   {versionDetail.notes || "No notes"} · {formatDateTime(versionDetail.created_at)}
                 </p>
               </div>
               <button
                 onClick={() => setVersionDetail(null)}
-                className="text-zinc-500 hover:text-zinc-300 transition"
+                className="text-tertiary hover:text-secondary transition"
               >
                 ✕
               </button>
@@ -1773,10 +1773,10 @@ export default function AdminAgents() {
                   const newText = typeof lVal === "string" ? lVal : JSON.stringify(lVal);
 
                   return (
-                    <div key={key} className={`rounded-lg border px-3 py-2 text-sm ${changed ? "border-amber-500/30 bg-amber-500/5" : "border-zinc-800 bg-zinc-900/50"}`}>
+                    <div key={key} className={`rounded-lg border px-3 py-2 text-sm ${changed ? "border-warning/30 bg-warning-soft/50" : "border-line bg-card/70"}`}>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-zinc-300">{label}</span>
-                        {changed && <span className="text-[10px] font-medium text-amber-400 uppercase tracking-wide">Changed</span>}
+                        <span className="font-medium text-secondary">{label}</span>
+                        {changed && <span className="text-[10px] font-medium text-warning uppercase tracking-wide">Changed</span>}
                       </div>
                       {textDiff && changed ? (
                         <div className="text-xs leading-relaxed">
@@ -1785,10 +1785,10 @@ export default function AdminAgents() {
                               key={idx}
                               className={
                                 seg.type === "del"
-                                  ? "bg-red-500/20 text-red-300 line-through decoration-red-400 px-0.5 rounded"
+                                  ? "bg-danger/20 text-danger line-through decoration-danger px-0.5 rounded"
                                   : seg.type === "ins"
-                                  ? "bg-emerald-500/20 text-emerald-300 px-0.5 rounded"
-                                  : "text-zinc-400"
+                                  ? "bg-success/20 text-success px-0.5 rounded"
+                                  : "text-secondary"
                               }
                             >
                               {seg.text}
@@ -1798,12 +1798,12 @@ export default function AdminAgents() {
                       ) : (
                         <div className="grid grid-cols-2 gap-3 text-xs">
                           <div>
-                            <span className="text-zinc-500 block mb-0.5">Version</span>
-                            <span className="text-zinc-400 font-mono break-all">{oldText}</span>
+                            <span className="text-tertiary block mb-0.5">Version</span>
+                            <span className="text-secondary font-mono break-all">{oldText}</span>
                           </div>
                           <div>
-                            <span className="text-zinc-500 block mb-0.5">Current Live</span>
-                            <span className="text-zinc-400 font-mono break-all">{newText}</span>
+                            <span className="text-tertiary block mb-0.5">Current Live</span>
+                            <span className="text-secondary font-mono break-all">{newText}</span>
                           </div>
                         </div>
                       )}
@@ -1813,10 +1813,10 @@ export default function AdminAgents() {
               })()}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
               <button
                 onClick={() => setVersionDetail(null)}
-                className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition"
+                className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition"
               >
                 Close
               </button>
@@ -1829,25 +1829,25 @@ export default function AdminAgents() {
       {selectedFeedback && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedFeedback(null)}>
           <div
-            className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            className="bg-canvas border border-line rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
               <div className="flex items-center gap-3">
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${selectedFeedback.thumbs_up ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
-                  <ThumbsUp className={`h-4 w-4 ${selectedFeedback.thumbs_up ? "text-emerald-400" : "text-rose-400"}`} />
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${selectedFeedback.thumbs_up ? "bg-success-soft" : "bg-danger-soft"}`}>
+                  <ThumbsUp className={`h-4 w-4 ${selectedFeedback.thumbs_up ? "text-success" : "text-danger"}`} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-zinc-200">
+                  <h3 className="font-semibold text-sm text-primary">
                     {selectedFeedback.thumbs_up ? "Thumbs Up" : "Thumbs Down"} — {selectedFeedback.user_id.slice(0, 8)}…
                   </h3>
-                  <p className="text-xs text-zinc-500">{new Date(selectedFeedback.created_at).toLocaleString()}</p>
+                  <p className="text-xs text-tertiary">{new Date(selectedFeedback.created_at).toLocaleString()}</p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedFeedback(null)}
-                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 transition"
+                className="rounded-lg p-1.5 text-tertiary hover:bg-hover hover:text-primary transition"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1857,11 +1857,11 @@ export default function AdminAgents() {
               {/* Comment */}
               {selectedFeedback.comment && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <MessageSquare className="h-3.5 w-3.5" />
                     User Comment
                   </div>
-                  <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm text-zinc-300">
+                  <div className="bg-card border border-line/60 rounded-xl px-3 py-2 text-sm text-secondary">
                     {selectedFeedback.comment}
                   </div>
                 </div>
@@ -1870,15 +1870,15 @@ export default function AdminAgents() {
               {/* Conversation Actions */}
               {selectedFeedback.conversation_actions && selectedFeedback.conversation_actions.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <Rocket className="h-3.5 w-3.5" />
                     Conversation Actions ({selectedFeedback.conversation_actions.length})
                   </div>
                   <div className="space-y-2">
                     {selectedFeedback.conversation_actions.map((action, i) => (
-                      <div key={i} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2">
+                      <div key={i} className="bg-card border border-line/60 rounded-xl px-3 py-2">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 rounded px-1.5 py-0.5 uppercase tracking-wide">
+                          <span className="text-[10px] font-bold text-success bg-success-soft rounded px-1.5 py-0.5 uppercase tracking-wide">
                             {action.type.replace(/_/g, " ")}
                           </span>
                           {action.ticket_key && (
@@ -1886,7 +1886,7 @@ export default function AdminAgents() {
                               href={action.ticket_url || "#"}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition"
+                              className="text-xs font-semibold text-brand hover:text-brand transition"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {action.ticket_key}
@@ -1894,10 +1894,10 @@ export default function AdminAgents() {
                           )}
                         </div>
                         {action.summary && (
-                          <p className="text-xs text-zinc-400">{action.summary}</p>
+                          <p className="text-xs text-secondary">{action.summary}</p>
                         )}
                         {action.raw && !action.summary && (
-                          <p className="text-xs text-zinc-500 font-mono">{action.raw}</p>
+                          <p className="text-xs text-tertiary font-mono">{action.raw}</p>
                         )}
                       </div>
                     ))}
@@ -1908,22 +1908,22 @@ export default function AdminAgents() {
               {/* Conversation Snapshot */}
               {selectedFeedback.conversation_snapshot && selectedFeedback.conversation_snapshot.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <MessageSquare className="h-3.5 w-3.5" />
                     Conversation Snapshot
                   </div>
                   <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                     {selectedFeedback.conversation_snapshot.map((msg) => (
-                      <div key={msg.id} className={`rounded-lg px-3 py-2 text-sm border ${msg.role === "assistant" ? "bg-indigo-500/5 border-indigo-500/10 text-zinc-300" : "bg-zinc-900 border-zinc-800 text-zinc-300"}`}>
+                      <div key={msg.id} className={`rounded-lg px-3 py-2 text-sm border ${msg.role === "assistant" ? "bg-brand/10 border-brand/10 text-secondary" : "bg-card border-line text-secondary"}`}>
                         <div className="flex items-center gap-1.5 mb-1">
-                          <span className={`text-[10px] font-bold uppercase tracking-wide ${msg.role === "assistant" ? "text-indigo-400" : "text-zinc-500"}`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide ${msg.role === "assistant" ? "text-brand" : "text-tertiary"}`}>
                             {msg.role}
                           </span>
                           {msg.agent_id && (
-                            <span className="text-[10px] text-zinc-600">• {msg.agent_id}</span>
+                            <span className="text-[10px] text-tertiary">• {msg.agent_id}</span>
                           )}
                         </div>
-                        <p className="text-sm text-zinc-300 whitespace-pre-wrap">{msg.content}</p>
+                        <p className="text-sm text-secondary whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     ))}
                   </div>
@@ -1933,7 +1933,7 @@ export default function AdminAgents() {
               {/* Tool Calls */}
               {selectedFeedback.tool_calls_log && selectedFeedback.tool_calls_log.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <Wrench className="h-3.5 w-3.5" />
                     Tool Calls
                   </div>
@@ -1942,13 +1942,13 @@ export default function AdminAgents() {
                       const expanded = expandedToolCalls.has(i);
                       const resultStr = tc.result !== undefined ? JSON.stringify(tc.result) : "";
                       return (
-                        <div key={i} className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2">
+                        <div key={i} className="bg-card border border-line/60 rounded-xl px-3 py-2">
                           <div className="flex items-center justify-between mb-1">
-                            <div className="text-xs font-semibold text-indigo-300">{tc.tool || "unknown tool"}</div>
+                            <div className="text-xs font-semibold text-brand">{tc.tool || "unknown tool"}</div>
                             {resultStr.length > 200 && (
                               <button
                                 onClick={() => toggleToolCall(i)}
-                                className="flex items-center gap-0.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition"
+                                className="flex items-center gap-0.5 text-[10px] text-tertiary hover:text-secondary transition"
                               >
                                 {expanded ? (
                                   <><ChevronUp className="h-3 w-3" /> Less</>
@@ -1958,10 +1958,10 @@ export default function AdminAgents() {
                               </button>
                             )}
                           </div>
-                          <div className="text-[11px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1 overflow-x-auto">
+                          <div className="text-[11px] text-tertiary font-mono bg-canvas rounded px-2 py-1 overflow-x-auto">
                             {tc.tool === "retrieve" && tc.args?.sources === null ? (
                               <div>
-                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1.5 py-0.5">sources: agent defaults</span>
+                                <span className="text-[10px] text-warning/80 bg-warning-soft rounded px-1.5 py-0.5">sources: agent defaults</span>
                                 <pre className="mt-1">{JSON.stringify({ ...tc.args, sources: undefined }, null, 2)}</pre>
                               </div>
                             ) : (
@@ -1969,7 +1969,7 @@ export default function AdminAgents() {
                             )}
                           </div>
                           {tc.result !== undefined && (
-                            <div className="mt-1.5 text-[11px] text-zinc-400 font-mono bg-zinc-950 rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap">
+                            <div className="mt-1.5 text-[11px] text-secondary font-mono bg-canvas rounded px-2 py-1 overflow-x-auto whitespace-pre-wrap">
                               {expanded ? resultStr : resultStr.slice(0, 200) + (resultStr.length > 200 ? "…" : "")}
                             </div>
                           )}
@@ -1983,7 +1983,7 @@ export default function AdminAgents() {
               {/* Retrieved Sources */}
               {selectedFeedback.retrieved_sources && selectedFeedback.retrieved_sources.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <FileText className="h-3.5 w-3.5" />
                     Retrieved Sources ({selectedFeedback.retrieved_sources.length})
                   </div>
@@ -1993,36 +1993,36 @@ export default function AdminAgents() {
                       return (
                         <div
                           key={i}
-                          className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 cursor-pointer hover:border-zinc-700 transition"
+                          className="bg-card border border-line/60 rounded-xl px-3 py-2 cursor-pointer hover:border-line transition"
                           onClick={() => toggleSource(i)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 rounded px-1.5 py-0.5 shrink-0">[{src.rank}]</span>
-                              <span className="text-[11px] font-medium text-zinc-300 truncate">{src.title || "Untitled"}</span>
+                              <span className="text-[10px] font-bold text-brand bg-brand/10 rounded px-1.5 py-0.5 shrink-0">[{src.rank}]</span>
+                              <span className="text-[11px] font-medium text-secondary truncate">{src.title || "Untitled"}</span>
                             </div>
                             {expanded ? (
-                              <ChevronUp className="h-3 w-3 text-zinc-500 shrink-0" />
+                              <ChevronUp className="h-3 w-3 text-tertiary shrink-0" />
                             ) : (
-                              <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
+                              <ChevronDown className="h-3 w-3 text-tertiary shrink-0" />
                             )}
                           </div>
                           {src.url && (
-                            <div className="text-[10px] text-zinc-600 truncate mt-1">{src.url}</div>
+                            <div className="text-[10px] text-tertiary truncate mt-1">{src.url}</div>
                           )}
-                          <div className="text-[10px] text-zinc-600 font-mono mt-0.5">ID: {src.id?.slice(0, 8)}…</div>
+                          <div className="text-[10px] text-tertiary font-mono mt-0.5">ID: {src.id?.slice(0, 8)}…</div>
                           {expanded && (
-                            <div className="mt-2 pt-2 border-t border-zinc-800">
+                            <div className="mt-2 pt-2 border-t border-line">
                               <a
                                 href={src.url || "#"}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-[10px] text-indigo-400 hover:text-indigo-300 transition mb-1.5 inline-block"
+                                className="text-[10px] text-brand hover:text-brand transition mb-1.5 inline-block"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 Open source →
                               </a>
-                              <div className="text-[10px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap">
+                              <div className="text-[10px] text-tertiary font-mono bg-canvas rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap">
                                 Source: {src.title}
                                 <br />
                                 ID: {src.id}
@@ -2040,11 +2040,11 @@ export default function AdminAgents() {
               {/* Screenshot */}
               {selectedFeedback.screenshot_attachment_id && (
                 <div>
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-400 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-secondary mb-1.5">
                     <Eye className="h-3.5 w-3.5" />
                     Screenshot
                   </div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-tertiary">
                     Attachment ID: {selectedFeedback.screenshot_attachment_id}
                   </div>
                 </div>
@@ -2057,17 +2057,17 @@ export default function AdminAgents() {
       {/* Test draft chat modal */}
       {showTestDraft && selected && (
         <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[80vh]">
+          <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[80vh]">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-lg">Test Draft</h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-tertiary">
                   Runs the full agent graph with your draft config — including tools, retrieval, routing, and orchestration.
                 </p>
               </div>
               <button
                 onClick={() => { setShowTestDraft(false); setTestDraftMessage(""); setTestDraftResponse(""); }}
-                className="text-zinc-500 hover:text-zinc-300 transition"
+                className="text-tertiary hover:text-secondary transition"
               >
                 ✕
               </button>
@@ -2075,13 +2075,13 @@ export default function AdminAgents() {
 
             <div className="space-y-2 flex-1 overflow-y-auto">
               <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Your message</span>
+                <span className="text-xs font-medium text-secondary">Your message</span>
                 <textarea
                   value={testDraftMessage}
                   onChange={(e) => setTestDraftMessage(e.target.value)}
                   placeholder="Type a test message..."
                   rows={3}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition resize-y"
+                  className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition resize-y"
                 />
               </label>
 
@@ -2089,7 +2089,7 @@ export default function AdminAgents() {
                 <button
                   onClick={handleTestDraft}
                   disabled={testingDraft || !testDraftMessage.trim()}
-                  className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-2 rounded-lg text-sm font-medium transition"
+                  className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-3 py-2 rounded-lg text-sm font-medium text-white transition"
                 >
                   {testingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                   {testingDraft ? "Testing…" : "Send"}
@@ -2098,8 +2098,8 @@ export default function AdminAgents() {
 
               {testDraftResponse && (
                 <div className="mt-3">
-                  <span className="text-xs font-medium text-zinc-400">Response</span>
-                  <div className="mt-1 bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm text-zinc-300 whitespace-pre-wrap max-h-64 overflow-y-auto">
+                  <span className="text-xs font-medium text-secondary">Response</span>
+                  <div className="mt-1 bg-card border border-line/60 rounded-xl px-3 py-2 text-sm text-secondary whitespace-pre-wrap max-h-64 overflow-y-auto">
                     {testDraftResponse}
                   </div>
                 </div>
@@ -2111,44 +2111,44 @@ export default function AdminAgents() {
       {/* Eval Test Modal */}
       {showEvalTestModal && selected && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowEvalTestModal(false)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <h2 className="font-semibold text-lg">{editingEvalTest ? "Edit Test" : "New Eval Test"}</h2>
-              <button onClick={() => setShowEvalTestModal(false)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+              <button onClick={() => setShowEvalTestModal(false)} className="text-tertiary hover:text-secondary transition"><X className="h-5 w-5" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Name</span>
+                <span className="text-xs font-medium text-secondary">Name</span>
                 <input
                   value={evalTestForm.name}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 outline-none transition"
                   placeholder="e.g., Laptop request for new hire"
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Question</span>
+                <span className="text-xs font-medium text-secondary">Question</span>
                 <textarea
                   value={evalTestForm.question}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, question: e.target.value }))}
                   rows={3}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 outline-none transition resize-y"
                   placeholder="What question should the agent answer?"
                 />
               </label>
               <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Expected Answer</span>
+                <span className="text-xs font-medium text-secondary">Expected Answer</span>
                 <textarea
                   value={evalTestForm.expected_answer}
                   onChange={(e) => setEvalTestForm((p) => ({ ...p, expected_answer: e.target.value }))}
                   rows={4}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 outline-none transition resize-y"
+                  className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 outline-none transition resize-y"
                   placeholder="What should the ideal answer contain?"
                 />
               </label>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-              <button onClick={() => setShowEvalTestModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition">Cancel</button>
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
+              <button onClick={() => setShowEvalTestModal(false)} className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition">Cancel</button>
               <button
                 onClick={async () => {
                   if (!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()) return;
@@ -2171,7 +2171,7 @@ export default function AdminAgents() {
                   }
                 }}
                 disabled={!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()}
-                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium text-white transition"
               >
                 <Save className="h-4 w-4" /> Save
               </button>
@@ -2183,25 +2183,25 @@ export default function AdminAgents() {
       {/* Launch Run Modal */}
       {showLaunchRunModal && selected && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setShowLaunchRunModal(false)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+          <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <h2 className="font-semibold text-lg">Launch Evaluation Run</h2>
-              <button onClick={() => setShowLaunchRunModal(false)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+              <button onClick={() => setShowLaunchRunModal(false)} className="text-tertiary hover:text-secondary transition"><X className="h-5 w-5" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
-                <span className="text-xs font-medium text-zinc-400">Run Name</span>
+                <span className="text-xs font-medium text-secondary">Run Name</span>
                 <input
                   value={launchRunForm.name}
                   onChange={(e) => setLaunchRunForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-zinc-900/60 border border-zinc-800/60 rounded-xl px-3 py-2 text-sm mt-1 text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 outline-none transition"
                 />
               </label>
               <div className="space-y-3">
-                <span className="text-xs font-medium text-zinc-400 block">Per-Metric Thresholds</span>
+                <span className="text-xs font-medium text-secondary block">Per-Metric Thresholds</span>
                 {Object.entries(launchRunForm.thresholds).map(([key, value]) => (
                   <label key={key} className="block">
-                    <span className="text-xs text-zinc-400 capitalize">{key.replace(/_/g, " ")}: {value.toFixed(2)}</span>
+                    <span className="text-xs text-secondary capitalize">{key.replace(/_/g, " ")}: {value.toFixed(2)}</span>
                     <input
                       type="range"
                       min={0}
@@ -2214,16 +2214,16 @@ export default function AdminAgents() {
                           thresholds: { ...p.thresholds, [key]: parseFloat(e.target.value) },
                         }))
                       }
-                      className="w-full mt-1 accent-indigo-500"
+                      className="w-full mt-1 accent-brand"
                     />
                   </label>
                 ))}
               </div>
               <div>
-                <span className="text-xs font-medium text-zinc-400 block mb-2">Tests to run</span>
-                <div className="max-h-48 overflow-y-auto space-y-1.5 border border-zinc-800 rounded-lg p-2 bg-zinc-900/50">
+                <span className="text-xs font-medium text-secondary block mb-2">Tests to run</span>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 border border-line rounded-lg p-2 bg-card/70">
                   {evalTests.map((t) => (
-                    <label key={t.id} className="flex items-center gap-2 cursor-pointer hover:bg-zinc-800/50 rounded px-1.5 py-1 transition">
+                    <label key={t.id} className="flex items-center gap-2 cursor-pointer hover:bg-hover/70 rounded px-1.5 py-1 transition">
                       <input
                         type="checkbox"
                         checked={launchRunForm.selectedTestIds.has(t.id)}
@@ -2235,16 +2235,16 @@ export default function AdminAgents() {
                             return { ...p, selectedTestIds: next };
                           });
                         }}
-                        className="accent-indigo-500"
+                        className="accent-brand"
                       />
-                      <span className="text-xs text-zinc-300">{t.name}</span>
+                      <span className="text-xs text-secondary">{t.name}</span>
                     </label>
                   ))}
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 border-t border-zinc-800">
-              <button onClick={() => setShowLaunchRunModal(false)} className="px-4 py-2 rounded-lg text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 transition">Cancel</button>
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
+              <button onClick={() => setShowLaunchRunModal(false)} className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition">Cancel</button>
               <button
                 onClick={async () => {
                   if (!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0) return;
@@ -2268,7 +2268,7 @@ export default function AdminAgents() {
                   }
                 }}
                 disabled={!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0}
-                className="flex items-center gap-1.5 bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition"
+                className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium text-white transition"
               >
                 <Rocket className="h-4 w-4" /> Launch
               </button>
@@ -2280,32 +2280,32 @@ export default function AdminAgents() {
       {/* Run Detail Modal */}
       {selectedEvalRun && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setSelectedEvalRun(null)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+          <div className="bg-canvas border border-line rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-line">
               <div>
                 <h2 className="font-semibold text-lg">{selectedEvalRun.name}</h2>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-tertiary">
                   {selectedEvalRun.status} • Thresholds: {Object.entries(selectedEvalRun.thresholds || {}).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v.toFixed(2)}`).join(", ")} •
                   Pass: {selectedEvalRun.pass_count}/{selectedEvalRun.total_tests}
                 </p>
               </div>
-              <button onClick={() => setSelectedEvalRun(null)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-5 w-5" /></button>
+              <button onClick={() => setSelectedEvalRun(null)} className="text-tertiary hover:text-secondary transition"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-6">
               {selectedEvalRun.results.length === 0 ? (
-                <p className="text-sm text-zinc-500 text-center py-8">No results yet.</p>
+                <p className="text-sm text-tertiary text-center py-8">No results yet.</p>
               ) : (
                 selectedEvalRun.results.map((res) => (
-                  <div key={res.id} className="border border-zinc-800 rounded-lg p-4 space-y-3">
+                  <div key={res.id} className="border border-line rounded-lg p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-zinc-300">{res.test_name}</span>
+                      <span className="text-sm font-medium text-secondary">{res.test_name}</span>
                       <div className="flex items-center gap-2">
                         {res.passed !== null && (
-                          <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${res.passed ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
+                          <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${res.passed ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
                             {res.passed ? "PASS" : "FAIL"}
                           </span>
                         )}
-                        <span className="text-xs text-zinc-500 font-mono">{res.duration_ms}ms</span>
+                        <span className="text-xs text-tertiary font-mono">{res.duration_ms}ms</span>
                       </div>
                     </div>
                     {res.metrics && (
@@ -2313,7 +2313,7 @@ export default function AdminAgents() {
                         {Object.entries(res.metrics).map(([k, v]) => {
                           const metricPassed = res.metric_passes?.[k] ?? false;
                           return (
-                            <span key={k} className={`text-[10px] border rounded px-1.5 py-0.5 ${metricPassed ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-rose-500/10 border-rose-500/20 text-rose-400"}`}>
+                            <span key={k} className={`text-[10px] border rounded px-1.5 py-0.5 ${metricPassed ? "bg-success-soft border-success/20 text-success" : "bg-danger-soft border-danger/20 text-danger"}`}>
                               {k.replace(/_/g, " ")}: {typeof v === "number" ? v.toFixed(2) : v}
                             </span>
                           );
@@ -2321,27 +2321,27 @@ export default function AdminAgents() {
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-2.5">
-                        <span className="text-zinc-500 block mb-1">Expected</span>
-                        <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.test_name ? evalTests.find((t) => t.id === res.test_id)?.expected_answer || "—" : "—"}</p>
+                      <div className="bg-card border border-line/60 rounded-xl p-2.5">
+                        <span className="text-tertiary block mb-1">Expected</span>
+                        <p className="text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">{res.test_name ? evalTests.find((t) => t.id === res.test_id)?.expected_answer || "—" : "—"}</p>
                       </div>
-                      <div className="bg-zinc-900/60 border border-zinc-800/60 rounded-xl p-2.5">
-                        <span className="text-zinc-500 block mb-1">Actual</span>
-                        <p className="text-zinc-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{res.actual_answer || "—"}</p>
+                      <div className="bg-card border border-line/60 rounded-xl p-2.5">
+                        <span className="text-tertiary block mb-1">Actual</span>
+                        <p className="text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">{res.actual_answer || "—"}</p>
                       </div>
                     </div>
                     {res.retrieved_contexts && res.retrieved_contexts.length > 0 && (
                       <div>
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Retrieved Contexts ({res.retrieved_contexts.length})</span>
+                        <span className="text-[10px] text-tertiary uppercase tracking-wide">Retrieved Contexts ({res.retrieved_contexts.length})</span>
                         <div className="mt-1 space-y-1">
                           {res.retrieved_contexts.map((ctx, i) => (
                             <button
                               key={i}
                               onClick={() => setSelectedContext(ctx)}
-                              className="text-left w-full text-[10px] text-zinc-500 font-mono bg-zinc-950 rounded px-2 py-1 truncate cursor-pointer hover:bg-zinc-800 transition"
+                              className="text-left w-full text-[10px] text-tertiary font-mono bg-canvas rounded px-2 py-1 truncate cursor-pointer hover:bg-hover transition"
                               title="Click to view full context"
                             >
-                              <span className="text-zinc-600 mr-1">#{i + 1}</span>{ctx.slice(0, 120)}…
+                              <span className="text-tertiary mr-1">#{i + 1}</span>{ctx.slice(0, 120)}…
                             </button>
                           ))}
                         </div>
@@ -2358,12 +2358,12 @@ export default function AdminAgents() {
       {/* Full Context Modal */}
       {selectedContext && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => setSelectedContext(null)}>
-          <div className="bg-zinc-950 border border-zinc-800 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
-              <h3 className="text-sm font-medium text-zinc-300">Full Retrieved Context</h3>
-              <button onClick={() => setSelectedContext(null)} className="text-zinc-500 hover:text-zinc-300 transition"><X className="h-4 w-4" /></button>
+          <div className="bg-canvas border border-line rounded-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-line">
+              <h3 className="text-sm font-medium text-secondary">Full Retrieved Context</h3>
+              <button onClick={() => setSelectedContext(null)} className="text-tertiary hover:text-secondary transition"><X className="h-4 w-4" /></button>
             </div>
-            <pre className="text-xs text-zinc-400 font-mono whitespace-pre-wrap break-words">{selectedContext}</pre>
+            <pre className="text-xs text-secondary font-mono whitespace-pre-wrap break-words">{selectedContext}</pre>
           </div>
         </div>
       )}

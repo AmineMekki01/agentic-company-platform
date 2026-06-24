@@ -399,12 +399,12 @@ export default function ChatPage() {
 
   if (!hasLoaded) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
         <div className="flex flex-col items-center gap-3">
           <div className="relative flex h-10 w-10 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand" />
           </div>
-          <p className="text-sm text-zinc-500">Loading…</p>
+          <p className="text-sm text-tertiary">Loading…</p>
         </div>
       </div>
     );
@@ -426,19 +426,19 @@ export default function ChatPage() {
         onMoveConversation={handleMoveConversation}
       />
 
-      <main className="flex min-w-0 flex-1 flex-col bg-zinc-900/50">
+      <main className="flex min-w-0 flex-1 flex-col bg-card/70">
         {noAgents ? (
           <div className="flex flex-1 items-center justify-center px-4 text-center">
             <div>
-              <h1 className="text-xl font-semibold text-zinc-200">No access</h1>
-              <p className="mt-2 max-w-sm text-sm text-zinc-500">
+              <h1 className="text-xl font-semibold text-primary">No access</h1>
+              <p className="mt-2 max-w-sm text-sm text-tertiary">
                 You do not have access to any agents. Contact an administrator if you think this is a mistake.
               </p>
             </div>
           </div>
         ) : (
           <>
-            <header className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-950/80 px-4 py-2.5 backdrop-blur-sm z-10">
+            <header className="flex items-center justify-between border-b border-line/60 bg-canvas px-4 py-2.5 backdrop-blur-sm z-10">
               {/* Left: Agent + Mode */}
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <AgentSwitcher
@@ -452,15 +452,15 @@ export default function ChatPage() {
                     }
                   }}
                 />
-                <div className="h-4 w-px bg-zinc-800" />
+                <div className="h-4 w-px bg-line" />
                 <ModeSelector selected={mode} onSelect={setMode} />
               </div>
 
               {/* Center: Conversation title */}
               <div className="flex-1 flex justify-center min-w-0 px-4">
                 <div className="flex items-center gap-2 max-w-md">
-                  <div className={`h-1.5 w-1.5 rounded-full ${activeId ? "bg-emerald-400" : "bg-zinc-600"}`} />
-                  <h1 className="truncate text-sm font-medium text-zinc-300">
+                  <div className={`h-1.5 w-1.5 rounded-full ${activeId ? "bg-success" : "bg-tertiary"}`} />
+                  <h1 className="truncate text-sm font-medium text-secondary">
                     {activeId
                       ? (conversations.find((c) => c.id === activeId)?.title ?? "Untitled conversation")
                       : "New chat"}
@@ -471,37 +471,37 @@ export default function ChatPage() {
               {/* Right: Admin controls + Streaming */}
               <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
                 {isAdmin() && (
-                  <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none shrink-0 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1.5 transition hover:border-zinc-700 hover:text-zinc-300">
+                  <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer select-none shrink-0 rounded-lg border border-line bg-card px-2.5 py-1.5 transition hover:border-line hover:text-primary">
                     <input
                       type="checkbox"
                       checked={testDraft}
                       onChange={(e) => setTestDraft(e.target.checked)}
-                      className="accent-indigo-500 h-3.5 w-3.5"
+                      className="accent-brand h-3.5 w-3.5"
                     />
                     <span>Test Draft</span>
                   </label>
                 )}
                 {streaming && (
-                  <div className="flex items-center gap-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1.5 shrink-0">
+                  <div className="flex items-center gap-2 rounded-full bg-brand/10 border border-brand/20 px-3 py-1.5 shrink-0">
                     <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-500" />
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-brand" />
                     </span>
-                    <span className="text-xs font-medium text-indigo-300">Agent is responding…</span>
+                    <span className="text-xs font-medium text-brand">Agent is responding…</span>
                   </div>
                 )}
               </div>
             </header>
 
             {budgetWarning && (
-              <div className="flex items-center justify-between gap-3 border-b border-amber-800/40 bg-amber-900/20 px-4 py-2.5">
-                <div className="flex items-center gap-2 text-sm text-amber-300">
+              <div className="flex items-center justify-between gap-3 border-b border-warning/30 bg-warning-soft px-4 py-2.5">
+                <div className="flex items-center gap-2 text-sm text-warning">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{budgetWarning}</span>
                 </div>
                 <button
                   onClick={() => setBudgetWarning(null)}
-                  className="text-amber-400 hover:text-amber-200 transition text-xs"
+                  className="text-warning hover:text-brand transition text-xs"
                 >
                   Dismiss
                 </button>
@@ -529,14 +529,14 @@ export default function ChatPage() {
               emptyState={
                 <div className="animate-fade-in-up flex flex-col items-center justify-center h-full px-4">
                   <div className="relative mb-6">
-                    <div className="absolute inset-0 bg-indigo-500/20 rounded-3xl blur-xl" />
-                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 ring-1 ring-white/10">
-                      <Sparkles className="h-8 w-8 text-indigo-400" />
+                    <div className="absolute inset-0 bg-brand/20 rounded-3xl blur-xl" />
+                    <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand/20 to-violet-500/20 ring-1 ring-white/10">
+                      <Sparkles className="h-8 w-8 text-brand" />
                     </div>
                   </div>
-                  <h2 className="text-lg font-semibold text-white">How can I help you today?</h2>
-                  <p className="mt-2 max-w-sm text-sm text-zinc-500 text-center leading-relaxed">
-                    Ask anything, or use <span className="font-mono text-indigo-400 bg-indigo-500/10 px-1 py-0.5 rounded">@agent-name</span> to call
+                  <h2 className="text-lg font-semibold text-primary">How can I help you today?</h2>
+                  <p className="mt-2 max-w-sm text-sm text-tertiary text-center leading-relaxed">
+                    Ask anything, or use <span className="font-mono text-brand bg-brand/10 px-1 py-0.5 rounded">@agent-name</span> to call
                     a specific agent directly.
                   </p>
 
@@ -553,7 +553,7 @@ export default function ChatPage() {
                             composer.focus();
                           }
                         }}
-                        className="rounded-full border border-zinc-800 bg-zinc-900/60 px-3.5 py-1.5 text-xs text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-300 hover:bg-zinc-800/60"
+                        className="rounded-full border border-line bg-card px-3.5 py-1.5 text-xs text-secondary transition hover:border-line hover:text-primary hover:bg-hover"
                       >
                         {s}
                       </button>

@@ -31,5 +31,5 @@ export default function ServiceIcon({ type, size = 24, className = "" }: Service
     );
   }
 
-  return <FileText className={`text-zinc-400 ${className}`} style={{ width: size, height: size }} />;
+  return <FileText className={`text-tertiary ${className}`} style={{ width: size, height: size }} />;
 }

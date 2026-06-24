@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Bot, ChevronDown, ChevronRight, Folder, FolderPlus, LogOut, MessageSquare, MoreHorizontal, Plus, Settings, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import ThemeToggle from "@/components/ThemeToggle";
 import type { Conversation, ConversationFolder } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 
@@ -86,12 +87,12 @@ export default function Sidebar({
       key={c.id}
       className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
         c.id === activeId
-          ? "bg-zinc-800/80 text-zinc-100"
-          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+          ? "bg-hover text-primary"
+          : "text-secondary hover:bg-hover hover:text-primary"
       }`}
       onClick={() => onSelect(c.id)}
     >
-      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+      <MessageSquare className="h-3.5 w-3.5 shrink-0 text-tertiary" />
       <span className="flex-1 truncate">{c.title ?? "New conversation"}</span>
       <div className="relative">
         <button
@@ -100,7 +101,7 @@ export default function Sidebar({
             setMenuOpen(menuOpen === c.id ? null : c.id);
             setMoveMenuOpen(null);
           }}
-          className="hidden shrink-0 rounded p-1 text-zinc-500 hover:text-zinc-200 group-hover:block"
+          className="hidden shrink-0 rounded p-1 text-tertiary hover:text-primary group-hover:block"
           aria-label="Conversation options"
         >
           <MoreHorizontal className="h-3.5 w-3.5" />
@@ -108,7 +109,7 @@ export default function Sidebar({
         {menuOpen === c.id && (
           <div
             ref={menuRef}
-            className="animate-scale-in absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900/95 py-1 shadow-2xl backdrop-blur-sm"
+            className="animate-scale-in absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-line bg-popover py-1 shadow-2xl backdrop-blur-sm"
           >
             <button
               onClick={(e) => {
@@ -116,19 +117,19 @@ export default function Sidebar({
                 setMoveMenuOpen(c.id);
                 setMenuOpen(null);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/60"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-secondary hover:bg-hover"
             >
-              <Folder className="h-3.5 w-3.5 text-zinc-500" />
+              <Folder className="h-3.5 w-3.5 text-tertiary" />
               Move to folder…
             </button>
-            <div className="my-1 h-px bg-zinc-800" />
+            <div className="my-1 h-px bg-line" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(c.id);
                 setMenuOpen(null);
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-red-400 hover:bg-red-500/10"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-danger hover:bg-danger-soft"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete
@@ -138,10 +139,10 @@ export default function Sidebar({
         {moveMenuOpen === c.id && (
           <div
             ref={menuRef}
-            className="animate-scale-in absolute right-0 top-7 z-50 w-48 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900/95 py-1 shadow-2xl backdrop-blur-sm"
+            className="animate-scale-in absolute right-0 top-7 z-50 w-48 overflow-hidden rounded-xl border border-line bg-popover py-1 shadow-2xl backdrop-blur-sm"
           >
             {folders.length === 0 && (
-              <p className="px-3 py-2 text-xs text-zinc-500">No folders yet</p>
+              <p className="px-3 py-2 text-xs text-tertiary">No folders yet</p>
             )}
             {c.folder_id && (
               <button
@@ -150,7 +151,7 @@ export default function Sidebar({
                   onMoveConversation(c.id, null);
                   setMoveMenuOpen(null);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-secondary hover:bg-hover"
               >
                 <MessageSquare className="h-3.5 w-3.5" />
                 Unfiled
@@ -164,7 +165,7 @@ export default function Sidebar({
                   onMoveConversation(c.id, f.id);
                   setMoveMenuOpen(null);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-secondary hover:bg-hover"
               >
                 <span
                   className="h-2.5 w-2.5 rounded-full"
@@ -180,25 +181,25 @@ export default function Sidebar({
   );
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-zinc-800/50 bg-zinc-950/80 backdrop-blur-sm">
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-zinc-800/30">
+    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line/70 bg-card backdrop-blur-sm">
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-line/60">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20">
           <Bot className="h-4 w-4 text-white" />
         </div>
         <div>
-          <span className="text-sm font-semibold tracking-tight text-zinc-100 block leading-tight">
+          <span className="text-sm font-semibold tracking-tight text-primary block leading-tight">
             Company Platform
           </span>
-          <span className="text-[10px] text-zinc-500 leading-none">AI Workspace</span>
+          <span className="text-[10px] text-tertiary leading-none">AI Workspace</span>
         </div>
       </div>
 
       <div className="px-3">
         <button
           onClick={onNew}
-          className="flex w-full items-center gap-2 rounded-xl border border-zinc-700/60 bg-gradient-to-r from-zinc-900/80 to-zinc-900/40 px-3 py-2.5 text-sm font-medium text-zinc-300 transition-all hover:from-zinc-800/80 hover:to-zinc-800/40 hover:text-zinc-100 hover:border-zinc-600/80 shadow-sm"
+          className="flex w-full items-center gap-2 rounded-xl border border-line/60 bg-gradient-to-r from-brand/10 to-brand/5 px-3 py-2.5 text-sm font-medium text-secondary transition-all hover:from-brand/15 hover:to-brand/10 hover:text-primary hover:border-brand/30 shadow-sm"
         >
-          <Plus className="h-4 w-4 text-indigo-400" />
+          <Plus className="h-4 w-4 text-brand" />
           New chat
         </button>
       </div>
@@ -208,13 +209,13 @@ export default function Sidebar({
         {!creatingFolder ? (
           <button
             onClick={() => setCreatingFolder(true)}
-            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-zinc-900/60 hover:text-zinc-300"
+            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-tertiary transition hover:bg-hover hover:text-secondary"
           >
             <FolderPlus className="h-3.5 w-3.5" />
             New folder
           </button>
         ) : (
-          <div className="mb-2 rounded-lg border border-zinc-700/60 bg-zinc-900/60 p-2">
+          <div className="mb-2 rounded-lg border border-line/60 bg-card p-2">
             <div className="flex items-center gap-2">
               <input
                 autoFocus
@@ -229,14 +230,14 @@ export default function Sidebar({
                   }
                 }}
                 placeholder="Folder name…"
-                className="flex-1 rounded-md bg-zinc-800 px-2 py-1 text-xs text-zinc-200 placeholder-zinc-600 outline-none ring-1 ring-zinc-700 focus:ring-indigo-500"
+                className="flex-1 rounded-md bg-hover px-2 py-1 text-xs text-primary placeholder-tertiary outline-none ring-1 ring-line focus:ring-brand"
               />
               <button
                 onClick={() => {
                   setCreatingFolder(false);
                   setNewFolderName("");
                 }}
-                className="rounded p-1 text-zinc-500 hover:text-zinc-300"
+                className="rounded p-1 text-tertiary hover:text-secondary"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -246,7 +247,7 @@ export default function Sidebar({
                 <button
                   key={c}
                   onClick={() => setNewFolderColor(c)}
-                  className={`h-5 w-5 rounded-full transition ${newFolderColor === c ? "ring-2 ring-white" : ""}`}
+                  className={`h-5 w-5 rounded-full transition ${newFolderColor === c ? "ring-2 ring-primary" : ""}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -254,7 +255,7 @@ export default function Sidebar({
             <button
               onClick={handleCreateFolder}
               disabled={!newFolderName.trim()}
-              className="mt-2 w-full rounded-md bg-indigo-600 px-2 py-1 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-2 w-full rounded-md bg-brand px-2 py-1 text-xs font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               Create folder
             </button>
@@ -265,7 +266,7 @@ export default function Sidebar({
         {unfiled.length > 0 && (
           <div className="space-y-0.5">
             {folders.length > 0 && (
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
                 Unfiled
               </div>
             )}
@@ -284,7 +285,7 @@ export default function Sidebar({
               <div className="group flex items-center gap-1.5 px-2 py-1">
                 <button
                   onClick={() => toggleFolder(folder.id)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 transition hover:text-zinc-300"
+                  className="flex items-center gap-1.5 text-xs font-medium text-tertiary transition hover:text-secondary"
                 >
                   {isExpanded ? (
                     <ChevronDown className="h-3.5 w-3.5" />
@@ -292,26 +293,26 @@ export default function Sidebar({
                     <ChevronRight className="h-3.5 w-3.5" />
                   )}
                   <span
-                    className="h-2.5 w-2.5 rounded-full ring-2 ring-zinc-950"
+                    className="h-2.5 w-2.5 rounded-full ring-2 ring-canvas"
                     style={{ backgroundColor: folder.color ?? "#3b82f6" }}
                   />
                   <span className="truncate">{folder.name}</span>
-                  <span className="ml-1 rounded-full bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-500">
+                  <span className="ml-1 rounded-full bg-hover px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
                     {items.length}
                   </span>
                 </button>
                 <button
                   onClick={() => onDeleteFolder(folder.id)}
-                  className="ml-auto hidden rounded p-0.5 text-zinc-600 hover:text-red-400 group-hover:block"
+                  className="ml-auto hidden rounded p-0.5 text-tertiary hover:text-danger group-hover:block"
                   aria-label="Delete folder"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
               {isExpanded && (
-                <div className="ml-4 space-y-0.5 border-l border-zinc-800/60 pl-2">
+                <div className="ml-4 space-y-0.5 border-l border-line/60 pl-2">
                   {items.length === 0 && (
-                    <p className="px-3 py-2 text-xs text-zinc-600">Empty folder</p>
+                    <p className="px-3 py-2 text-xs text-tertiary">Empty folder</p>
                   )}
                   {items.map((c) => (
                     <ConversationItem key={c.id} c={c} />
@@ -324,39 +325,40 @@ export default function Sidebar({
 
         {conversations.length === 0 && (
           <div className="px-3 py-10 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/60 ring-1 ring-white/5">
-              <MessageSquare className="h-5 w-5 text-zinc-700" />
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-card ring-1 ring-line/60">
+              <MessageSquare className="h-5 w-5 text-tertiary" />
             </div>
-            <p className="text-xs font-medium text-zinc-500">No conversations yet</p>
-            <p className="mt-1 text-[11px] text-zinc-600">Start a new chat to begin</p>
+            <p className="text-xs font-medium text-tertiary">No conversations yet</p>
+            <p className="mt-1 text-[11px] text-tertiary">Start a new chat to begin</p>
           </div>
         )}
       </nav>
 
       {isAdmin() && (
-        <div className="px-3 py-2 border-t border-zinc-800/30">
+        <div className="flex items-center gap-2 px-3 py-2 border-t border-line/60">
           <Link
             to="/admin"
-            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200 transition-all"
+            className="flex flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-secondary hover:bg-hover hover:text-primary transition-all"
           >
-            <Settings className="h-4 w-4 text-zinc-500" />
+            <Settings className="h-4 w-4 text-tertiary" />
             Admin Panel
           </Link>
+          <ThemeToggle />
         </div>
       )}
-      <div className="flex items-center gap-2.5 border-t border-zinc-800/30 px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-indigo-300 ring-1 ring-white/5">
+      <div className="flex items-center gap-2.5 border-t border-line/60 px-4 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-brand ring-1 ring-line/60">
           {user?.email[0] ?? "?"}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-zinc-300">{user?.email}</p>
-          <p className="text-[10px] uppercase tracking-wide text-zinc-600">
+          <p className="truncate text-xs font-medium text-secondary">{user?.email}</p>
+          <p className="text-[10px] uppercase tracking-wide text-tertiary">
             {user?.role}
           </p>
         </div>
         <button
           onClick={logout}
-          className="rounded-lg p-1.5 text-zinc-600 transition hover:bg-zinc-800/60 hover:text-zinc-300"
+          className="rounded-lg p-1.5 text-tertiary transition hover:bg-hover hover:text-secondary"
           aria-label="Log out"
         >
           <LogOut className="h-4 w-4" />

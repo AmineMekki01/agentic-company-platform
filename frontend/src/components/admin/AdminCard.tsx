@@ -21,16 +21,16 @@ export default function AdminCard({
 
   return (
     <div
-      className={`rounded-2xl border border-zinc-800/60 bg-zinc-900/40 shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60 ${pad} ${className}`}
+      className={`rounded-2xl border border-line/60 bg-card shadow-sm backdrop-blur-sm transition hover:border-line ${pad} ${className}`}
     >
       {(title || icon) && (
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
-            {icon && <span className="text-zinc-500">{icon}</span>}
-            {title && <h2 className="text-sm font-semibold text-zinc-200">{title}</h2>}
+            {icon && <span className="text-tertiary">{icon}</span>}
+            {title && <h2 className="text-sm font-semibold text-primary">{title}</h2>}
           </div>
           {description && (
-            <p className="text-xs text-zinc-500">{description}</p>
+            <p className="text-xs text-tertiary">{description}</p>
           )}
         </div>
       )}

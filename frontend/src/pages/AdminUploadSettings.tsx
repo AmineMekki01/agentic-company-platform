@@ -28,7 +28,7 @@ export default function AdminUploadSettings() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-zinc-400">
+      <div className="flex h-full items-center justify-center text-secondary">
         <HardDrive className="mr-2 h-4 w-4 animate-spin" />
         Loading…
       </div>
@@ -36,7 +36,7 @@ export default function AdminUploadSettings() {
   }
 
   if (!settings) {
-    return <div className="text-red-400">{error || "Unable to load settings"}</div>;
+    return <div className="text-danger">{error || "Unable to load settings"}</div>;
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -69,18 +69,18 @@ export default function AdminUploadSettings() {
         title="Upload Settings"
         description="Configure where uploaded chat files are stored and how long they are retained"
         icon={HardDrive}
-        iconColor="text-emerald-400"
-        iconBg="bg-emerald-500/10"
+        iconColor="text-success"
+        iconBg="bg-success-soft"
       />
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-800 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+        <div className="mb-4 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
           {error}
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
-        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
+        <div className="rounded-2xl border border-line/60 bg-card p-5 shadow-sm backdrop-blur-sm transition hover:border-line/60">
           <label className="flex cursor-pointer items-center gap-3">
             <input
               type="checkbox"
@@ -88,22 +88,22 @@ export default function AdminUploadSettings() {
               onChange={(e) =>
                 setSettings((s) => (s ? { ...s, enabled: e.target.checked } : s))
               }
-              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-line bg-hover text-brand focus:ring-brand"
             />
             <div>
-              <span className="block text-sm font-medium text-zinc-200">Enable file uploads</span>
-              <span className="block text-xs text-zinc-500">
+              <span className="block text-sm font-medium text-primary">Enable file uploads</span>
+              <span className="block text-xs text-tertiary">
                 Allow users to attach files to chat messages
               </span>
             </div>
           </label>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 space-y-4 shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
-          <h2 className="text-sm font-semibold text-zinc-200">S3 Destination</h2>
+        <div className="rounded-2xl border border-line/60 bg-card p-5 space-y-4 shadow-sm backdrop-blur-sm transition hover:border-line/60">
+          <h2 className="text-sm font-semibold text-primary">S3 Destination</h2>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+            <label className="mb-1.5 block text-xs font-medium text-secondary">
               S3 Connector
             </label>
             <select
@@ -113,7 +113,7 @@ export default function AdminUploadSettings() {
                   s ? { ...s, s3_connector_id: e.target.value || null } : s
                 )
               }
-              className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+              className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
             >
               <option value="">— Select S3 connector —</option>
               {connectors.map((c) => (
@@ -123,7 +123,7 @@ export default function AdminUploadSettings() {
               ))}
             </select>
             {connectors.length === 0 && (
-              <p className="mt-1 text-xs text-red-400">
+              <p className="mt-1 text-xs text-danger">
                 No S3 connectors configured. Create one in Connectors first.
               </p>
             )}
@@ -131,7 +131,7 @@ export default function AdminUploadSettings() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">Bucket</label>
+              <label className="mb-1.5 block text-xs font-medium text-secondary">Bucket</label>
               <input
                 type="text"
                 value={settings.s3_bucket}
@@ -139,11 +139,11 @@ export default function AdminUploadSettings() {
                   setSettings((s) => (s ? { ...s, s3_bucket: e.target.value } : s))
                 }
                 placeholder="my-company-bucket"
-                className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              <label className="mb-1.5 block text-xs font-medium text-secondary">
                 Base Prefix
               </label>
               <input
@@ -153,18 +153,18 @@ export default function AdminUploadSettings() {
                   setSettings((s) => (s ? { ...s, s3_base_prefix: e.target.value } : s))
                 }
                 placeholder="uploads/"
-                className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 space-y-4 shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
-          <h2 className="text-sm font-semibold text-zinc-200">Policy</h2>
+        <div className="rounded-2xl border border-line/60 bg-card p-5 space-y-4 shadow-sm backdrop-blur-sm transition hover:border-line/60">
+          <h2 className="text-sm font-semibold text-primary">Policy</h2>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              <label className="mb-1.5 block text-xs font-medium text-secondary">
                 Retention (days)
               </label>
               <input
@@ -177,12 +177,12 @@ export default function AdminUploadSettings() {
                     s ? { ...s, retention_days: parseInt(e.target.value, 10) || 0 } : s
                   )
                 }
-                className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
-              <p className="mt-1 text-[11px] text-zinc-600">0 = keep forever</p>
+              <p className="mt-1 text-[11px] text-tertiary">0 = keep forever</p>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              <label className="mb-1.5 block text-xs font-medium text-secondary">
                 Max File Size (MB)
               </label>
               <input
@@ -195,11 +195,11 @@ export default function AdminUploadSettings() {
                     s ? { ...s, max_file_size_mb: parseInt(e.target.value, 10) || 50 } : s
                   )
                 }
-                className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-zinc-400">
+              <label className="mb-1.5 block text-xs font-medium text-secondary">
                 Encryption
               </label>
               <select
@@ -207,7 +207,7 @@ export default function AdminUploadSettings() {
                 onChange={(e) =>
                   setSettings((s) => (s ? { ...s, encryption: e.target.value } : s))
                 }
-                className="w-full rounded-xl border border-zinc-800/60 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line/60 bg-canvas px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               >
                 <option value="AES256">SSE-S3 (AES256)</option>
                 <option value="aws:kms">SSE-KMS</option>
@@ -220,7 +220,7 @@ export default function AdminUploadSettings() {
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 shadow-lg shadow-indigo-500/15"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-brand to-violet-600 px-4 py-2 text-sm font-medium text-white transition hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 shadow-lg shadow-brand/15"
           >
             <Save className="h-4 w-4" />
             {saving ? "Saving…" : "Save Settings"}

@@ -3,10 +3,81 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
+
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-hover: var(--hover);
+  --color-popover: var(--popover);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-line: var(--line);
+  --color-soft: var(--soft);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-border: var(--brand-border);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success-hover: var(--success-hover);
+  --color-danger-hover: var(--danger-hover);
+  --color-warning-hover: var(--warning-hover);
 }
 
-:root {
+:root, .dark {
   color-scheme: dark;
+  --canvas: #09090b;
+  --card: #18181b;
+  --hover: #27272a;
+  --popover: #1c1c1f;
+  --primary: #fafafa;
+  --secondary: #a1a1aa;
+  --tertiary: #71717a;
+  --line: #27272a;
+  --soft: #1f1f23;
+  --brand: #6366f1;
+  --brand-hover: #818cf8;
+  --brand-soft: rgba(99, 102, 241, 0.1);
+  --brand-border: rgba(99, 102, 241, 0.2);
+  --success: #34d399;
+  --success-hover: #10b981;
+  --success-soft: rgba(52, 211, 153, 0.1);
+  --danger: #fb7185;
+  --danger-hover: #f43f5e;
+  --danger-soft: rgba(251, 113, 133, 0.1);
+  --warning: #fbbf24;
+  --warning-hover: #f59e0b;
+  --warning-soft: rgba(251, 191, 36, 0.1);
+}
+
+.light {
+  color-scheme: light;
+  --canvas: #fafafa;
+  --card: #ffffff;
+  --hover: #ebebef;
+  --popover: #ffffff;
+  --primary: #18181b;
+  --secondary: #52525b;
+  --tertiary: #a1a1aa;
+  --line: #e4e4e7;
+  --soft: #f0f0f3;
+  --brand: #6366f1;
+  --brand-hover: #4f46e5;
+  --brand-soft: rgba(99, 102, 241, 0.12);
+  --brand-border: rgba(99, 102, 241, 0.25);
+  --success: #059669;
+  --success-hover: #047857;
+  --success-soft: rgba(5, 150, 105, 0.12);
+  --danger: #e11d48;
+  --danger-hover: #be123c;
+  --danger-soft: rgba(225, 29, 72, 0.12);
+  --warning: #d97706;
+  --warning-hover: #b45309;
+  --warning-soft: rgba(217, 119, 6, 0.12);
 }
 
 html {
@@ -14,7 +85,7 @@ html {
 }
 
 body {
-  @apply bg-zinc-950 text-zinc-100 antialiased;
+  @apply bg-canvas text-primary antialiased;
   font-family: var(--font-sans);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
@@ -35,8 +106,8 @@ h1, h2, h3, h4 {
 
 /* Text selection */
 ::selection {
-  background: rgba(99, 102, 241, 0.25);
-  color: #e0e7ff;
+  background: var(--brand-soft);
+  color: var(--brand-hover);
 }
 
 /* ---- Elegant motion ---------------------------------------------------- */
@@ -81,12 +152,12 @@ h1, h2, h3, h4 {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--line);
   border-radius: 999px;
   border: 1px solid transparent;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--tertiary);
 }
 
 /* Global transition for interactive elements */
@@ -98,7 +169,7 @@ button, a, input, select, textarea {
 
 /* Focus ring utility */
 .focus-ring {
-  @apply outline-none ring-2 ring-indigo-500/50 ring-offset-1 ring-offset-zinc-950;
+  @apply outline-none ring-2 ring-brand/50 ring-offset-1 ring-offset-canvas;
 }
 
 /* Markdown rendering inside assistant messages */
@@ -116,7 +187,7 @@ button, a, input, select, textarea {
 .prose-chat :is(h1, h2, h3, h4) {
   margin-block: 0.75rem;
   font-weight: 600;
-  color: var(--color-zinc-100);
+  color: var(--primary);
 }
 .prose-chat h1 {
   font-size: 1.125rem;
@@ -126,15 +197,15 @@ button, a, input, select, textarea {
 }
 .prose-chat code {
   border-radius: 0.25rem;
-  background: var(--color-zinc-800);
+  background: var(--hover);
   padding: 0.125rem 0.375rem;
   font-size: 0.8125rem;
 }
 .prose-chat pre {
   overflow-x: auto;
   border-radius: 0.625rem;
-  border: 1px solid var(--color-zinc-800);
-  background: var(--color-zinc-900);
+  border: 1px solid var(--line);
+  background: var(--card);
   padding: 0.75rem;
 }
 .prose-chat pre code {
@@ -142,13 +213,13 @@ button, a, input, select, textarea {
   padding: 0;
 }
 .prose-chat a {
-  color: var(--color-indigo-400);
+  color: var(--brand-hover);
   text-decoration: underline;
 }
 .prose-chat blockquote {
-  border-left: 2px solid var(--color-zinc-700);
+  border-left: 2px solid var(--line);
   padding-left: 0.75rem;
-  color: var(--color-zinc-400);
+  color: var(--secondary);
 }
 .prose-chat table {
   width: 100%;
@@ -156,35 +227,35 @@ button, a, input, select, textarea {
   font-size: 0.8125rem;
 }
 .prose-chat :is(th, td) {
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--line);
   padding: 0.375rem 0.625rem;
   text-align: left;
 }
 .prose-chat th {
-  background: var(--color-zinc-900);
+  background: var(--card);
 }
 .prose-chat strong {
-  color: var(--color-zinc-50);
+  color: var(--primary);
 }
 
-/* ReactFlow Controls — dark theme */
+/* ReactFlow Controls */
 .react-flow__controls {
-  background: rgba(24, 24, 27, 0.95) !important;
-  border: 1px solid rgba(63, 63, 70, 0.8) !important;
+  background: var(--popover) !important;
+  border: 1px solid var(--line) !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
   overflow: hidden;
 }
 .react-flow__controls-button {
   background: transparent !important;
-  border-bottom: 1px solid rgba(63, 63, 70, 0.5) !important;
-  color: #a1a1aa !important;
+  border-bottom: 1px solid var(--soft) !important;
+  color: var(--secondary) !important;
   width: 28px !important;
   height: 28px !important;
 }
 .react-flow__controls-button:hover {
-  background: rgba(63, 63, 70, 0.4) !important;
-  color: #e4e4e7 !important;
+  background: var(--hover) !important;
+  color: var(--primary) !important;
 }
 .react-flow__controls-button:last-child {
   border-bottom: none !important;

@@ -41,22 +41,22 @@ export default function AgentListTable({
   };
 
   return (
-    <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 overflow-hidden shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/40">
+    <div className="rounded-2xl border border-line/60 bg-card overflow-hidden shadow-sm backdrop-blur-sm transition hover:border-line">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-line/60">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-indigo-500/10 ring-1 ring-white/5">
-            <Bot className="h-3.5 w-3.5 text-indigo-400" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-xl bg-brand/10 ring-1 ring-line/60">
+            <Bot className="h-3.5 w-3.5 text-brand" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold text-zinc-100">Agents</h2>
+            <h2 className="text-sm font-semibold text-primary">Agents</h2>
           </div>
         </div>
-        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-500" />}
+        {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-tertiary" />}
       </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-zinc-950/40 text-[11px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60">
+          <thead className="bg-canvas text-[11px] uppercase tracking-wider text-tertiary border-b border-line/60">
             <tr>
               <th className="px-5 py-2.5 font-medium">Agent</th>
               <th className="px-5 py-2.5 font-medium">Owner</th>
@@ -66,7 +66,7 @@ export default function AgentListTable({
               <th className="px-5 py-2.5 font-medium text-right w-16"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800/40">
+          <tbody className="divide-y divide-line/60">
             {agents.map((a) => {
               const active = selectedSlug === a.slug;
               return (
@@ -76,30 +76,30 @@ export default function AgentListTable({
                   className={
                     "group cursor-pointer transition-all duration-150 " +
                     (active
-                      ? "bg-indigo-500/[0.04]"
-                      : "hover:bg-zinc-800/40")
+                      ? "bg-brand/[0.04]"
+                      : "hover:bg-hover/70")
                   }
                 >
                   <td className="px-5 py-2.5 align-middle">
                     <div className="flex items-center gap-2.5">
-                      <div className={`h-2 w-2 rounded-full shrink-0 ${active ? "bg-indigo-400" : "bg-zinc-600 group-hover:bg-zinc-500"}`} />
+                      <div className={`h-2 w-2 rounded-full shrink-0 ${active ? "bg-brand" : "bg-tertiary group-hover:text-secondary"}`} />
                       <div>
-                        <div className="font-medium text-sm text-zinc-100 truncate">{a.name || a.slug}</div>
-                        <div className="text-[11px] text-zinc-600 font-mono">{a.slug}</div>
+                        <div className="font-medium text-sm text-primary truncate">{a.name || a.slug}</div>
+                        <div className="text-[11px] text-tertiary font-mono">{a.slug}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-2.5 align-middle text-zinc-400 text-sm">{formatOwnerLabel(a.created_by)}</td>
-                  <td className="px-5 py-2.5 align-middle text-zinc-500 text-sm tabular-nums">{formatDateTime(a.created_at)}</td>
-                  <td className="px-5 py-2.5 align-middle text-zinc-500 text-sm tabular-nums">{formatDateTime(a.updated_at)}</td>
+                  <td className="px-5 py-2.5 align-middle text-secondary text-sm">{formatOwnerLabel(a.created_by)}</td>
+                  <td className="px-5 py-2.5 align-middle text-tertiary text-sm tabular-nums">{formatDateTime(a.created_at)}</td>
+                  <td className="px-5 py-2.5 align-middle text-tertiary text-sm tabular-nums">{formatDateTime(a.updated_at)}</td>
                   <td className="px-5 py-2.5 align-middle">
                     {a.is_published ? (
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                        <span className="text-zinc-400 text-sm tabular-nums">{formatDateTime(a.published_at)}</span>
+                        <span className="inline-flex h-1.5 w-1.5 rounded-full bg-success shrink-0" />
+                        <span className="text-secondary text-sm tabular-nums">{formatDateTime(a.published_at)}</span>
                       </div>
                     ) : (
-                      <span className="text-zinc-600 text-sm">Not published</span>
+                      <span className="text-tertiary text-sm">Not published</span>
                     )}
                   </td>
                   <td className="px-5 py-2.5 align-middle text-right">
@@ -108,7 +108,7 @@ export default function AgentListTable({
                         e.stopPropagation();
                         onDelete(a.slug);
                       }}
-                      className="rounded-lg p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 transition opacity-0 group-hover:opacity-100"
+                      className="rounded-lg p-1.5 text-tertiary hover:text-danger hover:bg-danger-soft transition opacity-0 group-hover:opacity-100"
                       title="Delete agent"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -121,12 +121,12 @@ export default function AgentListTable({
               <tr>
                 <td colSpan={6} className="px-5 py-14 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800/60 ring-1 ring-white/5">
-                      <Bot className="h-6 w-6 text-zinc-600" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-hover ring-1 ring-line/60">
+                      <Bot className="h-6 w-6 text-tertiary" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-zinc-400">No agents configured yet</p>
-                      <p className="text-xs text-zinc-600 mt-0.5">Create an agent to get started</p>
+                      <p className="text-sm font-medium text-secondary">No agents configured yet</p>
+                      <p className="text-xs text-tertiary mt-0.5">Create an agent to get started</p>
                     </div>
                   </div>
                 </td>

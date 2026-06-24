@@ -77,12 +77,12 @@ export default function FeedbackModal({
 
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="animate-scale-in w-full max-w-md rounded-2xl border border-zinc-800/80 bg-zinc-900 p-6 shadow-2xl">
+      <div className="animate-scale-in w-full max-w-md rounded-2xl border border-line/80 bg-card p-6 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-zinc-100">Rate this response</h3>
+          <h3 className="text-lg font-semibold text-primary">Rate this response</h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+            className="rounded-lg p-1 text-tertiary hover:bg-hover hover:text-secondary"
           >
             <X className="h-5 w-5" />
           </button>
@@ -92,10 +92,10 @@ export default function FeedbackModal({
         <div className="mb-4 flex gap-3">
           <button
             onClick={() => setThumbsUp(true)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 transition ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 transition ${
               thumbsUp
-                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800"
+                ? "border-success bg-success-soft text-success"
+                : "border-line bg-card text-secondary hover:bg-hover hover:border-line"
             }`}
           >
             <ThumbsUp className="h-5 w-5" />
@@ -103,10 +103,10 @@ export default function FeedbackModal({
           </button>
           <button
             onClick={() => setThumbsUp(false)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 transition ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 transition ${
               !thumbsUp
-                ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
-                : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800"
+                ? "border-danger bg-danger-soft text-danger"
+                : "border-line bg-card text-secondary hover:bg-hover hover:border-line"
             }`}
           >
             <ThumbsDown className="h-5 w-5" />
@@ -116,25 +116,25 @@ export default function FeedbackModal({
 
         {/* Comment */}
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-zinc-400">
+          <label className="mb-1.5 block text-sm font-medium text-secondary">
             Comment (optional)
           </label>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="What was good or what could be improved?"
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/20"
+            className="w-full rounded-xl border border-line bg-hover/70 px-3 py-2.5 text-sm text-primary placeholder:text-tertiary focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20"
             rows={3}
           />
         </div>
 
         {/* Screenshot */}
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-zinc-400">
+          <label className="mb-1.5 block text-sm font-medium text-secondary">
             Screenshot (optional)
           </label>
           {screenshotPreview ? (
-            <div className="relative rounded-xl border border-zinc-700 bg-zinc-800/50 p-2">
+            <div className="relative rounded-xl border border-line bg-hover/70 p-2">
               <img
                 src={screenshotPreview}
                 alt="Screenshot preview"
@@ -145,7 +145,7 @@ export default function FeedbackModal({
                   setScreenshotPreview(null);
                   setScreenshotAttachmentId(null);
                 }}
-                className="absolute right-3 top-3 rounded-full bg-zinc-900/80 p-1 text-zinc-400 hover:text-zinc-200"
+                className="absolute right-3 top-3 rounded-full bg-canvas p-1 text-secondary hover:text-primary"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -156,9 +156,9 @@ export default function FeedbackModal({
               )}
             </div>
           ) : (
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 bg-zinc-800/30 px-4 py-6 transition hover:bg-zinc-800/50">
-              <ImageIcon className="h-5 w-5 text-zinc-500" />
-              <span className="text-sm text-zinc-400">Click to upload screenshot</span>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-hover/70 px-4 py-6 transition hover:bg-hover/70">
+              <ImageIcon className="h-5 w-5 text-tertiary" />
+              <span className="text-sm text-secondary">Click to upload screenshot</span>
               <input
                 type="file"
                 accept="image/*"
@@ -170,7 +170,7 @@ export default function FeedbackModal({
         </div>
 
         {error && (
-          <div className="mb-3 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-400">
+          <div className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
             {error}
           </div>
         )}
@@ -179,14 +179,14 @@ export default function FeedbackModal({
         <div className="flex gap-2">
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800/50 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800"
+            className="flex-1 rounded-xl border border-line bg-hover/70 px-4 py-2.5 text-sm font-medium text-secondary transition hover:bg-hover"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || uploadingScreenshot}
-            className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
           >
             {submitting ? "Submitting…" : "Submit feedback"}
           </button>

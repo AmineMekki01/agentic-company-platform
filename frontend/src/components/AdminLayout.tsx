@@ -1,6 +1,7 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Bot, BookOpen, ChevronRight, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3 } from "lucide-react";
 import { useAuth } from "@/stores/auth";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const navGroups = [
   {
@@ -37,11 +38,11 @@ function Breadcrumbs() {
     const label = seg.replace(/-/g, " ").replace(/_/g, " ");
     return (
       <span key={path} className="flex items-center gap-1.5">
-        <ChevronRight className="h-3 w-3 text-zinc-700" />
+        <ChevronRight className="h-3 w-3 text-tertiary" />
         {isLast ? (
-          <span className="text-zinc-300 font-medium capitalize">{label}</span>
+          <span className="text-secondary font-medium capitalize">{label}</span>
         ) : (
-          <Link to={path} className="text-zinc-500 hover:text-zinc-300 transition capitalize">
+          <Link to={path} className="text-tertiary hover:text-secondary transition capitalize">
             {label}
           </Link>
         )}
@@ -51,7 +52,7 @@ function Breadcrumbs() {
 
   return (
     <nav className="flex items-center gap-0.5 text-xs mb-6">
-      <Link to="/admin" className="text-zinc-500 hover:text-zinc-300 transition">Admin</Link>
+      <Link to="/admin" className="text-tertiary hover:text-secondary transition">Admin</Link>
       {crumbs.slice(1)}
     </nav>
   );
@@ -66,17 +67,17 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen bg-canvas text-primary">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-800/40 bg-zinc-950/80 backdrop-blur-sm flex flex-col">
+      <aside className="w-64 border-r border-line/60 bg-card backdrop-blur-sm flex flex-col">
         {/* Brand header */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-zinc-800/30">
+        <div className="flex items-center gap-3 px-5 py-5 border-b border-line/60">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/20 ring-1 ring-white/10">
             <Bot className="h-4 w-4 text-white" />
           </div>
           <div>
-            <span className="font-semibold text-sm text-white tracking-tight">Admin Panel</span>
-            <p className="text-[10px] text-zinc-500 leading-none mt-0.5">Management Console</p>
+            <span className="font-semibold text-sm text-primary tracking-tight">Admin Panel</span>
+            <p className="text-[10px] text-tertiary leading-none mt-0.5">Management Console</p>
           </div>
         </div>
 
@@ -84,7 +85,7 @@ export default function AdminLayout() {
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           {navGroups.map((group) => (
             <div key={group.label} className="mb-5">
-              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
                 {group.label}
               </p>
               <div className="space-y-0.5">
@@ -99,14 +100,14 @@ export default function AdminLayout() {
                       className={
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 " +
                         (active
-                          ? "bg-zinc-900/60 font-medium text-white"
-                          : "text-zinc-400 hover:bg-zinc-900/30 hover:text-zinc-200")
+                          ? "bg-brand/10 font-medium text-primary"
+                          : "text-secondary hover:bg-hover hover:text-primary")
                       }
                     >
                       {active && (
                         <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-indigo-400 to-violet-400" />
                       )}
-                      <Icon className={`h-[18px] w-[18px] transition-colors ${active ? "text-indigo-400" : "text-zinc-600 group-hover:text-zinc-400"}`} />
+                      <Icon className={`h-[18px] w-[18px] transition-colors ${active ? "text-brand" : "text-tertiary group-hover:text-secondary"}`} />
                       <span className="leading-tight">{l.label}</span>
                     </Link>
                   );
@@ -117,30 +118,31 @@ export default function AdminLayout() {
         </nav>
 
         {/* Back to chat */}
-        <div className="px-3 pb-2 border-t border-zinc-800/30 pt-3">
+        <div className="flex items-center gap-2 px-3 pb-2 border-t border-line/60 pt-3">
           <Link
             to="/"
-            className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200 transition-all duration-200"
+            className="group flex flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-secondary hover:bg-hover hover:text-primary transition-all duration-200"
           >
-            <MessageSquare className="h-[18px] w-[18px] text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <MessageSquare className="h-[18px] w-[18px] text-tertiary group-hover:text-secondary transition-colors" />
             <span className="leading-tight">Back to Chat</span>
           </Link>
+          <ThemeToggle />
         </div>
 
         {/* User profile + logout */}
-        <div className="flex items-center gap-2.5 border-t border-zinc-800/30 px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-indigo-300 ring-1 ring-white/5">
+        <div className="flex items-center gap-2.5 border-t border-line/60 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-xs font-semibold uppercase text-brand ring-1 ring-white/5">
             {auth.user?.email[0] ?? "?"}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-zinc-300">{auth.user?.email}</p>
-            <p className="text-[10px] uppercase tracking-wide text-zinc-600">
+            <p className="truncate text-xs font-medium text-secondary">{auth.user?.email}</p>
+            <p className="text-[10px] uppercase tracking-wide text-tertiary">
               {auth.user?.role}
             </p>
           </div>
           <button
             onClick={auth.logout}
-            className="rounded-lg p-1.5 text-zinc-600 transition hover:bg-zinc-800/60 hover:text-zinc-300"
+            className="rounded-lg p-1.5 text-tertiary transition hover:bg-hover hover:text-secondary"
             aria-label="Log out"
           >
             <LogOut className="h-4 w-4" />
@@ -149,7 +151,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto bg-gradient-to-b from-zinc-950 to-zinc-950/95">
+      <main className="flex-1 overflow-auto bg-gradient-to-b from-canvas to-canvas/95">
         <div className="mx-auto w-full p-8">
           <Breadcrumbs />
           <Outlet />

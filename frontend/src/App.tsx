@@ -15,15 +15,15 @@ import { useAuth } from "@/stores/auth";
 
 function FullScreenSpinner() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+    <div className="flex min-h-screen items-center justify-center bg-canvas">
       <div className="flex flex-col items-center gap-4">
         <div className="relative flex h-14 w-14 items-center justify-center">
-          <span className="absolute inset-0 animate-ping rounded-2xl bg-indigo-500/20" />
+          <span className="absolute inset-0 animate-ping rounded-2xl bg-brand/20" />
           <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-xl shadow-indigo-500/20 ring-1 ring-white/10">
             <Bot className="h-7 w-7 text-white" />
           </div>
         </div>
-        <p className="text-sm text-zinc-500">Loading your workspace…</p>
+        <p className="text-sm text-tertiary">Loading your workspace…</p>
       </div>
     </div>
   );

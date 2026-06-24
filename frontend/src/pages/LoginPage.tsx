@@ -27,16 +27,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden bg-zinc-950">
+    <div className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden bg-canvas">
       {/* Background gradient orbs */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-violet-600/10 rounded-full blur-[100px]" />
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand/10 rounded-full blur-[120px]" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-violet-500/10 rounded-full blur-[100px]" />
 
       {/* Subtle grid pattern */}
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+          backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)`,
           backgroundSize: "40px 40px",
         }}
       />
@@ -48,41 +48,41 @@ export default function LoginPage() {
             <Bot className="h-7 w-7 text-white" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl font-semibold tracking-tight text-primary">
               Agentic Company Platform
             </h1>
-            <p className="mt-1 text-sm text-zinc-500">Sign in to your workspace</p>
+            <p className="mt-1 text-sm text-tertiary">Sign in to your workspace</p>
           </div>
         </div>
 
         {/* Card */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-5 rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl"
+          className="space-y-5 rounded-2xl border border-line/80 bg-card p-6 shadow-2xl shadow-black/20 backdrop-blur-xl"
         >
           <div>
-            <label className="mb-2 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-medium text-secondary">
               Email
             </label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tertiary" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 pl-10 pr-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line bg-canvas pl-10 pr-3 py-2.5 text-sm text-primary outline-none placeholder:text-tertiary transition-all focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
             </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-medium text-zinc-400">
+            <label className="mb-2 block text-xs font-medium text-secondary">
               Password
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-tertiary" />
               <input
                 type="password"
                 required
@@ -90,13 +90,13 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/80 pl-10 pr-3 py-2.5 text-sm text-zinc-200 outline-none placeholder:text-zinc-600 transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10"
+                className="w-full rounded-xl border border-line bg-canvas pl-10 pr-3 py-2.5 text-sm text-primary outline-none placeholder:text-tertiary transition-all focus:border-brand/50 focus:ring-2 focus:ring-brand/10"
               />
             </div>
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-xs text-red-400">
+            <div className="flex items-center gap-2 rounded-xl border border-danger-soft bg-danger-soft px-3 py-2.5 text-xs text-danger">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {error}
             </div>
@@ -112,7 +112,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
+        <p className="mt-6 text-center text-xs text-tertiary">
           Powered by Agentic AI Platform
         </p>
       </div>

@@ -139,86 +139,86 @@ function WorkflowCanvasNode(props: any) {
   return (
     <div
       className={
-        "relative w-[300px] rounded-2xl border bg-zinc-950/95 shadow-xl shadow-black/20 backdrop-blur px-4 py-3 transition " +
+        "relative w-[300px] rounded-2xl border bg-canvas/95 shadow-xl shadow-black/20 backdrop-blur px-4 py-3 transition " +
         (selected
-          ? "border-indigo-500/60 ring-2 ring-indigo-500/20"
-          : "border-zinc-800 hover:border-zinc-700")
+          ? "border-brand/60 ring-2 ring-brand/20"
+          : "border-line hover:border-line")
       }
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!h-3 !w-3 !border-2 !border-zinc-900 !bg-indigo-500"
+        className="!h-3 !w-3 !border-2 !border-line !bg-brand"
       />
       <Handle
         type="source"
         position={Position.Right}
-        className="!h-3 !w-3 !border-2 !border-zinc-900 !bg-indigo-500"
+        className="!h-3 !w-3 !border-2 !border-line !bg-brand"
       />
 
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10">
-          <Bot className="h-5 w-5 text-indigo-400" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-brand/20 bg-brand/10">
+          <Bot className="h-5 w-5 text-brand" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-zinc-100">{data.label}</div>
-              <div className="truncate text-[11px] uppercase tracking-wide text-zinc-500">
+              <div className="truncate text-sm font-semibold text-primary">{data.label}</div>
+              <div className="truncate text-[11px] uppercase tracking-wide text-tertiary">
                 @{data.agentSlug || "select-agent"}
               </div>
             </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600" />
+            <ArrowRight className="h-4 w-4 shrink-0 text-tertiary" />
           </div>
         </div>
       </div>
 
       <div className="mt-3 space-y-3 text-xs">
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-tertiary">
             What it should do
           </div>
-          <div className="line-clamp-3 rounded-lg border border-zinc-800 bg-zinc-900/70 px-2.5 py-2 text-zinc-300">
+          <div className="line-clamp-3 rounded-lg border border-line bg-card/70 px-2.5 py-2 text-secondary">
             {data.instructions || "Describe what this agent should do in the side panel."}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-tertiary">
               Inputs
             </div>
             <div className="space-y-1">
               {data.inputs.length === 0 && (
-                <div className="rounded-md border border-dashed border-zinc-800 px-2 py-1 text-zinc-600">
+                <div className="rounded-md border border-dashed border-line px-2 py-1 text-tertiary">
                   No inputs
                 </div>
               )}
               {data.inputs.slice(0, 3).map((input) => (
-                <div key={input.name} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-zinc-300">
-                  <span className="font-mono text-[11px] text-indigo-300">{input.name}</span>
+                <div key={input.name} className="rounded-md border border-line bg-card px-2 py-1 text-secondary">
+                  <span className="font-mono text-[11px] text-brand">{input.name}</span>
                   {input.source ? (
-                    <span className="ml-1 text-[10px] text-zinc-500">← {input.source}</span>
+                    <span className="ml-1 text-[10px] text-tertiary">← {input.source}</span>
                   ) : null}
                 </div>
               ))}
             </div>
           </div>
           <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-tertiary">
               Outputs
             </div>
             <div className="space-y-1">
               {data.outputs.length === 0 && (
-                <div className="rounded-md border border-dashed border-zinc-800 px-2 py-1 text-zinc-600">
+                <div className="rounded-md border border-dashed border-line px-2 py-1 text-tertiary">
                   No outputs
                 </div>
               )}
               {data.outputs.slice(0, 3).map((output) => (
-                <div key={output.name} className="rounded-md border border-zinc-800 bg-zinc-900/60 px-2 py-1 text-zinc-300">
-                  <span className="font-mono text-[11px] text-emerald-300">{output.name}</span>
+                <div key={output.name} className="rounded-md border border-line bg-card px-2 py-1 text-secondary">
+                  <span className="font-mono text-[11px] text-success">{output.name}</span>
                   {output.description ? (
-                    <span className="ml-1 text-[10px] text-zinc-500">— {output.description}</span>
+                    <span className="ml-1 text-[10px] text-tertiary">— {output.description}</span>
                   ) : null}
                 </div>
               ))}
@@ -227,7 +227,7 @@ function WorkflowCanvasNode(props: any) {
         </div>
 
         {data.outputVar ? (
-          <div className="rounded-md border border-indigo-500/20 bg-indigo-500/5 px-2 py-1 text-[11px] text-indigo-200">
+          <div className="rounded-md border border-brand/20 bg-brand/10 px-2 py-1 text-[11px] text-brand">
             Primary output: <span className="font-mono">{data.outputVar}</span>
           </div>
         ) : null}
@@ -547,7 +547,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
 
   if (!workflow) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950 p-6 text-sm text-zinc-500">
+      <div className="rounded-2xl border border-dashed border-line bg-canvas p-6 text-sm text-tertiary">
         Select or create a workflow to build the diagram.
       </div>
     );
@@ -568,24 +568,24 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
   const editorContent = (
     <>
       <div className={fullscreen ? "grid h-full grid-cols-[minmax(0,1fr)_400px] gap-4" : "grid h-full grid-cols-[minmax(0,1fr)_360px] gap-4"}>
-        <div className={fullscreen ? "relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950" : "relative h-full overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950"}>
+        <div className={fullscreen ? "relative h-full overflow-hidden rounded-2xl border border-line bg-canvas" : "relative h-full overflow-hidden rounded-2xl border border-line bg-canvas"}>
         <Panel position="top-left" className="pointer-events-none z-10">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/95 px-3 py-2 shadow-lg backdrop-blur">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-line bg-canvas/95 px-3 py-2 shadow-lg backdrop-blur">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand">
               <WandSparkles className="h-4 w-4" />
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-zinc-300">Diagram builder</div>
-              <div className="text-[11px] text-zinc-500">Drag nodes, connect arrows, and describe what each agent expects.</div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-secondary">Diagram builder</div>
+              <div className="text-[11px] text-tertiary">Drag nodes, connect arrows, and describe what each agent expects.</div>
             </div>
           </div>
         </Panel>
 
         <Panel position="top-right" className="pointer-events-none z-10">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950/95 px-2 py-2 shadow-lg backdrop-blur">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-line bg-canvas/95 px-2 py-2 shadow-lg backdrop-blur">
             <button
               onClick={addStep}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-indigo-500"
+              className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-hover"
             >
               <Plus className="h-3.5 w-3.5" />
               Add node
@@ -593,7 +593,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
             <button
               onClick={addBranch}
               disabled={!activeNode}
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-2 text-xs font-medium text-secondary transition hover:bg-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Plus className="h-3.5 w-3.5" />
               Branch
@@ -610,14 +610,14 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
                 );
                 setSelectedNodeId(last.id);
               }}
-              className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800"
+              className="rounded-lg border border-line bg-card px-3 py-2 text-xs font-medium text-secondary transition hover:bg-hover"
             >
               Reflow
             </button>
             <button
               onClick={toggleFullscreen}
               title={fullscreen ? "Exit fullscreen" : "Open in fullscreen"}
-              className="rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800"
+              className="rounded-lg border border-line bg-card px-2 py-2 text-xs font-medium text-secondary transition hover:bg-hover"
             >
               {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
@@ -646,7 +646,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
           <Background gap={20} size={1} color="#27272a" />
           <Controls
             position="bottom-left"
-            className="!bg-zinc-900/90 !border-zinc-700 !shadow-lg"
+            className="!bg-card/90 !border-line !shadow-lg"
             style={{}}
           />
           <MiniMap
@@ -655,22 +655,22 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
           />
         </ReactFlow>
 
-        <div className="absolute bottom-4 right-4 rounded-xl border border-zinc-800 bg-zinc-950/95 px-3 py-2 text-xs text-zinc-500 shadow-lg backdrop-blur">
+        <div className="absolute bottom-4 right-4 rounded-xl border border-line bg-canvas/95 px-3 py-2 text-xs text-tertiary shadow-lg backdrop-blur">
           Connect the arrows to define the execution order.
         </div>
         </div>
 
-        <aside className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl shadow-black/20 overflow-y-auto min-h-0">
-        <div className="flex items-start justify-between gap-3 border-b border-zinc-800 pb-3">
+        <aside className="rounded-2xl border border-line bg-canvas p-4 shadow-xl shadow-black/20 overflow-y-auto min-h-0">
+        <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
           <div>
-            <div className="text-sm font-semibold text-zinc-100">Selected node</div>
-            <div className="text-xs text-zinc-500">What this agent expects, does, and produces.</div>
+            <div className="text-sm font-semibold text-primary">Selected node</div>
+            <div className="text-xs text-tertiary">What this agent expects, does, and produces.</div>
           </div>
           {selectedNodeId ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={addBranch}
-                className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800"
+                className="flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs text-secondary transition hover:bg-hover"
                 title="Add branch from this node"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -678,7 +678,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
               </button>
               <button
                 onClick={() => removeStep(selectedNodeId)}
-                className="rounded-lg border border-zinc-800 p-2 text-zinc-400 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300"
+                className="rounded-lg border border-line p-2 text-secondary transition hover:border-danger/30 hover:bg-danger-soft hover:text-danger"
                 title="Delete node"
               >
                 <Trash2 className="h-4 w-4" />
@@ -688,27 +688,27 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
         </div>
 
         {!activeNode ? (
-          <div className="flex h-full flex-col items-center justify-center py-16 text-center text-zinc-500">
-            <AlertCircle className="mb-3 h-8 w-8 text-zinc-700" />
+          <div className="flex h-full flex-col items-center justify-center py-16 text-center text-tertiary">
+            <AlertCircle className="mb-3 h-8 w-8 text-tertiary" />
             <p className="text-sm">Click a node to edit it, or add a new node to start building the diagram.</p>
           </div>
         ) : (
           <div className="mt-4 space-y-4 overflow-y-auto pr-1">
             <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Node label</span>
+              <span className="text-xs font-medium text-secondary">Node label</span>
               <input
                 value={activeNode.data.label}
                 onChange={(e) => updateNode(activeNode.id, (node) => ({ ...node, label: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50"
+                className="mt-1 w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50"
               />
             </label>
 
             <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Agent</span>
+              <span className="text-xs font-medium text-secondary">Agent</span>
               <select
                 value={activeNode.data.agentSlug}
                 onChange={(e) => setNodeAgent(activeNode.id, e.target.value)}
-                className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50"
+                className="mt-1 w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50"
               >
                 <option value="">Select agent…</option>
                 {availableAgents.map((agent) => (
@@ -720,25 +720,25 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
             </label>
 
             <label className="block">
-              <span className="text-xs font-medium text-zinc-400">What should this agent do?</span>
+              <span className="text-xs font-medium text-secondary">What should this agent do?</span>
               <textarea
                 value={activeNode.data.instructions}
                 onChange={(e) => updateNode(activeNode.id, (node) => ({ ...node, instructions: e.target.value }))}
                 rows={4}
-                className="mt-1 w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50"
+                className="mt-1 w-full resize-y rounded-lg border border-line bg-card px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50"
                 placeholder="Explain the task, success criteria, and any rules for this agent."
               />
             </label>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+            <div className="rounded-xl border border-line bg-card p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Inputs</div>
-                  <div className="text-[11px] text-zinc-500">What the agent should expect.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-secondary">Inputs</div>
+                  <div className="text-[11px] text-tertiary">What the agent should expect.</div>
                 </div>
                 <button
                   onClick={() => addInput(activeNode.id)}
-                  className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800"
+                  className="flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs text-secondary transition hover:bg-hover"
                 >
                   <Plus className="h-3 w-3" />
                   Add
@@ -746,24 +746,24 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
               </div>
               <div className="mt-3 space-y-2">
                 {activeNode.data.inputs.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-                    Add inputs like <span className="font-mono text-indigo-300">query</span>, <span className="font-mono text-indigo-300">context</span>, or <span className="font-mono text-indigo-300">documents</span>.
+                  <div className="rounded-lg border border-dashed border-line px-3 py-2 text-xs text-tertiary">
+                    Add inputs like <span className="font-mono text-brand">query</span>, <span className="font-mono text-brand">context</span>, or <span className="font-mono text-brand">documents</span>.
                   </div>
                 )}
                 {activeNode.data.inputs.map((input, index) => (
-                  <div key={`${input.name}-${index}`} className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2">
+                  <div key={`${input.name}-${index}`} className="rounded-lg border border-line bg-canvas px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="grid flex-1 grid-cols-2 gap-2">
                         <input
                           value={input.name}
                           onChange={(e) => updateInput(activeNode.id, index, { name: e.target.value })}
-                          className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                          className="rounded-md border border-line bg-card px-2 py-1 text-xs text-primary outline-none"
                           placeholder="name"
                         />
                         <select
                           value={input.source || ""}
                           onChange={(e) => updateInput(activeNode.id, index, { source: e.target.value })}
-                          className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                          className="rounded-md border border-line bg-card px-2 py-1 text-xs text-primary outline-none"
                         >
                           <option value="">Choose source…</option>
                           {availableVariables.map((variable) => (
@@ -773,7 +773,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
                           ))}
                         </select>
                         <input
-                          className="col-span-2 rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                          className="col-span-2 rounded-md border border-line bg-card px-2 py-1 text-xs text-primary outline-none"
                           value={input.description || ""}
                           onChange={(e) => updateInput(activeNode.id, index, { description: e.target.value })}
                           placeholder="Description"
@@ -781,7 +781,7 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
                       </div>
                       <button
                         onClick={() => removeInput(activeNode.id, index)}
-                        className="rounded-md p-1.5 text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300"
+                        className="rounded-md p-1.5 text-tertiary transition hover:bg-danger-soft hover:text-danger"
                         title="Remove input"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -792,15 +792,15 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
               </div>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+            <div className="rounded-xl border border-line bg-card p-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Outputs</div>
-                  <div className="text-[11px] text-zinc-500">What the agent should return.</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-secondary">Outputs</div>
+                  <div className="text-[11px] text-tertiary">What the agent should return.</div>
                 </div>
                 <button
                   onClick={() => addOutput(activeNode.id)}
-                  className="flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 transition hover:bg-zinc-800"
+                  className="flex items-center gap-1 rounded-lg border border-line bg-card px-2.5 py-1.5 text-xs text-secondary transition hover:bg-hover"
                 >
                   <Plus className="h-3 w-3" />
                   Add
@@ -808,30 +808,30 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
               </div>
               <div className="mt-3 space-y-2">
                 {activeNode.data.outputs.length === 0 && (
-                  <div className="rounded-lg border border-dashed border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-                    Add outputs like <span className="font-mono text-emerald-300">result</span>, <span className="font-mono text-emerald-300">summary</span>, or <span className="font-mono text-emerald-300">citations</span>.
+                  <div className="rounded-lg border border-dashed border-line px-3 py-2 text-xs text-tertiary">
+                    Add outputs like <span className="font-mono text-success">result</span>, <span className="font-mono text-success">summary</span>, or <span className="font-mono text-success">citations</span>.
                   </div>
                 )}
                 {activeNode.data.outputs.map((output, index) => (
-                  <div key={`${output.name}-${index}`} className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2">
+                  <div key={`${output.name}-${index}`} className="rounded-lg border border-line bg-canvas px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="grid flex-1 grid-cols-1 gap-2">
                         <input
                           value={output.name}
                           onChange={(e) => updateOutput(activeNode.id, index, { name: e.target.value })}
-                          className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                          className="rounded-md border border-line bg-card px-2 py-1 text-xs text-primary outline-none"
                           placeholder="name"
                         />
                         <input
                           value={output.description || ""}
                           onChange={(e) => updateOutput(activeNode.id, index, { description: e.target.value })}
-                          className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 outline-none"
+                          className="rounded-md border border-line bg-card px-2 py-1 text-xs text-primary outline-none"
                           placeholder="Description"
                         />
                       </div>
                       <button
                         onClick={() => removeOutput(activeNode.id, index)}
-                        className="rounded-md p-1.5 text-zinc-500 transition hover:bg-red-500/10 hover:text-red-300"
+                        className="rounded-md p-1.5 text-tertiary transition hover:bg-danger-soft hover:text-danger"
                         title="Remove output"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -843,18 +843,18 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
             </div>
 
             <label className="block">
-              <span className="text-xs font-medium text-zinc-400">Primary output variable</span>
+              <span className="text-xs font-medium text-secondary">Primary output variable</span>
               <input
                 value={activeNode.data.outputVar}
                 onChange={(e) => updateNode(activeNode.id, (node) => ({ ...node, outputVar: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 outline-none transition focus:border-indigo-500/50"
+                className="mt-1 w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-primary outline-none transition focus:border-brand/50"
                 placeholder="result"
               />
             </label>
 
-            <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 text-xs text-indigo-200">
-              <div className="font-semibold text-indigo-100">Prompting tip</div>
-              <p className="mt-1 text-indigo-200/80">
+            <div className="rounded-xl border border-brand/20 bg-brand/10 p-3 text-xs text-brand">
+              <div className="font-semibold text-brand">Prompting tip</div>
+              <p className="mt-1 text-brand/80">
                 Describe the task here, define the inputs/outputs, and connect arrows to control which agent feeds the next one.
               </p>
             </div>
@@ -868,21 +868,21 @@ export default function WorkflowDiagramEditor({ workflowKey, agentSlug, agents, 
   if (fullscreen) {
     return (
       <ReactFlowProvider>
-        <div className="fixed inset-0 z-[100] bg-zinc-950 p-4">
+        <div className="fixed inset-0 z-[100] bg-canvas p-4">
           <div className="flex h-full flex-col">
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand/10 text-brand">
                   <WandSparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-zinc-100">Workflow Diagram Builder</div>
-                  <div className="text-[11px] text-zinc-500">Fullscreen mode — press Esc or click the button to exit</div>
+                  <div className="text-sm font-semibold text-primary">Workflow Diagram Builder</div>
+                  <div className="text-[11px] text-tertiary">Fullscreen mode — press Esc or click the button to exit</div>
                 </div>
               </div>
               <button
                 onClick={toggleFullscreen}
-                className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-zinc-800"
+                className="flex items-center gap-1.5 rounded-lg border border-line bg-card px-3 py-2 text-xs font-medium text-secondary transition hover:bg-hover"
               >
                 <Minimize2 className="h-3.5 w-3.5" />
                 Exit fullscreen

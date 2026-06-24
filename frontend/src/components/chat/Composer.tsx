@@ -154,10 +154,10 @@ export default function Composer({
   }
 
   return (
-    <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-4">
+    <div className="border-t border-line bg-canvas px-4 py-4">
       <div className="relative mx-auto max-w-3xl">
         {mentionQuery !== null && suggestions.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-2 w-72 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+          <div className="absolute bottom-full left-0 mb-2 w-72 overflow-hidden rounded-xl border border-line bg-popover shadow-2xl">
             {suggestions.map((a, i) => (
               <button
                 key={a.slug}
@@ -167,16 +167,16 @@ export default function Composer({
                 }}
                 onMouseEnter={() => setHighlighted(i)}
                 className={`flex w-full items-start gap-2 px-3 py-2 text-left ${
-                  i === highlighted ? "bg-zinc-800" : ""
+                  i === highlighted ? "bg-hover" : ""
                 }`}
               >
-                <AtSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                <AtSign className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand" />
                 <span>
-                  <span className="block text-sm font-medium text-zinc-200">
+                  <span className="block text-sm font-medium text-primary">
                     {a.name}
-                    <span className="ml-1.5 text-xs text-zinc-500">@{a.slug}</span>
+                    <span className="ml-1.5 text-xs text-tertiary">@{a.slug}</span>
                   </span>
-                  <span className="block truncate text-xs text-zinc-500">
+                  <span className="block truncate text-xs text-tertiary">
                     {a.description}
                   </span>
                 </span>
@@ -185,15 +185,15 @@ export default function Composer({
           </div>
         )}
 
-        <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 shadow-sm backdrop-blur-sm transition focus-within:border-indigo-500/50 focus-within:ring-2 focus-within:ring-indigo-500/10">
+        <div className="rounded-2xl border border-line/80 bg-card shadow-sm backdrop-blur-sm transition focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/10">
           {forcedAgent && (
             <div className="flex items-center gap-1 px-3 pt-2.5">
-              <span className="flex items-center gap-1 rounded-md bg-indigo-600/20 px-2 py-0.5 text-xs font-medium text-indigo-300">
+              <span className="flex items-center gap-1 rounded-md bg-brand/20 px-2 py-0.5 text-xs font-medium text-brand">
                 <AtSign className="h-3 w-3" />
                 {forcedAgent}
                 <button
                   onClick={() => setForcedAgent(null)}
-                  className="ml-0.5 text-indigo-400 hover:text-indigo-200"
+                  className="ml-0.5 text-brand hover:text-brand-hover"
                   aria-label="Clear forced agent"
                 >
                   <X className="h-3 w-3" />
@@ -207,13 +207,13 @@ export default function Composer({
               {files.map((file, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-xs text-zinc-300"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-line bg-hover px-2 py-0.5 text-xs text-secondary"
                 >
-                  <Paperclip className="h-3 w-3 text-zinc-500" />
+                  <Paperclip className="h-3 w-3 text-tertiary" />
                   {file.name}
                   <button
                     onClick={() => removeFile(i)}
-                    className="ml-0.5 text-zinc-500 hover:text-zinc-300"
+                    className="ml-0.5 text-tertiary hover:text-secondary"
                     aria-label="Remove file"
                   >
                     <X className="h-3 w-3" />
@@ -236,7 +236,7 @@ export default function Composer({
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-secondary transition hover:bg-hover hover:text-primary disabled:opacity-40"
                   aria-label="Attach file"
                   title="Attach file"
                 >
@@ -252,7 +252,7 @@ export default function Composer({
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder={awaitingClarification ? "Answer the question and press Enter to continue research…" : "Message… (use @ to call a specific agent)"}
-              className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-zinc-600"
+              className="max-h-40 min-h-[24px] flex-1 resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-tertiary"
               style={{ height: "auto" }}
               onInput={(e) => {
                 const t = e.currentTarget;
@@ -263,7 +263,7 @@ export default function Composer({
             {streaming ? (
               <button
                 onClick={onStop}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-700 text-zinc-200 transition hover:bg-zinc-600 active:scale-95"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-hover text-primary transition hover:bg-tertiary active:scale-95"
                 aria-label="Stop streaming"
               >
                 <Square className="h-3.5 w-3.5" />
@@ -286,16 +286,16 @@ export default function Composer({
         </div>
 
         <div className="mt-2 flex items-center justify-between px-1">
-          <p className="text-[11px] text-zinc-600">
-            Press <kbd className="rounded-md border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">/</kbd> to focus · <kbd className="rounded-md border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">Enter</kbd> to send
+          <p className="text-[11px] text-tertiary">
+            Press <kbd className="rounded-md border border-line bg-card px-1.5 py-0.5 font-mono text-[10px] text-tertiary">/</kbd> to focus · <kbd className="rounded-md border border-line bg-card px-1.5 py-0.5 font-mono text-[10px] text-tertiary">Enter</kbd> to send
           </p>
           <span className={`text-[11px] font-mono tabular-nums transition ${
-            value.length > 3000 ? "text-amber-400" : "text-zinc-600"
+            value.length > 3000 ? "text-warning" : "text-tertiary"
           }`}>
             {value.length.toLocaleString()}
           </span>
         </div>
-        <p className="mt-1 text-center text-[11px] text-zinc-600">
+        <p className="mt-1 text-center text-[11px] text-tertiary">
           Agents can make mistakes. Verify important company information.
         </p>
       </div>

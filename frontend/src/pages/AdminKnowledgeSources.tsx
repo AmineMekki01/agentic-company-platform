@@ -14,10 +14,10 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    ready: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-    syncing: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    pending: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-    error: "bg-red-500/10 text-red-400 border-red-500/20",
+    ready: "bg-success-soft text-success border-success/20",
+    syncing: "bg-warning-soft text-warning border-warning/20",
+    pending: "bg-hover text-secondary border-line/60",
+    error: "bg-danger-soft text-danger border-danger/20",
   };
   return (
     <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[status] || styles.pending}`}>
@@ -28,12 +28,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function SourceBadge({ type }: { type: string }) {
   const styles: Record<string, string> = {
-    notion: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    notion: "bg-brand/10 text-brand border-brand/20",
     s3: "bg-sky-500/10 text-sky-400 border-sky-500/20",
     gdrive: "bg-green-500/10 text-green-400 border-green-500/20",
   };
   return (
-    <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[type] || "bg-zinc-800 text-zinc-400 border-zinc-700"}`}>
+    <span className={`text-[10px] uppercase font-semibold tracking-wide rounded-md px-2 py-0.5 border ${styles[type] || "bg-hover text-secondary border-line"}`}>
       {type}
     </span>
   );
@@ -264,19 +264,19 @@ export default function AdminKnowledgeSources() {
         title="Knowledge Sources"
         description="Manage data sources for agent retrieval"
         icon={BookOpen}
-        iconColor="text-amber-400"
-        iconBg="bg-amber-500/10"
+        iconColor="text-warning"
+        iconBg="bg-warning-soft"
       >
         <button
           onClick={() => setShowForm((s) => !s)}
-          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-indigo-500/15"
+          className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 px-3 py-2 rounded-lg font-medium text-white transition shadow-lg shadow-brand/15"
         >
           <Plus className="h-3.5 w-3.5" />
           {showForm ? "Cancel" : "Add Source"}
         </button>
         <button
           onClick={refresh}
-          className="flex items-center gap-1.5 text-sm bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800/60 px-3 py-2 rounded-lg transition"
+          className="flex items-center gap-1.5 text-sm bg-card hover:bg-hover border border-line/60 px-3 py-2 rounded-lg transition"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
@@ -284,19 +284,19 @@ export default function AdminKnowledgeSources() {
       </AdminPageHeader>
 
       {showForm && (
-        <div className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5 mb-6 space-y-3 max-w-lg shadow-sm backdrop-blur-sm transition hover:border-zinc-700/60">
-          <h2 className="font-medium text-zinc-200">New Knowledge Source</h2>
+        <div className="rounded-2xl border border-line/60 bg-card p-5 mb-6 space-y-3 max-w-lg shadow-sm backdrop-blur-sm transition hover:border-line/60">
+          <h2 className="font-medium text-primary">New Knowledge Source</h2>
           <input
             value={form.slug}
             onChange={(e) => setForm({ ...form, slug: e.target.value })}
             placeholder="Slug (e.g. notion-hr)"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+            className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           />
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="Name"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+            className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           />
           <select
             value={form.source_type}
@@ -318,7 +318,7 @@ export default function AdminKnowledgeSources() {
               setGdriveBrowseAttempted(false);
               setGdriveFolderPath([]);
             }}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+            className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           >
             <option value="notion">Notion</option>
             <option value="s3">S3 Bucket</option>
@@ -336,7 +336,7 @@ export default function AdminKnowledgeSources() {
               setGdriveBrowseAttempted(false);
               setGdriveFolderPath([]);
             }}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+            className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           >
             <option value="">Select connector credential…</option>
             {connectorOptions.map((c) => (
@@ -357,7 +357,7 @@ export default function AdminKnowledgeSources() {
                     setBrowseItems([]);
                     setSelectedItem(null);
                   }}
-                  className="bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-sm text-zinc-200 focus:border-indigo-500/50 outline-none transition"
+                  className="bg-canvas border border-line rounded-lg px-2 py-1.5 text-sm text-primary focus:border-brand/50 outline-none transition"
                 >
                   <option value="database">Browse Databases</option>
                   <option value="page">Browse Pages</option>
@@ -365,15 +365,15 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseNotion}
                   disabled={browseLoading}
-                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg text-white transition"
                 >
                   {browseLoading ? "Browsing…" : "Browse Notion"}
                 </button>
               </div>
 
               {browseItems.length > 0 && (
-                <div className="border border-zinc-800 rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto bg-zinc-950">
-                  <div className="text-xs text-zinc-500 mb-1">
+                <div className="border border-line rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto bg-canvas">
+                  <div className="text-xs text-tertiary mb-1">
                     Select a {browseMode === "database" ? "database" : "page"}:
                   </div>
                   {browseItems.map((item) => (
@@ -382,25 +382,25 @@ export default function AdminKnowledgeSources() {
                       onClick={() => selectItem(item)}
                       className={`w-full text-left px-2 py-1 rounded-md text-sm transition ${
                         selectedItem?.id === item.id
-                          ? "bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"
-                          : "hover:bg-zinc-800 text-zinc-300"
+                          ? "bg-brand/10 text-brand border border-brand/20"
+                          : "hover:bg-hover text-secondary"
                       }`}
                     >
                       {item.name}{" "}
-                      <span className="text-xs text-zinc-500">({item.id})</span>
+                      <span className="text-xs text-tertiary">({item.id})</span>
                     </button>
                   ))}
                 </div>
               )}
 
               {!browseLoading && browseAttempted && browseItems.length === 0 && (
-                <p className="text-xs text-amber-400">
+                <p className="text-xs text-warning">
                   No {browseMode === "database" ? "databases" : "pages"} found. Make sure your Notion integration token is correct and the content is shared with the integration.
                 </p>
               )}
 
               {selectedItem && (
-                <div className="text-xs text-emerald-400">
+                <div className="text-xs text-success">
                   Selected: {selectedItem.name} ({selectedItem.id})
                 </div>
               )}
@@ -420,7 +420,7 @@ export default function AdminKnowledgeSources() {
                   }
                 }}
                 placeholder={`Notion ${browseMode === "database" ? "Database" : "Page"} ID (or pick above)`}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               />
             </div>
           )}
@@ -432,7 +432,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={browseS3}
                   disabled={s3BrowseLoading}
-                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg text-white transition"
                 >
                   {s3BrowseLoading ? "Loading…" : "List Buckets"}
                 </button>
@@ -444,7 +444,7 @@ export default function AdminKnowledgeSources() {
                   onChange={(e) =>
                     setForm({ ...form, config: { ...form.config, bucket: e.target.value } })
                   }
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                  className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
                 >
                   <option value="">Select bucket…</option>
                   {s3Buckets.map((b) => (
@@ -456,7 +456,7 @@ export default function AdminKnowledgeSources() {
               )}
 
               {!s3BrowseLoading && s3BrowseAttempted && s3Buckets.length === 0 && (
-                <p className="text-xs text-amber-400">
+                <p className="text-xs text-warning">
                   No buckets found. Check your S3 connector credentials.
                 </p>
               )}
@@ -467,7 +467,7 @@ export default function AdminKnowledgeSources() {
                   setForm({ ...form, config: { ...form.config, bucket: e.target.value } })
                 }
                 placeholder="Or enter bucket name manually"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               />
               <input
                 value={(form.config?.prefix as string) || ""}
@@ -475,7 +475,7 @@ export default function AdminKnowledgeSources() {
                   setForm({ ...form, config: { ...form.config, prefix: e.target.value } })
                 }
                 placeholder="Folder prefix (optional, e.g. docs/hr/)"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               />
             </div>
           )}
@@ -487,7 +487,7 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={() => browseGdrive()}
                   disabled={gdriveBrowseLoading}
-                  className="text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-3 py-1.5 rounded-lg text-white transition"
                 >
                   {gdriveBrowseLoading ? "Loading…" : "Browse Drive"}
                 </button>
@@ -495,14 +495,14 @@ export default function AdminKnowledgeSources() {
 
               {/* Breadcrumb navigation */}
               {gdriveFolderPath.length > 0 && (
-                <div className="flex items-center gap-1 text-xs text-zinc-400 flex-wrap">
-                  <button onClick={() => navigateGdriveTo(-1)} className="hover:text-indigo-400 transition">
+                <div className="flex items-center gap-1 text-xs text-secondary flex-wrap">
+                  <button onClick={() => navigateGdriveTo(-1)} className="hover:text-brand transition">
                     Root
                   </button>
                   {gdriveFolderPath.map((folder, i) => (
                     <span key={folder.id} className="flex items-center gap-1">
-                      <span className="text-zinc-600">/</span>
-                      <button onClick={() => navigateGdriveTo(i)} className="hover:text-indigo-400 transition">
+                      <span className="text-tertiary">/</span>
+                      <button onClick={() => navigateGdriveTo(i)} className="hover:text-brand transition">
                         {folder.name}
                       </button>
                     </span>
@@ -512,20 +512,20 @@ export default function AdminKnowledgeSources() {
 
               {/* Folder/file listing */}
               {gdriveItems.length > 0 && (
-                <div className="border border-zinc-800 rounded-lg p-2 space-y-1 max-h-48 overflow-y-auto bg-zinc-950">
+                <div className="border border-line rounded-lg p-2 space-y-1 max-h-48 overflow-y-auto bg-canvas">
                   {gdriveItems.map((item) => {
                     const selected = (form.config?.folder_id as string) === item.id;
                     return (
                       <div
                         key={item.id}
                         className={`flex items-center justify-between px-2 py-1 rounded-md text-sm transition ${
-                          selected ? "bg-emerald-500/10 border border-emerald-500/20" : ""
+                          selected ? "bg-success-soft border border-success/20" : ""
                         }`}
                       >
                         <button
                           onClick={() => item.type === "folder" ? selectGdriveFolder(item) : undefined}
                           className={`text-left flex-1 ${
-                            item.type === "folder" ? "hover:text-indigo-400 text-zinc-200" : "text-zinc-500 cursor-default"
+                            item.type === "folder" ? "hover:text-brand text-primary" : "text-tertiary cursor-default"
                           }`}
                         >
                           {item.type === "folder" ? "📁" : "📄"} {item.name}
@@ -535,8 +535,8 @@ export default function AdminKnowledgeSources() {
                             onClick={() => pickGdriveFolder(item)}
                             className={`text-xs px-2 py-0.5 rounded transition ${
                               selected
-                                ? "bg-emerald-500/20 text-emerald-400"
-                                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-400"
+                                ? "bg-success/20 text-success"
+                                : "bg-hover hover:bg-hover text-secondary"
                             }`}
                           >
                             {selected ? "✓ Selected" : "Select"}
@@ -549,7 +549,7 @@ export default function AdminKnowledgeSources() {
               )}
 
               {!gdriveBrowseLoading && gdriveBrowseAttempted && gdriveItems.length === 0 && (
-                <p className="text-xs text-amber-400">
+                <p className="text-xs text-warning">
                   No items found. Check your Google Drive connector credentials and permissions.
                 </p>
               )}
@@ -558,7 +558,7 @@ export default function AdminKnowledgeSources() {
               {gdriveBrowseAttempted && (
                 <button
                   onClick={selectGdriveRoot}
-                  className="text-sm bg-emerald-600/80 hover:bg-emerald-500 px-3 py-1.5 rounded-lg transition"
+                  className="text-sm bg-success/80 hover:bg-success-hover px-3 py-1.5 rounded-lg text-white transition"
                 >
                   Use this folder
                 </button>
@@ -570,32 +570,32 @@ export default function AdminKnowledgeSources() {
                   setForm({ ...form, config: { ...form.config, folder_id: e.target.value } })
                 }
                 placeholder="Or enter folder ID manually"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 outline-none transition"
+                className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               />
             </div>
           )}
 
           {form.source_type === "notion" && !form.connector_id && (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-warning">
               Select a Notion connector credential to browse databases or enter the ID manually.
             </p>
           )}
 
           {form.source_type === "s3" && !form.connector_id && (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-warning">
               Select an S3 connector credential to authenticate.
             </p>
           )}
 
           {form.source_type === "gdrive" && !form.connector_id && (
-            <p className="text-xs text-amber-400">
+            <p className="text-xs text-warning">
               Select a Google Drive connector credential to browse folders.
             </p>
           )}
 
           <button
             onClick={create}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-sm font-medium transition shadow-lg shadow-emerald-500/15"
+            className="flex items-center gap-1.5 bg-success hover:bg-success-hover px-4 py-2 rounded-lg text-sm font-medium text-white transition shadow-lg shadow-success/15"
           >
             <Plus className="h-4 w-4" />
             Create Source
@@ -604,7 +604,7 @@ export default function AdminKnowledgeSources() {
       )}
 
       {loading && (
-        <div className="flex items-center gap-2 text-zinc-500 text-sm py-2">
+        <div className="flex items-center gap-2 text-tertiary text-sm py-2">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading sources…
         </div>
@@ -615,26 +615,26 @@ export default function AdminKnowledgeSources() {
           return (
             <div
               key={s.id}
-              className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 transition hover:border-zinc-700"
+              className="flex items-center justify-between bg-card border border-line rounded-xl px-4 py-3 transition hover:border-line"
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-950 border border-zinc-800">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas border border-line">
                   <ServiceIcon type={s.source_type} size={22} />
                 </div>
                 <div>
-                  <div className="font-medium text-zinc-200 flex items-center gap-2">
+                  <div className="font-medium text-primary flex items-center gap-2">
                     {s.name}
                     <SourceBadge type={s.source_type} />
                     <StatusBadge status={s.status} />
                   </div>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-tertiary">
                     {s.slug} · {s.chunk_count} chunks
                   </div>
                   {conn && (
-                    <div className="text-xs text-zinc-600">Connector: {conn.name}</div>
+                    <div className="text-xs text-tertiary">Connector: {conn.name}</div>
                   )}
                   {s.source_type === "notion" && (
-                    <div className="text-xs text-zinc-600">
+                    <div className="text-xs text-tertiary">
                       {(() => {
                         const cfg = s.config as Record<string, string> | null;
                         if (cfg?.database_id) return `DB: ${cfg.database_id}`;
@@ -644,7 +644,7 @@ export default function AdminKnowledgeSources() {
                     </div>
                   )}
                   {s.source_type === "gdrive" && (
-                    <div className="text-xs text-zinc-600">
+                    <div className="text-xs text-tertiary">
                       {(() => {
                         const cfg = s.config as Record<string, string> | null;
                         if (cfg?.folder_id) return `Folder: ${cfg.folder_id}`;
@@ -658,14 +658,14 @@ export default function AdminKnowledgeSources() {
                 <button
                   onClick={() => triggerSync(s.slug)}
                   disabled={syncingSlugs.has(s.slug)}
-                  className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition"
+                  className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-white transition"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${syncingSlugs.has(s.slug) ? "animate-spin" : ""}`} />
                   {syncingSlugs.has(s.slug) ? "Syncing…" : "Sync"}
                 </button>
                 <button
                   onClick={() => remove(s.slug)}
-                  className="rounded-md p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                  className="rounded-md p-2 text-tertiary hover:text-danger hover:bg-danger-soft transition"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -675,8 +675,8 @@ export default function AdminKnowledgeSources() {
           );
         })}
         {!loading && sources.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
-            <BookOpen className="h-10 w-10 text-zinc-700 mb-3" />
+          <div className="flex flex-col items-center justify-center py-12 text-tertiary">
+            <BookOpen className="h-10 w-10 text-tertiary mb-3" />
             <p className="text-sm">No knowledge sources configured</p>
           </div>
         )}

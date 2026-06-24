@@ -60,15 +60,15 @@ export default function ModeSelector({ selected, onSelect }: ModeSelectorProps) 
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1.5 text-xs font-medium text-zinc-300 transition-all hover:bg-zinc-800/60 hover:border-zinc-700"
+        className="flex items-center gap-1.5 rounded-xl border border-line/80 bg-card px-2.5 py-1.5 text-xs font-medium text-secondary transition-all hover:bg-hover hover:border-line"
       >
         {current.icon}
         {current.label}
-        <ChevronDown className={`h-3 w-3 text-zinc-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3 w-3 text-tertiary transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="animate-scale-in absolute right-0 top-full z-10 mt-2 w-60 overflow-hidden rounded-2xl border border-zinc-800/80 bg-zinc-900/95 backdrop-blur-md shadow-2xl shadow-black/40">
+        <div className="animate-scale-in absolute right-0 top-full z-10 mt-2 w-60 overflow-hidden rounded-2xl border border-line/80 bg-popover backdrop-blur-md shadow-2xl shadow-black/40">
           <div className="py-1">
             {MODES.map((m) => (
               <button
@@ -78,20 +78,20 @@ export default function ModeSelector({ selected, onSelect }: ModeSelectorProps) 
                   setOpen(false);
                 }}
                 className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition ${
-                  m.value === selected ? "bg-indigo-500/5" : "hover:bg-zinc-800/60"
+                  m.value === selected ? "bg-brand/10" : "hover:bg-hover"
                 }`}
               >
                 <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
-                  m.value === selected ? "bg-indigo-500/15" : "bg-zinc-800/60"
+                  m.value === selected ? "bg-brand/15" : "bg-hover"
                 }`}>
                   {m.icon}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-medium ${m.value === selected ? "text-indigo-300" : "text-zinc-200"}`}>{m.label}</p>
-                  <p className="truncate text-[11px] text-zinc-500">{m.description}</p>
+                  <p className={`text-sm font-medium ${m.value === selected ? "text-brand" : "text-primary"}`}>{m.label}</p>
+                  <p className="truncate text-[11px] text-tertiary">{m.description}</p>
                 </div>
                 {m.value === selected && (
-                  <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                  <Check className="mt-1 h-3.5 w-3.5 shrink-0 text-brand" />
                 )}
               </button>
             ))}
