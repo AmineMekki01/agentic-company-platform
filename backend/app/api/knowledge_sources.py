@@ -112,6 +112,7 @@ async def trigger_knowledge_source_sync(
     slug: str,
     user: AdminUser,
     db: DbSession,
+    force_full: bool = False,
 ):
     """
     Trigger a sync for a knowledge source.
@@ -152,6 +153,7 @@ async def trigger_knowledge_source_sync(
                 connector_credentials=connector.credentials_encrypted,
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
+                force_full=force_full,
             )
         else:
             page_title = config.get("page_title", "Untitled")
@@ -162,6 +164,7 @@ async def trigger_knowledge_source_sync(
                 connector_credentials=connector.credentials_encrypted,
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
+                force_full=force_full,
             )
         return {"task_id": task.id, "status": "queued"}
 
@@ -184,6 +187,7 @@ async def trigger_knowledge_source_sync(
             connector_credentials=connector.credentials_encrypted,
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
+            force_full=force_full,
         )
         return {"task_id": task.id, "status": "queued"}
 
@@ -204,6 +208,7 @@ async def trigger_knowledge_source_sync(
             connector_credentials=connector.credentials_encrypted,
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
+            force_full=force_full,
         )
         return {"task_id": task.id, "status": "queued"}
 

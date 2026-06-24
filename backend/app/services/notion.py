@@ -160,6 +160,27 @@ def _find_child_pages(page_id: str, token: str) -> list[dict]:
     return children
 
 
+def _fetch_page_metadata(page_id: str, token: str) -> dict:
+    """Fetch a Notion page's metadata (last_edited_time, title)."""
+    client = _notion_client(token)
+    try:
+        page = client.pages.retrieve(page_id)
+        return {
+            "last_edited_time": page.get("last_edited_time", ""),
+            "title": (
+                page.get("properties", {})
+                .get("title", {})
+                .get("title", [{}])[0]
+                .get("plain_text", page_id)
+                if page.get("properties")
+                else page.get("url", "").split("/")[-1] if page.get("url") else page_id
+            ),
+        }
+    except Exception:
+        logger.exception("Failed to fetch Notion page metadata for %s", page_id)
+        return {"last_edited_time": "", "title": page_id}
+
+
 async def _ingest_page_tree_async(
     page_id: str,
     title: str,
@@ -169,6 +190,8 @@ async def _ingest_page_tree_async(
     visited: set[str] | None = None,
     knowledge_source_id: str | None = None,
     knowledge_source_slug: str | None = None,
+    existing_metadata: dict[str, dict[str, Any]] | None = None,
+    ks_id: str | None = None,
 ) -> int:
     """
     Ingest a page and all its subpages recursively. Returns total chunks.
@@ -182,6 +205,8 @@ async def _ingest_page_tree_async(
         visited: Set of visited page IDs to prevent cycles
         knowledge_source_id: Optional knowledge source ID to associate with documents
         knowledge_source_slug: Optional slug for the knowledge source
+        existing_metadata: Existing document metadata from Qdrant for incremental sync
+        ks_id: Resolved knowledge source ID for incremental operations
         
     Returns:
         Total number of chunks ingested
@@ -192,9 +217,26 @@ async def _ingest_page_tree_async(
         return 0
     visited.add(page_id)
 
+    meta = _fetch_page_metadata(page_id, token)
+    last_edited = meta.get("last_edited_time", "")
+    sid_str = str(uuid.UUID(page_id.replace("-", "")))
+
+    # unchanged ?
+    if existing_metadata is not None and ks_id is not None:
+        prev = existing_metadata.get(sid_str)
+        if prev and prev.get("source_modified_at") == last_edited and last_edited:
+            # unchanged , we count and skip
+            return prev["chunk_count"]
+
     text = fetch_page_content(page_id, token)
     total = 0
     if text.strip():
+        # delete old chunks if this document existed
+        if existing_metadata is not None and ks_id is not None:
+            prev = existing_metadata.get(sid_str)
+            if prev:
+                await rag.delete_by_source_id(ks_id, sid_str)
+
         extra = {
             "knowledge_source_id": knowledge_source_id or knowledge_source_slug or source_title,
             "knowledge_source_slug": knowledge_source_slug or source_title,
@@ -202,6 +244,7 @@ async def _ingest_page_tree_async(
             "source_type": "notion",
             "notion_page_id": page_id,
             "notion_page_url": f"https://www.notion.so/{page_id.replace('-', '')}",
+            "source_modified_at": last_edited,
             "ingested_at": datetime.now(timezone.utc).isoformat(),
         }
         total += await rag.ingest_document(
@@ -221,6 +264,8 @@ async def _ingest_page_tree_async(
             visited,
             knowledge_source_id,
             knowledge_source_slug,
+            existing_metadata,
+            ks_id,
         )
 
     return total
@@ -228,10 +273,13 @@ async def _ingest_page_tree_async(
 
 @celery_app.task(bind=True, max_retries=3)
 def sync_notion_database(
-    self, database_id: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None
+    self, database_id: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False
 ) -> dict:
     """
     Celery task: sync a Notion database into the knowledge base.
+    
+    Incremental by default: only fetches and re-embeds pages that are new or modified
+    since the last sync. Set force_full=True to delete and re-ingest everything.
     
     Args:
         database_id: Notion database ID to sync.
@@ -240,6 +288,7 @@ def sync_notion_database(
             If omitted, falls back to the deprecated global NOTION_TOKEN.
         knowledge_source_id: Optional knowledge source ID to associate with documents.
         slug: Optional slug for the knowledge source.
+        force_full: If True, delete all and re-ingest from scratch.
     
     Returns:
         Dictionary with sync results
@@ -252,10 +301,23 @@ def sync_notion_database(
 
         async def _sync_all() -> int:
             rag = RAGService()
+            ks_id = knowledge_source_id or slug
 
-            await rag.delete_by_knowledge_source(knowledge_source_id or slug)
-            total = 0
+            if force_full:
+                await rag.delete_by_knowledge_source(ks_id)
+                existing: dict[str, dict[str, Any]] = {}
+            else:
+                existing = await rag.get_source_metadata(ks_id)
+
+            source_page_map: dict[str, dict] = {}
             for p in pages:
+                page_id = p["id"]
+                sid = str(uuid.UUID(page_id.replace("-", "")))
+                source_page_map[sid] = p
+
+            total = 0
+            skipped = 0
+            for sid_str, p in source_page_map.items():
                 page_id = p["id"]
                 title = (
                     p.get("properties", {})
@@ -263,26 +325,49 @@ def sync_notion_database(
                     .get("title", [{}])[0]
                     .get("plain_text", page_id)
                 )
-                text = fetch_page_content(page_id, token)
-                if not text.strip():
+                last_edited = p.get("last_edited_time", "")
+
+                # Skip unchanged pages
+                prev = existing.get(sid_str)
+                if prev and prev.get("source_modified_at") == last_edited and last_edited:
+                    total += prev["chunk_count"]
+                    skipped += 1
                     continue
-                extra = {
-                    "knowledge_source_id": knowledge_source_id or slug,
-                    "knowledge_source_slug": slug,
-                    "knowledge_source_name": source_title,
-                    "source_type": "notion",
-                    "notion_page_id": page_id,
-                    "notion_page_url": f"https://www.notion.so/{page_id.replace('-', '')}",
-                    "ingested_at": datetime.now(timezone.utc).isoformat(),
-                }
-                chunks = await rag.ingest_document(
-                    source_id=uuid.UUID(page_id.replace("-", "")),
-                    title=f"{source_title} - {title}",
-                    content=text,
-                    extra_payload=extra,
-                )
-                total += chunks
+
+                try:
+                    if prev:
+                        await rag.delete_by_source_id(ks_id, sid_str)
+
+                    text = fetch_page_content(page_id, token)
+                    if not text.strip():
+                        continue
+                    extra = {
+                        "knowledge_source_id": ks_id,
+                        "knowledge_source_slug": slug,
+                        "knowledge_source_name": source_title,
+                        "source_type": "notion",
+                        "notion_page_id": page_id,
+                        "notion_page_url": f"https://www.notion.so/{page_id.replace('-', '')}",
+                        "source_modified_at": last_edited,
+                        "ingested_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    chunks = await rag.ingest_document(
+                        source_id=uuid.UUID(page_id.replace("-", "")),
+                        title=f"{source_title} - {title}",
+                        content=text,
+                        extra_payload=extra,
+                    )
+                    total += chunks
+                except Exception:
+                    logger.exception("Failed to ingest Notion page %s", page_id)
+                    continue
+
+            for sid_str in existing:
+                if sid_str not in source_page_map:
+                    await rag.delete_by_source_id(ks_id, sid_str)
+
             await _update_source_status(slug, total)
+            logger.info("Notion DB sync complete: %d total chunks, %d pages skipped (unchanged)", total, skipped)
             return total
 
         total_chunks = asyncio.run(_sync_all())
@@ -295,9 +380,12 @@ def sync_notion_database(
 
 @celery_app.task(bind=True, max_retries=3)
 def sync_notion_page(
-    self, page_id: str, page_title: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None
+    self, page_id: str, page_title: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False
 ) -> dict:
     """Celery task: sync a Notion page (with all subpages) into the knowledge base.
+
+    Incremental by default: only fetches and re-embeds pages that are new or modified
+    since the last sync. Set force_full=True to delete and re-ingest everything.
 
     Args:
         page_id: Notion page ID to sync.
@@ -306,6 +394,7 @@ def sync_notion_page(
         connector_credentials: Encrypted credentials string from a Connector row.
         knowledge_source_id: Optional knowledge source ID to associate with documents.
         slug: Optional slug for the knowledge source.
+        force_full: If True, delete all and re-ingest from scratch.
 
     Returns:
         Dictionary with sync results
@@ -316,9 +405,21 @@ def sync_notion_page(
 
         async def _sync() -> int:
             rag = RAGService()
+            ks_id = knowledge_source_id or slug
 
-            await rag.delete_by_knowledge_source(knowledge_source_id or slug)
-            total = await _ingest_page_tree_async(page_id, page_title, source_title, token, rag, knowledge_source_id=knowledge_source_id, knowledge_source_slug=slug)
+            if force_full:
+                await rag.delete_by_knowledge_source(ks_id)
+                existing: dict[str, dict[str, Any]] | None = None
+            else:
+                existing = await rag.get_source_metadata(ks_id)
+
+            total = await _ingest_page_tree_async(
+                page_id, page_title, source_title, token, rag,
+                knowledge_source_id=knowledge_source_id,
+                knowledge_source_slug=slug,
+                existing_metadata=existing,
+                ks_id=ks_id if existing is not None else None,
+            )
             await _update_source_status(slug, total)
             return total
 

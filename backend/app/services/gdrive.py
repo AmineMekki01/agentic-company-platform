@@ -148,8 +148,13 @@ def sync_gdrive_folder(
     connector_credentials: str,
     knowledge_source_id: str | None = None,
     slug: str | None = None,
+    force_full: bool = False,
 ) -> dict:
-    """Celery task: sync all files under a Google Drive folder into the knowledge base."""
+    """Celery task: sync all files under a Google Drive folder into the knowledge base.
+
+    Incremental by default: only downloads and re-embeds files that are new or modified
+    since the last sync. Set force_full=True to delete and re-ingest everything.
+    """
     slug = slug or source_title
     try:
         service = _get_drive_service(connector_credentials)
@@ -162,13 +167,37 @@ def sync_gdrive_folder(
 
         async def _sync_all() -> int:
             rag = RAGService()
-            await rag.delete_by_knowledge_source(knowledge_source_id or slug)
-            total = 0
+            ks_id = knowledge_source_id or slug
+
+            if force_full:
+                await rag.delete_by_knowledge_source(ks_id)
+                existing: dict[str, dict[str, Any]] = {}
+            else:
+                existing = await rag.get_source_metadata(ks_id)
+
+            source_file_map: dict[str, dict] = {}
             for f in files:
+                sid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"gdrive://{f['id']}"))
+                source_file_map[sid] = f
+
+            total = 0
+            skipped = 0
+            for sid_str, f in source_file_map.items():
                 file_id = f["id"]
                 name = f.get("name", file_id)
                 mime = f.get("mimeType", "")
+                modified = f.get("modifiedTime", "")
+
+                prev = existing.get(sid_str)
+                if prev and prev.get("source_modified_at") == modified:
+                    total += prev["chunk_count"]
+                    skipped += 1
+                    continue
+
                 try:
+                    if prev:
+                        await rag.delete_by_source_id(ks_id, sid_str)
+
                     content, effective_mime = _download_file_content(service, file_id, mime)
                     text = _extract_text(content, effective_mime, name)
                     if not text.strip():
@@ -176,17 +205,18 @@ def sync_gdrive_folder(
                         continue
 
                     extra = {
-                        "knowledge_source_id": knowledge_source_id or slug,
+                        "knowledge_source_id": ks_id,
                         "knowledge_source_slug": slug,
                         "knowledge_source_name": source_title,
                         "source_type": "gdrive",
                         "gdrive_file_id": file_id,
                         "gdrive_file_url": f.get("webViewLink"),
                         "gdrive_folder_id": folder_id,
+                        "source_modified_at": modified,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),
                     }
                     chunks = await rag.ingest_document(
-                        source_id=uuid.uuid4(),
+                        source_id=uuid.UUID(sid_str),
                         title=f"{source_title} - {name}",
                         content=text,
                         extra_payload=extra,
@@ -196,7 +226,12 @@ def sync_gdrive_folder(
                     logger.exception("Failed to ingest Google Drive file %s", name)
                     continue
 
+            for sid_str in existing:
+                if sid_str not in source_file_map:
+                    await rag.delete_by_source_id(ks_id, sid_str)
+
             await _update_source_status(slug, total)
+            logger.info("Google Drive sync complete: %d total chunks, %d files skipped (unchanged)", total, skipped)
             return total
 
         total_chunks = asyncio.run(_sync_all())

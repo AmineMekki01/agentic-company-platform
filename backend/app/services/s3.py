@@ -130,8 +130,12 @@ def sync_s3_prefix(
     connector_credentials: str,
     knowledge_source_id: str | None = None,
     slug: str | None = None,
+    force_full: bool = False,
 ) -> dict:
     """Celery task: sync all files under an S3 prefix into the knowledge base.
+
+    Incremental by default: only downloads and re-embeds objects that are new or modified
+    since the last sync. Set force_full=True to delete and re-ingest everything.
 
     Args:
         bucket: S3 bucket name.
@@ -140,6 +144,7 @@ def sync_s3_prefix(
         connector_credentials: Encrypted credentials string from a Connector row.
         knowledge_source_id: UUID of the KnowledgeSource row.
         slug: Knowledge source slug for status updates.
+        force_full: If True, delete all and re-ingest from scratch.
     
     Returns:
         dict: Sync results with status, objects count, and chunks count
@@ -158,11 +163,37 @@ def sync_s3_prefix(
 
         async def _sync_all() -> int:
             rag = RAGService()
-            await rag.delete_by_knowledge_source(knowledge_source_id or slug)
-            total = 0
+            ks_id = knowledge_source_id or slug
+
+            if force_full:
+                await rag.delete_by_knowledge_source(ks_id)
+                existing: dict[str, dict[str, Any]] = {}
+            else:
+                existing = await rag.get_source_metadata(ks_id)
+
+            source_obj_map: dict[str, dict] = {}
             for obj in objects:
                 key: str = obj["Key"]
+                sid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"s3://{bucket}/{key}"))
+                source_obj_map[sid] = obj
+
+            total = 0
+            skipped = 0
+            for sid_str, obj in source_obj_map.items():
+                key = obj["Key"]
+                modified = obj.get("LastModified")
+                modified_str = modified.isoformat() if hasattr(modified, "isoformat") else str(modified)
+
+                prev = existing.get(sid_str)
+                if prev and prev.get("source_modified_at") == modified_str:
+                    total += prev["chunk_count"]
+                    skipped += 1
+                    continue
+
                 try:
+                    if prev:
+                        await rag.delete_by_source_id(ks_id, sid_str)
+
                     content = _download_object(client, bucket, key)
                     text = parse_upload(content, None, key)
                     if not text.strip():
@@ -171,17 +202,18 @@ def sync_s3_prefix(
 
                     source_url = _build_s3_url(creds, bucket, key)
                     extra = {
-                        "knowledge_source_id": knowledge_source_id or slug,
+                        "knowledge_source_id": ks_id,
                         "knowledge_source_slug": slug,
                         "knowledge_source_name": source_title,
                         "source_type": "s3",
                         "s3_bucket": bucket,
                         "s3_key": key,
                         "source_url": source_url,
+                        "source_modified_at": modified_str,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),
                     }
                     chunks = await rag.ingest_document(
-                        source_id=uuid.uuid4(),
+                        source_id=uuid.UUID(sid_str),
                         title=f"{source_title} - {key}",
                         content=text,
                         extra_payload=extra,
@@ -191,7 +223,12 @@ def sync_s3_prefix(
                     logger.exception("Failed to ingest S3 object %s", key)
                     continue
 
+            for sid_str in existing:
+                if sid_str not in source_obj_map:
+                    await rag.delete_by_source_id(ks_id, sid_str)
+
             await _update_source_status(slug, total)
+            logger.info("S3 sync complete: %d total chunks, %d objects skipped (unchanged)", total, skipped)
             return total
 
         total_chunks = asyncio.run(_sync_all())

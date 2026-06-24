@@ -437,3 +437,88 @@ class RAGService:
                 break
         logger.info("Deleted %d chunks for knowledge_source_id=%s", total_deleted, knowledge_source_id)
         return total_deleted
+
+    async def delete_by_source_id(self, knowledge_source_id: str, source_id: str) -> int:
+        """
+        Delete all chunks for a single document (source_id) within a knowledge source.
+
+        Args:
+            knowledge_source_id: The knowledge source ID the document belongs to.
+            source_id: The source_id of the document to delete.
+
+        Returns:
+            Number of chunks deleted.
+        """
+        total_deleted = 0
+        while True:
+            points, next_offset = await self.qdrant.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="knowledge_source_id",
+                            match=models.MatchValue(value=knowledge_source_id),
+                        ),
+                        models.FieldCondition(
+                            key="source_id",
+                            match=models.MatchValue(value=source_id),
+                        ),
+                    ]
+                ),
+                limit=250,
+                offset=total_deleted,
+                with_payload=False,
+            )
+            if not points:
+                break
+            ids = [p.id for p in points]
+            await self.qdrant.delete(
+                collection_name=COLLECTION_NAME,
+                points_selector=models.PointIdsList(points=ids),
+            )
+            total_deleted += len(ids)
+            if not next_offset:
+                break
+        logger.info("Deleted %d chunks for source_id=%s (ks=%s)", total_deleted, source_id, knowledge_source_id)
+        return total_deleted
+
+    async def get_source_metadata(self, knowledge_source_id: str) -> dict[str, dict[str, Any]]:
+        """
+        Get metadata for all documents in a knowledge source.
+
+        Returns a mapping of source_id -> {source_modified_at, chunk_count, title}
+        for incremental sync comparisons.
+        """
+        result: dict[str, dict[str, Any]] = {}
+        offset = 0
+        while True:
+            points, next_offset = await self.qdrant.scroll(
+                collection_name=COLLECTION_NAME,
+                scroll_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="knowledge_source_id",
+                            match=models.MatchValue(value=knowledge_source_id),
+                        )
+                    ]
+                ),
+                limit=250,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for p in points:
+                payload = p.payload or {}
+                sid = payload.get("source_id")
+                if sid and sid not in result:
+                    result[sid] = {
+                        "source_modified_at": payload.get("source_modified_at"),
+                        "title": payload.get("title", ""),
+                        "chunk_count": 0,
+                    }
+                if sid:
+                    result[sid]["chunk_count"] += 1
+            if not next_offset:
+                break
+            offset += len(points)
+        return result
