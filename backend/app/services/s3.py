@@ -7,12 +7,12 @@ from typing import Any
 
 from app.celery_app import celery_app
 from app.core.encryption import EncryptionService
-from app.services.parsers import parse_upload
+from app.services.parsers import _detect_file_type, parse_upload
 from app.services.rag import RAGService
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".doc", ".txt", ".md")
+SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".xlsx")
 
 
 def _get_s3_client(credentials: dict[str, Any]):
@@ -208,6 +208,8 @@ def sync_s3_prefix(
                         "source_type": "s3",
                         "s3_bucket": bucket,
                         "s3_key": key,
+                        "file_name": key.split("/")[-1],
+                        "file_type": _detect_file_type(key),
                         "source_url": source_url,
                         "source_modified_at": modified_str,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),

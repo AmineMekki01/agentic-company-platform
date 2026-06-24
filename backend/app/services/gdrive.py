@@ -10,7 +10,7 @@ from typing import Any
 
 from app.celery_app import celery_app
 from app.core.encryption import EncryptionService
-from app.services.parsers import parse_upload
+from app.services.parsers import _detect_file_type, parse_upload
 from app.services.rag import RAGService
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ SUPPORTED_MIME_TYPES = {
     "text/plain",
     "text/csv",
     "text/markdown",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.google-apps.document",
     "application/vnd.google-apps.spreadsheet",
     "application/vnd.google-apps.presentation",
@@ -40,6 +41,7 @@ FILE_EXTENSION_MAP = {
     "text/plain": ".txt",
     "text/csv": ".csv",
     "text/markdown": ".md",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
 }
 
@@ -129,12 +131,6 @@ def _download_file_content(service, file_id: str, mime_type: str) -> tuple[bytes
 
 def _extract_text(content: bytes, mime_type: str, filename: str) -> str:
     """Extract plain text from downloaded content."""
-    if mime_type == "text/csv":
-        try:
-            return content.decode("utf-8", errors="replace")
-        except Exception:
-            return ""
-
     ext = FILE_EXTENSION_MAP.get(mime_type, "")
     fn = filename if filename.endswith(ext) else filename + ext
     return parse_upload(content, mime_type, fn)
@@ -212,6 +208,8 @@ def sync_gdrive_folder(
                         "gdrive_file_id": file_id,
                         "gdrive_file_url": f.get("webViewLink"),
                         "gdrive_folder_id": folder_id,
+                        "file_name": name,
+                        "file_type": _detect_file_type(effective_mime, name),
                         "source_modified_at": modified,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),
                     }

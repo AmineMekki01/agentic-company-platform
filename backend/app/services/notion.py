@@ -244,6 +244,8 @@ async def _ingest_page_tree_async(
             "source_type": "notion",
             "notion_page_id": page_id,
             "notion_page_url": f"https://www.notion.so/{page_id.replace('-', '')}",
+            "file_name": title,
+            "file_type": "notion_page",
             "source_modified_at": last_edited,
             "ingested_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -348,6 +350,8 @@ def sync_notion_database(
                         "source_type": "notion",
                         "notion_page_id": page_id,
                         "notion_page_url": f"https://www.notion.so/{page_id.replace('-', '')}",
+                        "file_name": title,
+                        "file_type": "notion_page",
                         "source_modified_at": last_edited,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),
                     }
