@@ -40,8 +40,7 @@ def _extract_and_record_tokens(
         import asyncio
         user_id = state.get("user_id")
         conv_id = state.get("conversation_id")
-        loop = asyncio.get_event_loop()
-        loop.create_task(
+        asyncio.create_task(
             _record_token_usage(
                 user_id=user_id,
                 agent_slug=agent_slug,

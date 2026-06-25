@@ -54,8 +54,7 @@ def _dr_record_tokens(response, agent_slug: str, model_name: str, user_id=None, 
         if input_tokens == 0 and output_tokens == 0:
             return
         import asyncio as _aio
-        loop = _aio.get_event_loop()
-        loop.create_task(_record_token_usage(
+        _aio.create_task(_record_token_usage(
             user_id=user_id,
             agent_slug=agent_slug,
             model=model_name,
