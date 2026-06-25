@@ -237,8 +237,8 @@ async def _ingest_page_tree_async(
             if prev:
                 await rag.delete_by_source_id(ks_id, sid_str)
 
+        resolved_ks_id = ks_id or knowledge_source_id or knowledge_source_slug or source_title
         extra = {
-            "knowledge_source_id": knowledge_source_id or knowledge_source_slug or source_title,
             "knowledge_source_slug": knowledge_source_slug or source_title,
             "knowledge_source_name": source_title,
             "source_type": "notion",
@@ -253,6 +253,7 @@ async def _ingest_page_tree_async(
             source_id=uuid.UUID(page_id.replace("-", "")),
             title=f"{source_title} - {title}",
             content=text,
+            knowledge_source_id=resolved_ks_id,
             extra_payload=extra,
         )
 
@@ -344,7 +345,6 @@ def sync_notion_database(
                     if not text.strip():
                         continue
                     extra = {
-                        "knowledge_source_id": ks_id,
                         "knowledge_source_slug": slug,
                         "knowledge_source_name": source_title,
                         "source_type": "notion",
@@ -359,6 +359,7 @@ def sync_notion_database(
                         source_id=uuid.UUID(page_id.replace("-", "")),
                         title=f"{source_title} - {title}",
                         content=text,
+                        knowledge_source_id=ks_id,
                         extra_payload=extra,
                     )
                     total += chunks

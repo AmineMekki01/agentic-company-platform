@@ -204,6 +204,7 @@ class RAGService:
         source_id: uuid.UUID,
         title: str,
         content: str,
+        knowledge_source_id: str,
         extra_payload: dict[str, Any] | None = None,
     ) -> int:
         """
@@ -213,6 +214,8 @@ class RAGService:
             source_id: Unique identifier for the source document
             title: Title of the source document
             content: Text content to ingest
+            knowledge_source_id: UUID of the KnowledgeSource this document belongs to.
+                Stored in Qdrant payload as "knowledge_source_id" for retrieval filtering.
             extra_payload: Additional metadata to store with each chunk
             
         Returns:
@@ -242,6 +245,7 @@ class RAGService:
             }
             if extra_payload:
                 payload.update(extra_payload)
+            payload["knowledge_source_id"] = knowledge_source_id
             points.append(
                 models.PointStruct(
                     id=str(uuid.uuid4()),

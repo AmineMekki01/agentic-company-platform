@@ -201,7 +201,6 @@ def sync_gdrive_folder(
                         continue
 
                     extra = {
-                        "knowledge_source_id": ks_id,
                         "knowledge_source_slug": slug,
                         "knowledge_source_name": source_title,
                         "source_type": "gdrive",
@@ -217,6 +216,7 @@ def sync_gdrive_folder(
                         source_id=uuid.UUID(sid_str),
                         title=f"{source_title} - {name}",
                         content=text,
+                        knowledge_source_id=ks_id,
                         extra_payload=extra,
                     )
                     total += chunks

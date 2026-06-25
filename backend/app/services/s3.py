@@ -202,7 +202,6 @@ def sync_s3_prefix(
 
                     source_url = _build_s3_url(creds, bucket, key)
                     extra = {
-                        "knowledge_source_id": ks_id,
                         "knowledge_source_slug": slug,
                         "knowledge_source_name": source_title,
                         "source_type": "s3",
@@ -218,6 +217,7 @@ def sync_s3_prefix(
                         source_id=uuid.UUID(sid_str),
                         title=f"{source_title} - {key}",
                         content=text,
+                        knowledge_source_id=ks_id,
                         extra_payload=extra,
                     )
                     total += chunks
