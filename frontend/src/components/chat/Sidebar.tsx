@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, ChevronDown, ChevronRight, Folder, FolderPlus, LogOut, MessageSquare, MoreHorizontal, Plus, Settings, Trash2, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, Folder, FolderPlus, LogOut, MessageSquare, MoreHorizontal, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import ThemeToggle from "@/components/ThemeToggle";
@@ -28,6 +28,7 @@ interface SidebarProps {
   onCreateFolder: (name: string, color: string | null) => void;
   onDeleteFolder: (id: string) => void;
   onMoveConversation: (conversationId: string, folderId: string | null) => void;
+  onSearch: (query: string) => Promise<Conversation[]>;
 }
 
 export default function Sidebar({
@@ -40,6 +41,7 @@ export default function Sidebar({
   onCreateFolder,
   onDeleteFolder,
   onMoveConversation,
+  onSearch,
 }: SidebarProps) {
   const { user, logout, isAdmin } = useAuth();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -48,7 +50,11 @@ export default function Sidebar({
   const [newFolderColor, setNewFolderColor] = useState<string | null>(FOLDER_COLORS[5]);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [moveMenuOpen, setMoveMenuOpen] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -70,8 +76,32 @@ export default function Sidebar({
     });
   };
 
-  const unfiled = conversations.filter((c) => !c.folder_id);
-  const byFolder = (folderId: string) => conversations.filter((c) => c.folder_id === folderId);
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!value.trim()) {
+      setSearchResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await onSearch(value.trim());
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+  };
+
+  const displayedConversations = searchResults ?? conversations;
+
+  const isSearching = searchResults !== null;
+  const unfiled = displayedConversations.filter((c) => !c.folder_id);
+  const byFolder = (folderId: string) => displayedConversations.filter((c) => c.folder_id === folderId);
 
   const handleCreateFolder = () => {
     const name = newFolderName.trim();
@@ -204,6 +234,28 @@ export default function Sidebar({
         </button>
       </div>
 
+      <div className="px-3 pt-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-tertiary" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search conversations…"
+            className="w-full rounded-lg bg-hover py-1.5 pl-8 pr-7 text-xs text-primary placeholder-tertiary outline-none ring-1 ring-line focus:ring-brand"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => handleSearchChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-tertiary hover:text-secondary"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-3 pb-4">
         {/* New folder button / form */}
         {!creatingFolder ? (
@@ -262,75 +314,98 @@ export default function Sidebar({
           </div>
         )}
 
-        {/* Unfiled conversations */}
-        {unfiled.length > 0 && (
+        {/* Search results (flat list) */}
+        {isSearching ? (
           <div className="space-y-0.5">
-            {folders.length > 0 && (
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
-                Unfiled
+            {searching && (
+              <p className="px-2 py-3 text-xs text-tertiary">Searching…</p>
+            )}
+            {!searching && displayedConversations.length === 0 && (
+              <div className="px-3 py-10 text-center">
+                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-card ring-1 ring-line/60">
+                  <Search className="h-5 w-5 text-tertiary" />
+                </div>
+                <p className="text-xs font-medium text-tertiary">No results found</p>
+                <p className="mt-1 text-[11px] text-tertiary">Try a different search term</p>
               </div>
             )}
-            {unfiled.map((c) => (
+            {!searching && displayedConversations.map((c) => (
               <ConversationItem key={c.id} c={c} />
             ))}
           </div>
-        )}
-
-        {/* Folders */}
-        {folders.map((folder) => {
-          const items = byFolder(folder.id);
-          const isExpanded = expandedFolders.has(folder.id);
-          return (
-            <div key={folder.id} className="pt-1">
-              <div className="group flex items-center gap-1.5 px-2 py-1">
-                <button
-                  onClick={() => toggleFolder(folder.id)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-tertiary transition hover:text-secondary"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  )}
-                  <span
-                    className="h-2.5 w-2.5 rounded-full ring-2 ring-canvas"
-                    style={{ backgroundColor: folder.color ?? "#3b82f6" }}
-                  />
-                  <span className="truncate">{folder.name}</span>
-                  <span className="ml-1 rounded-full bg-hover px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
-                    {items.length}
-                  </span>
-                </button>
-                <button
-                  onClick={() => onDeleteFolder(folder.id)}
-                  className="ml-auto hidden rounded p-0.5 text-tertiary hover:text-danger group-hover:block"
-                  aria-label="Delete folder"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+        ) : (
+          <>
+            {/* Unfiled conversations */}
+            {unfiled.length > 0 && (
+              <div className="space-y-0.5">
+                {folders.length > 0 && (
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
+                    Unfiled
+                  </div>
+                )}
+                {unfiled.map((c) => (
+                  <ConversationItem key={c.id} c={c} />
+                ))}
               </div>
-              {isExpanded && (
-                <div className="ml-4 space-y-0.5 border-l border-line/60 pl-2">
-                  {items.length === 0 && (
-                    <p className="px-3 py-2 text-xs text-tertiary">Empty folder</p>
-                  )}
-                  {items.map((c) => (
-                    <ConversationItem key={c.id} c={c} />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+            )}
 
-        {conversations.length === 0 && (
-          <div className="px-3 py-10 text-center">
-            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-card ring-1 ring-line/60">
-              <MessageSquare className="h-5 w-5 text-tertiary" />
-            </div>
-            <p className="text-xs font-medium text-tertiary">No conversations yet</p>
-            <p className="mt-1 text-[11px] text-tertiary">Start a new chat to begin</p>
-          </div>
+            {/* Folders */}
+            {folders.map((folder) => {
+              const items = byFolder(folder.id);
+              const isExpanded = expandedFolders.has(folder.id);
+              return (
+                <div key={folder.id} className="pt-1">
+                  <div className="group flex items-center gap-1.5 px-2 py-1">
+                    <button
+                      onClick={() => toggleFolder(folder.id)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-tertiary transition hover:text-secondary"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
+                      <span
+                        className="h-2.5 w-2.5 rounded-full ring-2 ring-canvas"
+                        style={{ backgroundColor: folder.color ?? "#3b82f6" }}
+                      />
+                      <span className="truncate">{folder.name}</span>
+                      <span className="ml-1 rounded-full bg-hover px-1.5 py-0.5 text-[10px] font-semibold text-tertiary">
+                        {items.length}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => onDeleteFolder(folder.id)}
+                      className="ml-auto hidden rounded p-0.5 text-tertiary hover:text-danger group-hover:block"
+                      aria-label="Delete folder"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {isExpanded && (
+                    <div className="ml-4 space-y-0.5 border-l border-line/60 pl-2">
+                      {items.length === 0 && (
+                        <p className="px-3 py-2 text-xs text-tertiary">Empty folder</p>
+                      )}
+                      {items.map((c) => (
+                        <ConversationItem key={c.id} c={c} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {conversations.length === 0 && (
+              <div className="px-3 py-10 text-center">
+                <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-card ring-1 ring-line/60">
+                  <MessageSquare className="h-5 w-5 text-tertiary" />
+                </div>
+                <p className="text-xs font-medium text-tertiary">No conversations yet</p>
+                <p className="mt-1 text-[11px] text-tertiary">Start a new chat to begin</p>
+              </div>
+            )}
+          </>
         )}
       </nav>
 

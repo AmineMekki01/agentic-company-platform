@@ -424,6 +424,7 @@ export default function ChatPage() {
         onCreateFolder={handleCreateFolder}
         onDeleteFolder={handleDeleteFolder}
         onMoveConversation={handleMoveConversation}
+        onSearch={(q) => api.searchConversations(q)}
       />
 
       <main className="flex min-w-0 flex-1 flex-col bg-card/70">

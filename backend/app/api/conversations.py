@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
@@ -66,6 +66,65 @@ async def list_conversations(
         pass
     result = await db.scalars(stmt)
     return [ConversationOut.model_validate(c) for c in result.all()]
+
+
+@router.get("/search", response_model=list[ConversationOut])
+async def search_conversations(
+    q: str = Query(..., min_length=1, description="Search query"),
+    user: CurrentUser = None,
+    db: DbSession = None,
+) -> list[ConversationOut]:
+    """
+    Search conversations by title or message content.
+
+    Uses ILIKE for case-insensitive partial matching on conversation titles
+    and message content. Returns conversations owned by the current user,
+    sorted by updated_at descending.
+
+    Args:
+        q: Search query string
+        user: The authenticated user
+        db: Database session
+
+    Returns:
+        List of matching ConversationOut objects
+    """
+    pattern = f"%{q}%"
+
+    title_stmt = (
+        select(Conversation)
+        .where(
+            Conversation.user_id == user.id,
+            Conversation.title.ilike(pattern),
+        )
+    )
+
+    msg_stmt = (
+        select(Conversation)
+        .join(Message, Message.conversation_id == Conversation.id)
+        .where(
+            Conversation.user_id == user.id,
+            Message.content.ilike(pattern),
+        )
+        .distinct()
+    )
+
+    title_results = (await db.scalars(title_stmt)).all()
+    msg_results = (await db.scalars(msg_stmt)).all()
+
+    seen: set[uuid.UUID] = set()
+    combined: list[Conversation] = []
+    for c in title_results:
+        if c.id not in seen:
+            seen.add(c.id)
+            combined.append(c)
+    for c in msg_results:
+        if c.id not in seen:
+            seen.add(c.id)
+            combined.append(c)
+
+    combined.sort(key=lambda c: c.updated_at, reverse=True)
+    return [ConversationOut.model_validate(c) for c in combined]
 
 
 @router.post("", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
