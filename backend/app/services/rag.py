@@ -133,11 +133,15 @@ class RAGService:
             self._sparse_available = False
         return self._sparse_model
 
-    def _embed_sparse(self, texts: list[str]) -> list[models.SparseVector]:
-        """Embed texts into sparse vectors using fastembed Qdrant/bm25."""
+    def _embed_sparse(self, texts: list[str]) -> list[models.SparseVector] | None:
+        """Embed texts into sparse vectors using fastembed Qdrant/bm25.
+
+        Returns None when the sparse model is unavailable, allowing callers
+        to fall back to dense-only mode.
+        """
         model = self._get_sparse_model()
         if model is None:
-            raise RuntimeError("fastembed sparse model is not available")
+            return None
         embeddings = list(model.embed(texts))
         return [
             models.SparseVector(
@@ -236,7 +240,7 @@ class RAGService:
         sparse_vectors = self._embed_sparse(texts)
 
         points = []
-        for i, (doc, dense, sparse) in enumerate(zip(docs, dense_vectors, sparse_vectors)):
+        for i, doc in enumerate(docs):
             payload: dict[str, Any] = {
                 "text": doc.page_content,
                 "source_id": str(source_id),
@@ -246,10 +250,13 @@ class RAGService:
             if extra_payload:
                 payload.update(extra_payload)
             payload["knowledge_source_id"] = knowledge_source_id
+            vector: dict[str, Any] = {"dense": dense_vectors[i]}
+            if sparse_vectors is not None:
+                vector["sparse"] = sparse_vectors[i]
             points.append(
                 models.PointStruct(
                     id=str(uuid.uuid4()),
-                    vector={"dense": dense, "sparse": sparse},
+                    vector=vector,
                     payload=payload,
                 )
             )
@@ -344,7 +351,10 @@ class RAGService:
         logger.warning("RAG retrieve query=%r source_ids=%s top_k=%d (prefetch=%d rrf=%d)", query, source_ids, top_k, prefetch_limit, rrf_limit)
 
         dense_query = await self.embeddings.aembed_query(query)
-        sparse_query = self._embed_sparse([query])[0]
+        sparse_query = self._embed_sparse([query])
+        sparse_available = sparse_query is not None
+        if not sparse_available:
+            logger.warning("RAG retrieve: sparse model unavailable, using dense-only search")
 
         qdrant_filter = None
         if source_ids:
@@ -360,26 +370,41 @@ class RAGService:
         else:
             logger.warning("RAG filter: NONE (searching all sources)")
 
-        resp = await self.qdrant.query_points(
-            collection_name=COLLECTION_NAME,
-            prefetch=[
-                models.Prefetch(
-                    query=dense_query,
-                    using="dense",
-                    limit=prefetch_limit,
-                    filter=qdrant_filter,
-                ),
-                models.Prefetch(
-                    query=sparse_query,
-                    using="sparse",
-                    limit=prefetch_limit,
-                    filter=qdrant_filter,
-                ),
-            ],
-            query=models.FusionQuery(fusion=models.Fusion.RRF),
-            limit=rrf_limit,
-            with_payload=True,
-        )
+        if sparse_available:
+            resp = await self.qdrant.query_points(
+                collection_name=COLLECTION_NAME,
+                prefetch=[
+                    models.Prefetch(
+                        query=dense_query,
+                        using="dense",
+                        limit=prefetch_limit,
+                        filter=qdrant_filter,
+                    ),
+                    models.Prefetch(
+                        query=sparse_query[0],
+                        using="sparse",
+                        limit=prefetch_limit,
+                        filter=qdrant_filter,
+                    ),
+                ],
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
+                limit=rrf_limit,
+                with_payload=True,
+            )
+        else:
+            resp = await self.qdrant.query_points(
+                collection_name=COLLECTION_NAME,
+                prefetch=[
+                    models.Prefetch(
+                        query=dense_query,
+                        using="dense",
+                        limit=prefetch_limit,
+                        filter=qdrant_filter,
+                    ),
+                ],
+                limit=rrf_limit,
+                with_payload=True,
+            )
 
         raw_unique: dict[str, str] = {}
         for p in resp.points:
