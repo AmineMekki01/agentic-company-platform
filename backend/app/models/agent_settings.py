@@ -32,12 +32,12 @@ class AgentSettings(Base):
     )
     system_prompt: Mapped[str | None] = mapped_column(Text(), nullable=True)
     retrieval_top_k: Mapped[int] = mapped_column(nullable=False, server_default="5")
-    retrieval_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="true")
-    web_search_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    retrieval_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="1")
+    web_search_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
     connected_sources: Mapped[list[Any] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
     tools: Mapped[list[str] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
-    is_orchestrator: Mapped[bool] = mapped_column(nullable=False, server_default="false")
-    is_router: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    is_orchestrator: Mapped[bool] = mapped_column(nullable=False, server_default="0")
+    is_router: Mapped[bool] = mapped_column(nullable=False, server_default="0")
     routes_to: Mapped[list[str] | None] = mapped_column(JSON(), nullable=True)
     mode_profile: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     visibility: Mapped[str] = mapped_column(
@@ -46,12 +46,15 @@ class AgentSettings(Base):
     created_by: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
-    allow_uploads: Mapped[bool] = mapped_column(nullable=False, server_default="true")
+    allow_uploads: Mapped[bool] = mapped_column(nullable=False, server_default="1")
     allowed_users: Mapped[list[str] | None] = mapped_column(
         JSON(), nullable=True, server_default="[]"
     )
     beta_users: Mapped[list[str] | None] = mapped_column(
         JSON(), nullable=True, server_default="[]"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -62,7 +65,7 @@ class AgentSettings(Base):
     )
     research_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     draft_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
-    is_published: Mapped[bool] = mapped_column(Boolean(), nullable=False, server_default="false")
+    is_published: Mapped[bool] = mapped_column(Boolean(), nullable=False, server_default="0")
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_version_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("agent_versions.id", ondelete="SET NULL"), nullable=True

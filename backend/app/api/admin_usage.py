@@ -164,7 +164,7 @@ async def get_usage_timeseries(
 
     rows = await db.execute(
         select(
-            func.date_trunc("day", TokenUsage.created_at).label("date"),
+            func.date(TokenUsage.created_at).label("date"),
             func.coalesce(func.sum(TokenUsage.total_tokens), 0).label("total_tokens"),
             func.coalesce(func.sum(TokenUsage.estimated_cost_usd), 0.0).label("total_cost_usd"),
             func.count(TokenUsage.id).label("request_count"),

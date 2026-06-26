@@ -1,5 +1,6 @@
 """Admin agent settings API."""
 
+import json
 from datetime import datetime
 from typing import Any
 
@@ -31,6 +32,12 @@ FROM agent_settings
 """
 
 
+_JSON_COLUMNS = frozenset({
+    "connected_sources", "tools", "routes_to", "mode_profile",
+    "allowed_users", "beta_users", "research_config", "draft_config",
+})
+
+
 async def _fetch_agent_settings(db: DbSession, slug: str | None = None) -> list[dict]:
     query = _AGENT_SETTING_COLUMNS
     params: dict[str, str] = {}
@@ -40,7 +47,18 @@ async def _fetch_agent_settings(db: DbSession, slug: str | None = None) -> list[
     else:
         query += " ORDER BY slug"
     result = await db.execute(text(query), params)
-    return list(result.mappings().all())
+    rows = []
+    for row in result.mappings().all():
+        r = dict(row)
+        for col in _JSON_COLUMNS:
+            val = r.get(col)
+            if isinstance(val, str):
+                try:
+                    r[col] = json.loads(val)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        rows.append(r)
+    return rows
 
 @router.get("/models", response_model=list[str])
 async def list_models(user: AdminUser) -> list[str]:
@@ -263,12 +281,11 @@ async def _validate_upload_settings(db: DbSession, allow_uploads: bool) -> None:
 
 
 async def _next_version_number(db: DbSession, agent_id: str) -> int:
-    result = await db.scalar(
-        select(func.max(AgentVersion.version_number)).where(
-            AgentVersion.agent_settings_id == agent_id
-        )
+    result = await db.execute(
+        text("SELECT COALESCE(MAX(version_number), 0) FROM agent_versions WHERE agent_settings_id = :aid OR agent_settings_id = :aid_hex"),
+        {"aid": agent_id, "aid_hex": agent_id.replace("-", "")},
     )
-    return (result or 0) + 1
+    return (result.scalar() or 0) + 1
 
 
 @router.get("/{slug}/versions", response_model=list[AgentVersionOut])
@@ -279,12 +296,26 @@ async def list_agent_versions(
     row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
-    result = await db.scalars(
-        select(AgentVersion)
-        .where(AgentVersion.agent_settings_id == row.id)
-        .order_by(AgentVersion.version_number.desc())
+    result = await db.execute(
+        text("""
+            SELECT id, agent_settings_id, version_number, config, notes, created_by, created_at
+            FROM agent_versions
+            WHERE agent_settings_id = :aid OR agent_settings_id = :aid_hex
+            ORDER BY version_number DESC
+        """),
+        {"aid": str(row.id), "aid_hex": row.id.hex},
     )
-    return [AgentVersionOut.model_validate(v) for v in result.all()]
+    versions = []
+    for r in result.mappings().all():
+        d = dict(r)
+        if isinstance(d.get("config"), str):
+            try:
+                import json
+                d["config"] = json.loads(d["config"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+        versions.append(AgentVersionOut.model_validate(d))
+    return versions
 
 
 @router.post("/{slug}/draft", response_model=AgentSettingOut)
@@ -433,8 +464,15 @@ async def restore_agent_version(
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    version = await db.get(AgentVersion, version_id)
-    if version is None or str(version.agent_settings_id) != str(row.id):
+    version_row = await db.execute(
+        text("""
+            SELECT id, agent_settings_id, version_number, config, notes, created_by, created_at
+            FROM agent_versions WHERE id = :vid OR id = :vid_hex
+        """),
+        {"vid": str(version_id), "vid_hex": str(version_id).replace("-", "")},
+    )
+    vdata = version_row.mappings().first()
+    if vdata is None or str(vdata["agent_settings_id"]).replace("-", "") != str(row.id).replace("-", ""):
         raise HTTPException(status_code=404, detail="Version not found")
 
     current_config = {
@@ -463,13 +501,15 @@ async def restore_agent_version(
         agent_settings_id=row.id,
         version_number=version_num,
         config=current_config,
-        notes=f"Rollback to v{version.version_number}",
+        notes=f"Rollback to v{vdata['version_number']}",
         created_by=user.email,
     )
     db.add(new_version)
     await db.flush()
 
-    config = version.config
+    config = vdata["config"]
+    if isinstance(config, str):
+        config = json.loads(config)
     for key, value in config.items():
         if hasattr(row, key):
             setattr(row, key, value)
@@ -530,16 +570,26 @@ async def get_agent_version(
     row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
-    version = await db.get(AgentVersion, version_id)
-    if version is None or str(version.agent_settings_id) != str(row.id):
+    version_row = await db.execute(
+        text("""
+            SELECT id, agent_settings_id, version_number, config, notes, created_by, created_at
+            FROM agent_versions WHERE id = :vid OR id = :vid_hex
+        """),
+        {"vid": str(version_id), "vid_hex": str(version_id).replace("-", "")},
+    )
+    vdata = version_row.mappings().first()
+    if vdata is None or str(vdata["agent_settings_id"]).replace("-", "") != str(row.id).replace("-", ""):
         raise HTTPException(status_code=404, detail="Version not found")
+    config = vdata["config"]
+    if isinstance(config, str):
+        config = json.loads(config)
     return _VersionConfigOut(
-        id=str(version.id),
-        version_number=version.version_number,
-        config=version.config,
-        notes=version.notes,
-        created_by=version.created_by,
-        created_at=version.created_at,
+        id=str(vdata["id"]),
+        version_number=vdata["version_number"],
+        config=config,
+        notes=vdata["notes"],
+        created_by=vdata["created_by"],
+        created_at=vdata["created_at"],
     )
 
 

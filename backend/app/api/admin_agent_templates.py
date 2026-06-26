@@ -1,5 +1,7 @@
 """Admin agent template gallery API."""
 
+import json
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select, text
 
@@ -116,4 +118,12 @@ async def deploy_agent_template(
     row = result.mappings().first()
     if not row:
         raise HTTPException(status_code=500, detail="Failed to load created agent")
-    return AgentSettingOut.model_validate(dict(row))
+    r = dict(row)
+    for col in ("connected_sources", "tools", "routes_to", "mode_profile", "allowed_users", "beta_users", "draft_config"):
+        val = r.get(col)
+        if isinstance(val, str):
+            try:
+                r[col] = json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return AgentSettingOut.model_validate(r)

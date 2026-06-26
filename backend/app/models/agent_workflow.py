@@ -25,7 +25,7 @@ class AgentWorkflow(Base):
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
-    enabled: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
     definition: Mapped[dict[str, Any]] = mapped_column(JSON(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

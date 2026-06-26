@@ -41,6 +41,7 @@ async def chat_env(monkeypatch, session_factory):
             description="HR test agent",
             system_prompt="You are HR.",
             tools=["retrieve"],
+            is_published=True,
         ))
         await session.commit()
 
@@ -222,7 +223,7 @@ async def test_router_restricts_to_orchestrator_routes(monkeypatch):
     }
     result = await node(state)
     assert result["current_agent"] == "hr"
-    assert captured_registry["slugs"] == ["hr", "general"]
+    assert captured_registry["slugs"] == ["hr", "it", "general"]
 
 
 async def test_orchestrator_empty_routes_only_routes_to_self(monkeypatch):
@@ -249,7 +250,7 @@ async def test_orchestrator_empty_routes_only_routes_to_self(monkeypatch):
         "mode": None,
     }
     result = await node(state)
-    assert result["current_agent"] == "general"
+    assert result["current_agent"] == "hr"
 
 
 async def test_non_orchestrator_stays_fixed_despite_cross_domain_message(monkeypatch):

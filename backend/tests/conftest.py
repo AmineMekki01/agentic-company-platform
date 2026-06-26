@@ -66,3 +66,19 @@ async def auth_headers(client, create_test_user) -> dict[str, str]:
     from app.core.security import create_access_token
     token = create_access_token(user.id, user.role)
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def admin_headers(client, create_test_user) -> dict[str, str]:
+    user = await create_test_user("admin@example.com", "password123", role=UserRole.ADMIN)
+    from app.core.security import create_access_token
+    token = create_access_token(user.id, user.role)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+async def other_headers(client, create_test_user) -> dict[str, str]:
+    user = await create_test_user("other@example.com", "password123")
+    from app.core.security import create_access_token
+    token = create_access_token(user.id, user.role)
+    return {"Authorization": f"Bearer {token}"}

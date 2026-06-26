@@ -19,7 +19,7 @@ class UploadSettings(Base):
     __tablename__ = "upload_settings"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    enabled: Mapped[bool] = mapped_column(nullable=False, server_default="false")
+    enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
 
     s3_connector_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("connectors.id", ondelete="SET NULL"), nullable=True

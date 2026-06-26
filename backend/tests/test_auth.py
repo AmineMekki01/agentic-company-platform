@@ -38,3 +38,31 @@ async def test_me_with_token(client, create_test_user):
     res = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     assert res.json()["email"] == CREDS["email"]
+
+
+async def test_login_case_insensitive_email(client, create_test_user):
+    await create_test_user("user@example.com", "password123")
+    res = await client.post(
+        "/api/auth/login", json={"email": "USER@EXAMPLE.COM", "password": "password123"}
+    )
+    assert res.status_code == 200
+    assert res.json()["access_token"]
+
+
+async def test_me_invalid_token(client):
+    res = await client.get(
+        "/api/auth/me", headers={"Authorization": "Bearer garbage.token.here"}
+    )
+    assert res.status_code == 401
+
+
+async def test_me_user_not_found(client, create_test_user, session_factory):
+    user = await create_test_user("temp@example.com", "password123")
+    token = create_access_token(user.id, user.role)
+    async with session_factory() as session:
+        from sqlalchemy import delete
+        from app.models.user import User
+        await session.execute(delete(User).where(User.id == user.id))
+        await session.commit()
+    res = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 401
