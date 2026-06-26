@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, ChevronDown, ChevronRight, FileText, Loader2, Paperclip, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, FileText, Loader2, Paperclip, Pencil, RotateCcw, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight, X, SendHorizonal } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 import FeedbackModal from "./FeedbackModal";
@@ -40,6 +40,9 @@ interface MessageListProps {
   conversationId?: string;
   feedbackMap?: Record<string, { thumbs_up: boolean }>;
   onFeedbackSubmitted?: (messageId: string, thumbsUp: boolean) => void;
+  onRegenerate?: () => void;
+  onEditMessage?: (messageId: string, newContent: string) => void;
+  canRegenerate?: boolean;
 }
 
 function agentName(agents: Agent[], slug: string | null): string {
@@ -64,6 +67,8 @@ function AssistantMessage({
   hasFeedback,
   feedbackUp,
   onFeedbackSubmitted,
+  onRegenerate,
+  isLastAssistant,
 }: {
   m: DisplayMessage;
   renderAction?: (message: DisplayMessage) => React.ReactNode;
@@ -71,6 +76,8 @@ function AssistantMessage({
   hasFeedback?: boolean;
   feedbackUp?: boolean;
   onFeedbackSubmitted?: (messageId: string, thumbsUp: boolean) => void;
+  onRegenerate?: () => void;
+  isLastAssistant?: boolean;
 }) {
   const [highlightedRank, setHighlightedRank] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -225,6 +232,15 @@ function AssistantMessage({
           >
             <ThumbsDown className="h-4 w-4" />
           </button>
+          {isLastAssistant && onRegenerate && (
+            <button
+              onClick={onRegenerate}
+              className="rounded-lg p-1.5 text-tertiary opacity-40 transition hover:opacity-100 hover:text-secondary hover:bg-hover"
+              title="Regenerate response"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
       {showModal && conversationId && (
@@ -251,8 +267,14 @@ export default function MessageList({
   conversationId,
   feedbackMap,
   onFeedbackSubmitted,
+  onRegenerate,
+  onEditMessage,
+  canRegenerate,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -262,7 +284,33 @@ export default function MessageList({
     return <div className="flex flex-1 items-center justify-center">{emptyState}</div>;
   }
 
-  // Build a map of previous assistant agent per message index
+  let lastAssistantIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "assistant" && !messages[i].streaming) {
+      lastAssistantIdx = i;
+      break;
+    }
+  }
+
+  function startEdit(msg: DisplayMessage) {
+    setEditingId(msg.id);
+    setEditContent(msg.content);
+    setTimeout(() => editTextareaRef.current?.focus(), 0);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditContent("");
+  }
+
+  function submitEdit(msg: DisplayMessage) {
+    const trimmed = editContent.trim();
+    if (!trimmed || !onEditMessage) return;
+    onEditMessage(msg.serverId || msg.id, trimmed);
+    setEditingId(null);
+    setEditContent("");
+  }
+
   const prevAssistantAgents: (string | null)[] = [];
   let lastAgent: string | null = null;
   for (const m of messages) {
@@ -298,25 +346,81 @@ export default function MessageList({
                   <div className="min-w-0 max-w-[80%] pt-0.5">
                     <div className="mb-1.5 flex items-baseline justify-end gap-2">
                       <span className="text-xs font-semibold text-secondary">You</span>
-                    </div>
-                    <div className="rounded-2xl rounded-tr-md bg-brand/10 border border-brand/20 px-4 py-3 shadow-sm">
-                      {m.attachments && m.attachments.length > 0 && (
-                        <div className="mb-2 flex flex-wrap gap-2">
-                          {m.attachments.map((att, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-brand/20 bg-brand/15 px-2 py-1 text-xs text-secondary"
-                            >
-                              <Paperclip className="h-3 w-3 text-tertiary" />
-                              {att.filename}
-                            </span>
-                          ))}
-                        </div>
+                      {!m.streaming && onEditMessage && editingId !== m.id && (
+                        <button
+                          onClick={() => startEdit(m)}
+                          className="rounded p-0.5 text-tertiary opacity-0 transition group-hover:opacity-100 hover:text-secondary hover:bg-hover"
+                          title="Edit message"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-primary">
-                        {m.content}
-                      </p>
                     </div>
+                    {editingId === m.id ? (
+                      <div className="rounded-2xl rounded-tr-md border border-brand/40 bg-card shadow-sm">
+                        <textarea
+                          ref={editTextareaRef}
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              submitEdit(m);
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelEdit();
+                            }
+                          }}
+                          className="max-h-40 min-h-[60px] w-full resize-none bg-transparent px-4 py-3 text-sm leading-relaxed text-primary outline-none"
+                          style={{ height: "auto" }}
+                          onInput={(e) => {
+                            const t = e.currentTarget;
+                            t.style.height = "auto";
+                            t.style.height = `${Math.min(t.scrollHeight, 160)}px`;
+                          }}
+                        />
+                        <div className="flex items-center justify-between gap-2 border-t border-line/60 px-3 py-2">
+                          <span className="text-[11px] text-tertiary">Enter to send · Esc to cancel</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={cancelEdit}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-tertiary transition hover:bg-hover hover:text-secondary"
+                              title="Cancel"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => submitEdit(m)}
+                              disabled={!editContent.trim()}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-white transition hover:bg-brand-hover disabled:opacity-40"
+                              title="Send edited message"
+                            >
+                              <SendHorizonal className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl rounded-tr-md bg-brand/10 border border-brand/20 px-4 py-3 shadow-sm">
+                        {m.attachments && m.attachments.length > 0 && (
+                          <div className="mb-2 flex flex-wrap gap-2">
+                            {m.attachments.map((att, i) => (
+                              <span
+                                key={i}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-brand/20 bg-brand/15 px-2 py-1 text-xs text-secondary"
+                              >
+                                <Paperclip className="h-3 w-3 text-tertiary" />
+                                {att.filename}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-primary">
+                          {m.content}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -348,6 +452,8 @@ export default function MessageList({
                         hasFeedback={!!feedbackMap?.[m.serverId || m.id]}
                         feedbackUp={feedbackMap?.[m.serverId || m.id]?.thumbs_up}
                         onFeedbackSubmitted={onFeedbackSubmitted}
+                        onRegenerate={onRegenerate}
+                        isLastAssistant={idx === lastAssistantIdx && canRegenerate}
                       />
                     </div>
                   </div>

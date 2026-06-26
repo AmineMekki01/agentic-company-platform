@@ -98,6 +98,7 @@ class AgentOut(BaseModel):
     - Agent name
     - Agent description
     - Enabled tools
+    - Routing flags
     """
     slug: str
     name: str | None = None
@@ -105,6 +106,8 @@ class AgentOut(BaseModel):
     tools: list[str] | None = None
     allow_uploads: bool = True
     agent_type: str = "standard"
+    is_router: bool = False
+    is_orchestrator: bool = False
 
 
 class ChatAttachmentOut(BaseModel):
@@ -245,3 +248,14 @@ class AgentFeedbackSummary(BaseModel):
     thumbs_up: int
     thumbs_down: int
     up_rate_pct: float
+
+
+class EditMessageRequest(BaseModel):
+    """Request schema for editing a user message and resubmitting."""
+    content: str = Field(min_length=1, max_length=8000)
+    mode: Literal["auto", "quick", "mid", "deep"] = "auto"
+
+
+class RegenerateRequest(BaseModel):
+    """Request schema for regenerating an assistant response."""
+    mode: Literal["auto", "quick", "mid", "deep"] = "auto"

@@ -28,7 +28,7 @@ export default function ChatPage() {
   const [testDraft, setTestDraft] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
   const [budgetWarning, setBudgetWarning] = useState<string | null>(null);
-  const { send, stop, streaming } = useChatStream();
+  const { send, stop, streaming, regenerate, editMessage } = useChatStream();
   const dr = useDeepResearchChat();
   const { isAdmin } = useAuth();
   const didAutoOpen = useRef(false);
@@ -196,7 +196,12 @@ export default function ChatPage() {
     }
 
     const agent = forcedAgent ?? selectedAgent;
-    const isForced = !!forcedAgent;
+    const isMentionForced = !!forcedAgent;
+    const selectedAgentRow = agents.find((a) => a.slug === selectedAgent);
+    // When a user explicitly picks a non-routing agent from the dropdown, force it
+    // so the backend doesn't fall back to a previously routed agent (e.g. HR).
+    const isSelectedRouter = selectedAgentRow?.is_router || selectedAgentRow?.is_orchestrator;
+    const isForced = isMentionForced || (!isMentionForced && !!selectedAgent && !isSelectedRouter);
     const userMsg: DisplayMessage = {
       id: `local-user-${Date.now()}`,
       role: "user",
@@ -298,11 +303,13 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, sources } : m
           )
         ),
-      onDone: ({ message_id, title }) => {
+      onDone: ({ message_id, title, user_message_id }) => {
         setMessages((ms) =>
-          ms.map((m) =>
-            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
-          )
+          ms.map((m) => {
+            if (m.id === placeholderId) return { ...m, serverId: message_id, streaming: false, step: undefined };
+            if (user_message_id && m.id === userMsg.id) return { ...m, serverId: user_message_id };
+            return m;
+          })
         );
         setConversations((cs) =>
           cs.map((c) =>
@@ -326,6 +333,156 @@ export default function ChatPage() {
         ),
       onBudgetWarning: (msg) => setBudgetWarning(msg),
     }, attachmentIds, testDraft);
+  }
+
+  async function handleRegenerate() {
+    if (!activeId || streaming) return;
+    setBudgetWarning(null);
+
+    const placeholderId = `local-assistant-${Date.now()}`;
+    setMessages((ms) => {
+      let truncated = ms;
+      for (let i = ms.length - 1; i >= 0; i--) {
+        if (ms[i].role === "assistant" && !ms[i].streaming) {
+          truncated = ms.slice(0, i);
+          break;
+        }
+      }
+      return [
+        ...truncated,
+        { id: placeholderId, role: "assistant" as const, content: "", agent_id: null, streaming: true, step: "routing" },
+      ];
+    });
+
+    await regenerate(activeId, mode, {
+      onAgent: (slug) => {
+        setMessages((ms) =>
+          ms.map((m) => (m.id === placeholderId ? { ...m, agent_id: slug } : m))
+        );
+      },
+      onToken: (delta) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, content: m.content + delta } : m
+          )
+        ),
+      onStep: (step) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, step } : m
+          )
+        ),
+      onSources: (sources) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, sources } : m
+          )
+        ),
+      onDone: ({ message_id, title }) => {
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
+          )
+        );
+        if (title) {
+          setConversations((cs) =>
+            cs.map((c) =>
+              c.id === activeId ? { ...c, title } : c
+            )
+          );
+        }
+      },
+      onTitle: (title) =>
+        setConversations((cs) =>
+          cs.map((c) =>
+            c.id === activeId ? { ...c, title } : c
+          )
+        ),
+      onError: (detail) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId
+              ? { ...m, content: `⚠️ ${detail}`, streaming: false, step: undefined }
+              : m
+          )
+        ),
+      onBudgetWarning: (msg) => setBudgetWarning(msg),
+    });
+  }
+
+  async function handleEditMessage(messageId: string, newContent: string) {
+    if (!activeId || streaming) return;
+    setBudgetWarning(null);
+
+    const placeholderId = `local-assistant-${Date.now()}`;
+    setMessages((ms) => {
+      let truncated = ms;
+      const idx = ms.findIndex((m) => (m.serverId || m.id) === messageId);
+      if (idx !== -1) {
+        truncated = ms.slice(0, idx + 1).map((m, i) =>
+          i === idx ? { ...m, content: newContent } : m
+        );
+      }
+      return [
+        ...truncated,
+        { id: placeholderId, role: "assistant" as const, content: "", agent_id: null, streaming: true, step: "routing" },
+      ];
+    });
+
+    await editMessage(activeId, messageId, newContent, mode, {
+      onAgent: (slug) => {
+        setMessages((ms) =>
+          ms.map((m) => (m.id === placeholderId ? { ...m, agent_id: slug } : m))
+        );
+      },
+      onToken: (delta) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, content: m.content + delta } : m
+          )
+        ),
+      onStep: (step) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, step } : m
+          )
+        ),
+      onSources: (sources) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, sources } : m
+          )
+        ),
+      onDone: ({ message_id, title }) => {
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
+          )
+        );
+        if (title) {
+          setConversations((cs) =>
+            cs.map((c) =>
+              c.id === activeId ? { ...c, title } : c
+            )
+          );
+        }
+      },
+      onTitle: (title) =>
+        setConversations((cs) =>
+          cs.map((c) =>
+            c.id === activeId ? { ...c, title } : c
+          )
+        ),
+      onError: (detail) =>
+        setMessages((ms) =>
+          ms.map((m) =>
+            m.id === placeholderId
+              ? { ...m, content: `⚠️ ${detail}`, streaming: false, step: undefined }
+              : m
+          )
+        ),
+      onBudgetWarning: (msg) => setBudgetWarning(msg),
+    });
   }
 
   async function handleClarificationResponse(answer: string) {
@@ -517,6 +674,9 @@ export default function ChatPage() {
               onFeedbackSubmitted={(messageId, thumbsUp) => {
                 setFeedbackMap((prev) => ({ ...prev, [messageId]: { thumbs_up: thumbsUp } }));
               }}
+              onRegenerate={handleRegenerate}
+              onEditMessage={handleEditMessage}
+              canRegenerate={!streaming && !!activeId}
               renderAction={(msg) => {
                 if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
                   return null;
