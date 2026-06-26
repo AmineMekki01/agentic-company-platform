@@ -420,32 +420,25 @@ async def chat_stream(
             detail=f"Unknown agent '{agent}'",
         )
 
-    # entry_agent = what the user selected (conversation owner / routing entry point)
-    # agent = who actually handles this turn (may be persisted specialist for direct mode)
-    entry_agent = body.agent or default_agent
+    if (
+        conversation.entry_agent is None
+        and not body.force_agent
+        and body.agent in runtime.agent_registry
+    ):
+        conversation.entry_agent = body.agent
+        await db.commit()
+
+    entry_agent = conversation.entry_agent or body.agent or default_agent
+    if entry_agent not in runtime.agent_registry:
+        entry_agent = body.agent or default_agent
     agent = entry_agent
 
     entry_spec = runtime.agent_registry.get(entry_agent)
     is_router_entry = entry_spec is not None and (entry_spec.is_router or entry_spec.is_orchestrator)
-
-    if not body.force_agent and not is_router_entry:
-        # Direct specialist chat: allow state persistence across turns only
-        # when the persisted agent matches the user's explicitly selected agent.
-        # Otherwise an earlier routed agent (e.g. HR) would hijack a later turn
-        # where the user picked a different specialist (e.g. Finance).
-        try:
-            config = {"configurable": {"thread_id": str(conversation_id)}}
-            existing = await runtime.graph.aget_state(config)
-            persisted = existing.values.get("current_agent") if existing else None
-            if persisted and persisted in runtime.agent_registry and persisted == entry_agent:
-                agent = persisted
-                logger.info("Direct mode: using persisted agent=%s for conv=%s", agent, conversation_id)
-            else:
-                logger.info("Direct mode: honoring user selected agent=%s for conv=%s", entry_agent, conversation_id)
-        except Exception:
-            pass
-    elif is_router_entry:
+    if is_router_entry:
         logger.info("Router mode: entry=%s for conv=%s", entry_agent, conversation_id)
+    else:
+        logger.info("Direct mode: entry=%s for conv=%s", entry_agent, conversation_id)
 
     agent_row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == agent))
     if user.role != UserRole.ADMIN and agent_row and not _agent_visible(agent_row, user):
@@ -679,9 +672,6 @@ async def regenerate_response(
     registry_keys = list(runtime.agent_registry.keys())
     default_agent = registry_keys[0] if registry_keys else ""
 
-    # Prefer the agent that actually answered this question (the assistant reply
-    # immediately after the user message, which we just deleted). Fall back to a
-    # previous assistant, then the default agent.
     answering_agent = None
     for m in msgs_to_delete:
         if m.role == "assistant" and m.agent_id:
@@ -694,7 +684,8 @@ async def regenerate_response(
             prev_agent = all_messages[i].agent_id
             break
 
-    agent = answering_agent or prev_agent or default_agent
+    entry_from_conv = conversation.entry_agent if conversation.entry_agent in runtime.agent_registry else None
+    agent = entry_from_conv or answering_agent or prev_agent or default_agent
     if not agent or agent not in runtime.agent_registry:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -811,9 +802,6 @@ async def edit_message(
     registry_keys = list(runtime.agent_registry.keys())
     default_agent = registry_keys[0] if registry_keys else ""
 
-    # Prefer the agent that actually answered this question (the assistant reply
-    # immediately after the edited message, which we just deleted). Fall back to a
-    # previous assistant, then the default agent.
     answering_agent = None
     for m in msgs_to_delete:
         if m.role == "assistant" and m.agent_id:
@@ -826,7 +814,8 @@ async def edit_message(
             prev_agent = all_messages[i].agent_id
             break
 
-    agent = answering_agent or prev_agent or default_agent
+    entry_from_conv = conversation.entry_agent if conversation.entry_agent in runtime.agent_registry else None
+    agent = entry_from_conv or answering_agent or prev_agent or default_agent
     if not agent or agent not in runtime.agent_registry:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

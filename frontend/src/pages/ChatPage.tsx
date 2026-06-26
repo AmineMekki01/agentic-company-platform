@@ -101,7 +101,9 @@ export default function ChatPage() {
         const lastAgentMsg = [...detail.messages]
           .reverse()
           .find((m) => m.role === "assistant" && m.agent_id);
-        if (lastAgentMsg?.agent_id && agents.some((a) => a.slug === lastAgentMsg.agent_id)) {
+        if (detail.entry_agent && agents.some((a) => a.slug === detail.entry_agent)) {
+          setSelectedAgent(detail.entry_agent);
+        } else if (lastAgentMsg?.agent_id && agents.some((a) => a.slug === lastAgentMsg.agent_id)) {
           setSelectedAgent(lastAgentMsg.agent_id);
         } else if (agents.length) {
           setSelectedAgent(agents[0].slug);

@@ -343,7 +343,7 @@ export default function MessageList({
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand/15 ring-1 ring-brand/20">
                     <UserIcon className="h-4 w-4 text-secondary" />
                   </div>
-                  <div className="min-w-0 max-w-[80%] pt-0.5">
+                  <div className={"min-w-0 pt-0.5 " + (editingId === m.id ? "w-full max-w-full" : "max-w-[80%]")}>
                     <div className="mb-1.5 flex items-baseline justify-end gap-2">
                       <span className="text-xs font-semibold text-secondary">You</span>
                       {!m.streaming && onEditMessage && editingId !== m.id && (

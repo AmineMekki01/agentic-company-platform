@@ -42,6 +42,7 @@ class ConversationOut(BaseModel):
     id: uuid.UUID
     title: str | None
     folder_id: uuid.UUID | None
+    entry_agent: str | None = None
     created_at: datetime
     updated_at: datetime
 

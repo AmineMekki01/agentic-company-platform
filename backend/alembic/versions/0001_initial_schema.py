@@ -47,6 +47,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.Column("title", sa.String(length=255), nullable=True),
+        sa.Column("entry_agent", sa.String(length=50), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
