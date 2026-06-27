@@ -260,6 +260,12 @@ async def _handle_message(
                     "sources": collected_sources,
                 }))
 
+            elif evt_type == "report_token":
+                await websocket.send_text(json.dumps({
+                    "type": "token",
+                    "delta": event.get("delta", ""),
+                }))
+
             elif evt_type == "report":
                 report_text = event.get("content", "")
 
@@ -300,11 +306,6 @@ async def _handle_message(
                 except Exception:
                     logger.exception("Title generation failed")
                     title = None
-
-            await websocket.send_text(json.dumps({
-                "type": "token",
-                "delta": report_text,
-            }))
 
         await websocket.send_text(json.dumps({
             "type": "done",
@@ -419,6 +420,11 @@ async def _handle_clarification_response(
                     "type": "sources",
                     "sources": collected_sources,
                 }))
+            elif evt_type == "report_token":
+                await websocket.send_text(json.dumps({
+                    "type": "token",
+                    "delta": event.get("delta", ""),
+                }))
             elif evt_type == "report":
                 report_text = event.get("content", "")
             elif evt_type == "error":
@@ -461,11 +467,6 @@ async def _handle_clarification_response(
                 except Exception:
                     logger.exception("Title generation failed")
                     title = None
-
-            await websocket.send_text(json.dumps({
-                "type": "token",
-                "delta": report_text,
-            }))
 
         await websocket.send_text(json.dumps({
             "type": "done",

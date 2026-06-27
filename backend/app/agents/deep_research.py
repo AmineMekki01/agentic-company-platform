@@ -640,12 +640,10 @@ def build_deep_research_graph(
 
     builder.add_node("write_research_brief", partial(write_research_brief, dr_config=config))
     builder.add_node("research_supervisor", _build_supervisor_subgraph(config))
-    builder.add_node("final_report_generation", partial(final_report_generation, dr_config=config))
 
     builder.add_edge(START, "write_research_brief")
     builder.add_edge("write_research_brief", "research_supervisor")
-    builder.add_edge("research_supervisor", "final_report_generation")
-    builder.add_edge("final_report_generation", END)
+    builder.add_edge("research_supervisor", END)
 
     return builder.compile(checkpointer=checkpointer)
 
@@ -657,6 +655,44 @@ def _build_supervisor_subgraph(config: DeepResearchConfig):
     builder.add_node("supervisor_tools", partial(supervisor_tools, dr_config=config))
     builder.add_edge(START, "supervisor")
     return builder.compile()
+
+
+async def _stream_final_report(state: dict, config: DeepResearchConfig) -> AsyncIterator[str]:
+    """Stream the final report generation token by token."""
+    notes = state.get("notes", [])
+    findings = "\n\n---\n\n".join(notes)
+    model = get_chat_model(config.final_report_model, temperature=0.3)
+
+    sources = state.get("sources", [])
+    sources_lines = []
+    for i, s in enumerate(sources, start=1):
+        title = s.get("title", "Untitled")
+        url = s.get("url") or s.get("id") or ""
+        if url and url != title:
+            sources_lines.append(f"[{i}] {title} - {url}")
+        else:
+            sources_lines.append(f"[{i}] {title}")
+    sources_list = "\n".join(sources_lines) if sources_lines else "No sources available."
+
+    prompt = FINAL_REPORT_PROMPT.format(
+        research_brief=state.get("research_brief", ""),
+        messages=get_buffer_string(state.get("messages", [])),
+        findings=findings,
+        date=_get_today_str(),
+        sources_list=sources_list,
+    )
+
+    try:
+        full_response = AIMessage(content="")
+        async for chunk in model.astream([HumanMessage(content=prompt)]):
+            token = str(chunk.content)
+            if token:
+                full_response = AIMessage(content=(full_response.content + token))
+                yield token
+        _dr_record_tokens(full_response, "deep_research", config.final_report_model, config.user_id, config.conversation_id)
+    except Exception as e:
+        logger.exception("Final report streaming failed")
+        yield f"Error generating final report: {e}"
 
 
 async def run_deep_research(
@@ -768,18 +804,9 @@ async def run_deep_research(
                     yield {"type": "progress", "step": "searching", "detail": "Searching the web..."}
                 elif name == "compress_research":
                     yield {"type": "progress", "step": "compressing", "detail": "Synthesizing findings..."}
-                elif name == "final_report_generation":
-                    yield {"type": "progress", "step": "writing_report", "detail": "Writing final report..."}
 
         final_state = await graph.aget_state(graph_config)
         final_values = final_state.values if final_state else {}
-        report = final_values.get("final_report", "")
-
-        if not report:
-            for msg in reversed(final_values.get("messages", [])):
-                if isinstance(msg, AIMessage) and msg.content:
-                    report = str(msg.content)
-                    break
 
         sources = final_values.get("sources", [])
         if sources:
@@ -787,6 +814,13 @@ async def run_deep_research(
             for i, s in enumerate(sources, start=1):
                 numbered_sources.append({**s, "rank": i})
             yield {"type": "sources", "sources": numbered_sources}
+
+        yield {"type": "progress", "step": "writing_report", "detail": "Writing final report..."}
+
+        report = ""
+        async for token in _stream_final_report(final_values, config):
+            report += token
+            yield {"type": "report_token", "delta": token}
 
         yield {"type": "report", "content": report}
 
