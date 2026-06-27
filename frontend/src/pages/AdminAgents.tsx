@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw, Bot } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTest, type AgentEvalRun, type AgentEvalRunDetail, type UploadSettings } from "@/lib/api";
+import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTestSetDetail, type AgentEvalRun, type AgentEvalRunDetail, type AgentEvalSchedule, type UploadSettings } from "@/lib/api";
 import AgentListTable from "@/components/admin/agents/AgentListTable";
 import CreateAgentPanel from "@/components/admin/agents/CreateAgentPanel";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -43,24 +43,22 @@ export default function AdminAgents() {
   const [testDraftResponse, setTestDraftResponse] = useState("");
   const [testingDraft, setTestingDraft] = useState(false);
 
-  const [evalTests, setEvalTests] = useState<AgentEvalTest[]>([]);
+  const [evalTestSets, setEvalTestSets] = useState<AgentEvalTestSetDetail[]>([]);
   const [evalRuns, setEvalRuns] = useState<AgentEvalRun[]>([]);
   const [evalLoading, setEvalLoading] = useState(false);
-  const [evalSubTab, setEvalSubTab] = useState<"tests" | "runs">("tests");
-  const [showEvalTestModal, setShowEvalTestModal] = useState(false);
-  const [editingEvalTest, setEditingEvalTest] = useState<AgentEvalTest | null>(null);
-  const [evalTestForm, setEvalTestForm] = useState({ name: "", question: "", expected_answer: "" });
+  const [evalSubTab, setEvalSubTab] = useState<"tests" | "runs" | "schedules">("tests");
   const [showLaunchRunModal, setShowLaunchRunModal] = useState(false);
   const [launchRunForm, setLaunchRunForm] = useState<{
     name: string;
     thresholds: Record<string, number>;
-    selectedTestIds: Set<string>;
+    selectedTestSetIds: Set<string>;
   }>({
     name: "",
     thresholds: { answer_correctness: 0.5, faithfulness: 0.5, answer_relevancy: 0.5 },
-    selectedTestIds: new Set<string>(),
+    selectedTestSetIds: new Set<string>(),
   });
   const [selectedEvalRun, setSelectedEvalRun] = useState<AgentEvalRunDetail | null>(null);
+  const [evalSchedules, setEvalSchedules] = useState<AgentEvalSchedule[]>([]);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [uploadSettings, setUploadSettings] = useState<UploadSettings | null>(null);
 
@@ -149,15 +147,18 @@ export default function AdminAgents() {
   const loadEvalData = useCallback(async (slug: string) => {
     setEvalLoading(true);
     try {
-      const [tests, runs] = await Promise.all([
-        api.listEvalTests(slug),
+      const [testSets, runs, schedules] = await Promise.all([
+        api.listEvalTestSets(slug),
         api.listEvalRuns(slug),
+        api.listEvalSchedules(slug),
       ]);
-      setEvalTests(tests);
+      setEvalTestSets(testSets);
       setEvalRuns(runs);
+      setEvalSchedules(schedules);
     } catch {
-      setEvalTests([]);
+      setEvalTestSets([]);
       setEvalRuns([]);
+      setEvalSchedules([]);
     } finally {
       setEvalLoading(false);
     }
@@ -316,65 +317,22 @@ export default function AdminAgents() {
     }
   };
 
-  const handleEditTest = (test: AgentEvalTest | null) => {
-    setEditingEvalTest(test);
-    setEvalTestForm(test ? { name: test.name, question: test.question, expected_answer: test.expected_answer } : { name: "", question: "", expected_answer: "" });
-    setShowEvalTestModal(true);
-  };
-
-  const handleSaveEvalTest = async () => {
-    if (!selected) return;
-    if (!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()) return;
-    try {
-      if (editingEvalTest) {
-        await api.updateEvalTest(selected.slug, editingEvalTest.id, evalTestForm);
-      } else {
-        await api.createEvalTest(selected.slug, evalTestForm);
-      }
-      setShowEvalTestModal(false);
-      loadEvalData(selected.slug);
-      try {
-        const agents = await api.listAgentSettings();
-        const updated = agents.find((a) => a.slug === selected.slug);
-        if (updated) setSelected(updated);
-      } catch { /* ignore */ }
-    } catch {
-      alert("Failed to save test");
-    }
-  };
-
-  const handleDeleteTest = async (test: AgentEvalTest) => {
-    if (!selected) return;
-    if (!confirm("Delete this test?")) return;
-    try {
-      await api.deleteEvalTest(selected.slug, test.id);
-      loadEvalData(selected.slug);
-      try {
-        const agents = await api.listAgentSettings();
-        const updated = agents.find((a) => a.slug === selected.slug);
-        if (updated) setSelected(updated);
-      } catch { /* ignore */ }
-    } catch {
-      alert("Failed to delete test");
-    }
-  };
-
   const handleLaunchRun = () => {
     setLaunchRunForm({
       name: `Run ${new Date().toLocaleString()}`,
       thresholds: { answer_correctness: 0.5, faithfulness: 0.5, answer_relevancy: 0.5 },
-      selectedTestIds: new Set(evalTests.map((t) => t.id)),
+      selectedTestSetIds: new Set(evalTestSets.map((ts) => ts.id)),
     });
     setShowLaunchRunModal(true);
   };
 
   const handleConfirmLaunchRun = async () => {
     if (!selected) return;
-    if (!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0) return;
+    if (!launchRunForm.name.trim() || launchRunForm.selectedTestSetIds.size === 0) return;
     try {
       await api.createEvalRun(selected.slug, {
         name: launchRunForm.name,
-        test_ids: Array.from(launchRunForm.selectedTestIds),
+        test_set_ids: Array.from(launchRunForm.selectedTestSetIds),
         thresholds: launchRunForm.thresholds,
       });
       setShowLaunchRunModal(false);
@@ -511,19 +469,14 @@ export default function AdminAgents() {
               onOpenTestDraft={() => setShowTestDraft(true)}
               onTestDraft={handleTestDraft}
               onCloseTestDraft={() => { setShowTestDraft(false); setTestDraftMessage(""); setTestDraftResponse(""); }}
-              evalTests={evalTests}
+              evalTestSets={evalTestSets}
               evalRuns={evalRuns}
               evalLoading={evalLoading}
               evalSubTab={evalSubTab}
               setEvalSubTab={setEvalSubTab}
-              showEvalTestModal={showEvalTestModal}
-              editingEvalTest={editingEvalTest}
-              evalTestForm={evalTestForm}
-              setEvalTestForm={setEvalTestForm}
-              onEditTest={handleEditTest}
-              onSaveEvalTest={handleSaveEvalTest}
-              onCloseEvalTestModal={() => setShowEvalTestModal(false)}
-              onDeleteTest={handleDeleteTest}
+              evalSchedules={evalSchedules}
+              onSchedulesChanged={() => selected && loadEvalData(selected.slug)}
+              onTestDataChanged={() => selected && loadEvalData(selected.slug)}
               showLaunchRunModal={showLaunchRunModal}
               launchRunForm={launchRunForm}
               setLaunchRunForm={setLaunchRunForm}

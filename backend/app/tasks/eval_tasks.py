@@ -7,19 +7,19 @@ from sqlalchemy import select
 
 from app.celery_app import celery_app
 from app.db.celery_session import get_celery_session_factory, run_async
-from app.models import AgentEvalRun, AgentEvalResult, AgentEvalTest, AgentSettings
+from app.models import AgentEvalRun, AgentEvalResult, AgentEvalSchedule, AgentEvalTest, AgentEvalTestSet, AgentSettings
 from app.services.eval_runner import run_single_test
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, max_retries=3)
-def execute_eval_run(self, run_id: str):
+def execute_eval_run(self, run_id: str, test_set_ids: list[str] | None = None):
     """Execute an agent evaluation run in a background Celery task."""
-    run_async(_run_evaluation(run_id))
+    run_async(_run_evaluation(run_id, test_set_ids))
 
 
-async def _run_evaluation(run_id: str):
+async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
     from datetime import datetime, timezone
 
     session_factory = get_celery_session_factory()
@@ -44,7 +44,20 @@ async def _run_evaluation(run_id: str):
             run.started_at = datetime.now(timezone.utc)
             await db.commit()
 
-            stmt = select(AgentEvalTest).where(AgentEvalTest.agent_id == run.agent_id)
+            if test_set_ids:
+                ts_uuids = [uuid.UUID(tsid) for tsid in test_set_ids]
+                stmt = (
+                    select(AgentEvalTest)
+                    .join(AgentEvalTestSet, AgentEvalTest.test_set_id == AgentEvalTestSet.id)
+                    .where(AgentEvalTestSet.agent_id == run.agent_id)
+                    .where(AgentEvalTestSet.id.in_(ts_uuids))
+                )
+            else:
+                stmt = (
+                    select(AgentEvalTest)
+                    .join(AgentEvalTestSet, AgentEvalTest.test_set_id == AgentEvalTestSet.id)
+                    .where(AgentEvalTestSet.agent_id == run.agent_id)
+                )
             result = await db.execute(stmt)
             tests = result.scalars().all()
 
@@ -125,3 +138,80 @@ async def _run_evaluation(run_id: str):
                 run.status = "failed"
                 run.completed_at = datetime.now(timezone.utc)
                 await db.commit()
+
+
+@celery_app.task
+def process_eval_schedules():
+    """Check all enabled eval schedules and trigger due runs."""
+    run_async(_process_eval_schedules())
+
+
+async def _process_eval_schedules():
+    from datetime import datetime, timedelta, timezone
+
+    session_factory = get_celery_session_factory()
+    async with session_factory() as db:
+        stmt = select(AgentEvalSchedule).where(AgentEvalSchedule.enabled == True)  # noqa: E712
+        result = await db.execute(stmt)
+        schedules = result.scalars().all()
+
+        now = datetime.now(timezone.utc)
+
+        freq_delta = {
+            "minutes": timedelta(minutes=1),
+            "hours": timedelta(hours=1),
+            "days": timedelta(days=1),
+            "weeks": timedelta(weeks=1),
+            "months": timedelta(days=30),
+            "years": timedelta(days=365),
+        }
+
+        for schedule in schedules:
+            try:
+                base = schedule.last_triggered_at or schedule.start_date
+                if base.tzinfo is None:
+                    base = base.replace(tzinfo=timezone.utc)
+
+                start = schedule.start_date
+                if start.tzinfo is None:
+                    start = start.replace(tzinfo=timezone.utc)
+                if now < start:
+                    continue
+
+                if schedule.end_date:
+                    end = schedule.end_date
+                    if end.tzinfo is None:
+                        end = end.replace(tzinfo=timezone.utc)
+                    if now > end:
+                        continue
+
+                delta = freq_delta.get(schedule.frequency, timedelta(days=1)) * schedule.interval
+                if schedule.last_triggered_at is None:
+                    next_run = start
+                else:
+                    next_run = base + delta
+
+                if next_run <= now:
+                    agent = await db.get(AgentSettings, schedule.agent_id)
+                    if agent is None:
+                        continue
+
+                    run = AgentEvalRun(
+                        agent_id=agent.id,
+                        name=f"{schedule.name} (scheduled)",
+                        status="pending",
+                        thresholds=schedule.thresholds,
+                        created_by="scheduler",
+                    )
+                    db.add(run)
+                    await db.commit()
+                    await db.refresh(run)
+
+                    schedule.last_triggered_at = now
+                    await db.commit()
+
+                    test_set_ids = schedule.test_set_ids if schedule.test_set_ids else None
+                    execute_eval_run.delay(str(run.id), test_set_ids)
+                    logger.info("Triggered scheduled eval run %s for agent %s", run.id, agent.slug)
+            except Exception:
+                logger.exception("Failed to process eval schedule %s", schedule.id)

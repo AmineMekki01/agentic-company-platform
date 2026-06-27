@@ -435,14 +435,41 @@ def upgrade() -> None:
         ),
     )
 
+    # agent_eval_test_sets
+    op.create_table(
+        "agent_eval_test_sets",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "agent_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_settings.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("description", sa.String(length=500), nullable=True),
+        sa.Column("created_by", sa.String(length=255), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
     # agent_eval_tests
     op.create_table(
         "agent_eval_tests",
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
-        sa.Column("agent_slug", sa.String(length=50), nullable=False),
-        sa.Column("name", sa.String(length=200), nullable=False),
-        sa.Column("prompt", sa.Text(), nullable=False),
-        sa.Column("expected_keywords", sa.JSON(), nullable=True),
+        sa.Column(
+            "test_set_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_eval_test_sets.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column("question", sa.Text(), nullable=False),
+        sa.Column("expected_answer", sa.Text(), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -455,17 +482,24 @@ def upgrade() -> None:
     op.create_table(
         "agent_eval_runs",
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
-        sa.Column("agent_slug", sa.String(length=50), nullable=False),
-        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column(
+            "agent_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_settings.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column(
             "status",
             sa.String(length=20),
             nullable=False,
             server_default="pending",
         ),
+        sa.Column("thresholds", sa.JSON(), nullable=True),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("result", sa.JSON(), nullable=True),
+        sa.Column("created_by", sa.String(length=255), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -483,16 +517,21 @@ def upgrade() -> None:
             sa.Uuid(),
             sa.ForeignKey("agent_eval_runs.id", ondelete="CASCADE"),
             nullable=False,
+            index=True,
         ),
         sa.Column(
             "test_id",
             sa.Uuid(),
             sa.ForeignKey("agent_eval_tests.id", ondelete="CASCADE"),
             nullable=False,
+            index=True,
         ),
+        sa.Column("actual_answer", sa.Text(), nullable=True),
+        sa.Column("retrieved_contexts", sa.JSON(), nullable=True),
+        sa.Column("metrics", sa.JSON(), nullable=True),
+        sa.Column("metric_passes", sa.JSON(), nullable=True),
+        sa.Column("score", sa.Float(), nullable=True),
         sa.Column("passed", sa.Boolean(), nullable=True),
-        sa.Column("response", sa.Text(), nullable=True),
-        sa.Column("keywords_matched", sa.JSON(), nullable=True),
         sa.Column("duration_ms", sa.Integer(), nullable=True),
         sa.Column(
             "created_at",
@@ -500,6 +539,35 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
+    )
+
+    # agent_eval_schedules
+    op.create_table(
+        "agent_eval_schedules",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column(
+            "agent_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_settings.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        ),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("frequency", sa.String(length=20), nullable=False),
+        sa.Column("interval", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column("start_date", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("end_date", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("test_set_ids", sa.JSON(), nullable=True),
+        sa.Column("thresholds", sa.JSON(), nullable=True),
+        sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("last_triggered_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("created_by", sa.String(length=255), nullable=False),
     )
 
     # token_usage
@@ -533,9 +601,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("token_budgets")
     op.drop_table("token_usage")
+    op.drop_table("agent_eval_schedules")
     op.drop_table("agent_eval_results")
     op.drop_table("agent_eval_runs")
     op.drop_table("agent_eval_tests")
+    op.drop_table("agent_eval_test_sets")
     op.drop_table("feedback_attachments")
     op.drop_index("ix_message_feedback_user_id", table_name="message_feedback")
     op.drop_index("ix_message_feedback_conversation_id", table_name="message_feedback")

@@ -1,8 +1,8 @@
 import { Loader2, Save, ChevronLeft, AlertTriangle, Eye, EyeOff, RotateCcw, Rocket } from "lucide-react";
 import type {
   AgentSetting, AgentSettingCreate, AgentVersion, AgentVersionDetail,
-  AgentFeedbackSummary, MessageFeedback, AgentEvalTest, AgentEvalRun,
-  AgentEvalRunDetail, DbUser, KnowledgeSource, UploadSettings,
+  AgentFeedbackSummary, MessageFeedback, AgentEvalTestSetDetail, AgentEvalRun,
+  AgentEvalRunDetail, AgentEvalSchedule, DbUser, KnowledgeSource, UploadSettings,
 } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import { ALL_TABS, hasDraftChanges, type TabKey } from "./agentUtils";
@@ -17,7 +17,7 @@ import EvalTab from "./tabs/EvalTab";
 import VersionDiffModal from "./modals/VersionDiffModal";
 import FeedbackDetailModal from "./modals/FeedbackDetailModal";
 import { PublishModal, TestDraftModal } from "./modals/SimpleModals";
-import { EvalTestModal, LaunchRunModal, RunDetailModal, ContextModal } from "./modals/EvalModals";
+import { LaunchRunModal, RunDetailModal, ContextModal } from "./modals/EvalModals";
 
 interface Props {
   selected: AgentSetting;
@@ -69,22 +69,17 @@ interface Props {
   onTestDraft: () => void;
   onCloseTestDraft: () => void;
 
-  evalTests: AgentEvalTest[];
+  evalTestSets: AgentEvalTestSetDetail[];
   evalRuns: AgentEvalRun[];
   evalLoading: boolean;
-  evalSubTab: "tests" | "runs";
-  setEvalSubTab: (t: "tests" | "runs") => void;
-  showEvalTestModal: boolean;
-  editingEvalTest: AgentEvalTest | null;
-  evalTestForm: { name: string; question: string; expected_answer: string };
-  setEvalTestForm: (fn: (p: { name: string; question: string; expected_answer: string }) => { name: string; question: string; expected_answer: string }) => void;
-  onEditTest: (test: AgentEvalTest | null) => void;
-  onSaveEvalTest: () => void;
-  onCloseEvalTestModal: () => void;
-  onDeleteTest: (test: AgentEvalTest) => void;
+  evalSubTab: "tests" | "runs" | "schedules";
+  setEvalSubTab: (t: "tests" | "runs" | "schedules") => void;
+  evalSchedules: AgentEvalSchedule[];
+  onSchedulesChanged: () => void;
+  onTestDataChanged: () => void;
 
   showLaunchRunModal: boolean;
-  launchRunForm: { name: string; thresholds: Record<string, number>; selectedTestIds: Set<string> };
+  launchRunForm: { name: string; thresholds: Record<string, number>; selectedTestSetIds: Set<string> };
   setLaunchRunForm: (fn: (p: any) => any) => void;
   onLaunchRun: () => void;
   onConfirmLaunchRun: () => void;
@@ -238,13 +233,15 @@ export default function AgentDetailPanel(props: Props) {
             )}
             {props.activeTab === "evaluation" && (
               <EvalTab
-                evalTests={props.evalTests}
+                evalTestSets={props.evalTestSets}
                 evalRuns={props.evalRuns}
                 evalLoading={props.evalLoading}
                 evalSubTab={props.evalSubTab}
                 setEvalSubTab={props.setEvalSubTab}
-                onEditTest={props.onEditTest}
-                onDeleteTest={props.onDeleteTest}
+                agentSlug={props.selected.slug}
+                evalSchedules={props.evalSchedules}
+                onSchedulesChanged={props.onSchedulesChanged}
+                onTestDataChanged={props.onTestDataChanged}
                 onLaunchRun={props.onLaunchRun}
                 onViewRun={props.onViewRun}
                 onDeleteRun={props.onDeleteRun}
@@ -295,21 +292,11 @@ export default function AgentDetailPanel(props: Props) {
         />
       )}
 
-      {props.showEvalTestModal && (
-        <EvalTestModal
-          editingEvalTest={props.editingEvalTest}
-          evalTestForm={props.evalTestForm}
-          setEvalTestForm={props.setEvalTestForm}
-          onClose={props.onCloseEvalTestModal}
-          onSave={props.onSaveEvalTest}
-        />
-      )}
-
       {props.showLaunchRunModal && (
         <LaunchRunModal
           launchRunForm={props.launchRunForm}
           setLaunchRunForm={props.setLaunchRunForm}
-          evalTests={props.evalTests}
+          evalTestSets={props.evalTestSets}
           onClose={props.onCloseLaunchRunModal}
           onLaunch={props.onConfirmLaunchRun}
         />
@@ -318,7 +305,6 @@ export default function AgentDetailPanel(props: Props) {
       {props.selectedEvalRun && (
         <RunDetailModal
           run={props.selectedEvalRun}
-          evalTests={props.evalTests}
           onClose={props.onCloseRunDetail}
           onContextClick={props.onSelectContext}
         />

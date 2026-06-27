@@ -143,7 +143,7 @@ class RAGService:
 
     def _get_local_reranker(self) -> Any | None:
         """Lazily load a local cross-encoder reranker if sentence-transformers is available."""
-        if self._local_reranker is not None:
+        if self._local_reranker is not None and self._local_reranker is not False:
             return self._local_reranker
         try:
             from sentence_transformers import CrossEncoder

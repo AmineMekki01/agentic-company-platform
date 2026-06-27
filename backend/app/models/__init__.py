@@ -1,6 +1,8 @@
 from app.models.agent_eval_run import AgentEvalRun
+from app.models.agent_eval_schedule import AgentEvalSchedule
 from app.models.agent_eval_result import AgentEvalResult
 from app.models.agent_eval_test import AgentEvalTest
+from app.models.agent_eval_test_set import AgentEvalTestSet
 from app.models.agent_settings import AgentSettings
 from app.models.agent_version import AgentVersion
 from app.models.agent_workflow import AgentWorkflow
@@ -19,8 +21,10 @@ from app.models.user import User, UserRole
 
 __all__ = [
     "AgentEvalRun",
+    "AgentEvalSchedule",
     "AgentEvalResult",
     "AgentEvalTest",
+    "AgentEvalTestSet",
     "AgentSettings",
     "AgentVersion",
     "AgentWorkflow",

@@ -20,6 +20,12 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=600,
     worker_prefetch_multiplier=1,
+    beat_schedule={
+        "process-eval-schedules": {
+            "task": "app.tasks.eval_tasks.process_eval_schedules",
+            "schedule": 300.0,
+        },
+    },
 )
 
 

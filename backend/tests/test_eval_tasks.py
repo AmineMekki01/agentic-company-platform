@@ -19,7 +19,7 @@ async def test_run_evaluation_run_not_found():
 
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(uuid.uuid4()))
+        await _run_evaluation(str(uuid.uuid4()), None)
 
 
 async def test_run_evaluation_agent_not_found():
@@ -38,7 +38,7 @@ async def test_run_evaluation_agent_not_found():
 
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(run_id))
+        await _run_evaluation(str(run_id), None)
 
         mock_session.commit.assert_called()
 
@@ -70,7 +70,7 @@ async def test_run_evaluation_no_tests():
 
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(run_id))
+        await _run_evaluation(str(run_id), None)
 
         calls = mock_session.commit.call_args_list
         assert len(calls) >= 2
@@ -125,7 +125,7 @@ async def test_run_evaluation_with_tests():
         }
 
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(run_id))
+        await _run_evaluation(str(run_id), None)
 
         mock_run_test.assert_called_once()
         mock_session.add.assert_called_once()
@@ -175,7 +175,7 @@ async def test_run_evaluation_test_exception_handled():
         mock_run_test.side_effect = Exception("LLM timeout")
 
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(run_id))
+        await _run_evaluation(str(run_id), None)
 
         mock_session.add.assert_called_once()
         result_arg = mock_session.add.call_args.args[0]
@@ -196,4 +196,4 @@ async def test_run_evaluation_outer_exception():
 
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
-        await _run_evaluation(str(run_id))
+        await _run_evaluation(str(run_id), None)

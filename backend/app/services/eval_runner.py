@@ -56,7 +56,7 @@ async def run_single_test(
     thread_id = f"eval-{uuid.uuid4()}"
     config = {"configurable": {"thread_id": thread_id}}
 
-    initial_state = {"messages": [HumanMessage(content=question)]}
+    initial_state = {"messages": [HumanMessage(content=question)], "forced_agent": agent_slug}
     final_state = await runtime.graph.ainvoke(initial_state, config)
 
     duration_ms = int(time.time() * 1000) - start_ms

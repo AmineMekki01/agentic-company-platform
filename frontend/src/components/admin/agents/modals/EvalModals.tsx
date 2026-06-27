@@ -1,81 +1,19 @@
-import { Save, X, Rocket } from "lucide-react";
-import type { AgentEvalTest } from "@/lib/api";
-
-interface EvalTestModalProps {
-  editingEvalTest: AgentEvalTest | null;
-  evalTestForm: { name: string; question: string; expected_answer: string };
-  setEvalTestForm: (fn: (p: { name: string; question: string; expected_answer: string }) => { name: string; question: string; expected_answer: string }) => void;
-  onClose: () => void;
-  onSave: () => void;
-}
-
-export function EvalTestModal({ editingEvalTest, evalTestForm, setEvalTestForm, onClose, onSave }: EvalTestModalProps) {
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between pb-3 border-b border-line">
-          <h2 className="font-semibold text-lg">{editingEvalTest ? "Edit Test" : "New Eval Test"}</h2>
-          <button onClick={onClose} className="text-tertiary hover:text-secondary transition"><X className="h-5 w-5" /></button>
-        </div>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-xs font-medium text-secondary">Name</span>
-            <input
-              value={evalTestForm.name}
-              onChange={(e) => setEvalTestForm((p) => ({ ...p, name: e.target.value }))}
-              className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 outline-none transition"
-              placeholder="e.g., Laptop request for new hire"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-secondary">Question</span>
-            <textarea
-              value={evalTestForm.question}
-              onChange={(e) => setEvalTestForm((p) => ({ ...p, question: e.target.value }))}
-              rows={3}
-              className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 outline-none transition resize-y"
-              placeholder="What question should the agent answer?"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-secondary">Expected Answer</span>
-            <textarea
-              value={evalTestForm.expected_answer}
-              onChange={(e) => setEvalTestForm((p) => ({ ...p, expected_answer: e.target.value }))}
-              rows={4}
-              className="w-full bg-card border border-line/60 rounded-xl px-3 py-2 text-sm mt-1 text-primary placeholder:text-tertiary focus:border-brand/50 outline-none transition resize-y"
-              placeholder="What should the ideal answer contain?"
-            />
-          </label>
-        </div>
-        <div className="flex justify-end gap-2 pt-2 border-t border-line">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition">Cancel</button>
-          <button
-            onClick={onSave}
-            disabled={!evalTestForm.name.trim() || !evalTestForm.question.trim() || !evalTestForm.expected_answer.trim()}
-            className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium text-white transition"
-          >
-            <Save className="h-4 w-4" /> Save
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { X, Rocket } from "lucide-react";
+import type { AgentEvalTestSetDetail, AgentEvalRunDetail } from "@/lib/api";
 
 interface LaunchRunModalProps {
   launchRunForm: {
     name: string;
     thresholds: Record<string, number>;
-    selectedTestIds: Set<string>;
+    selectedTestSetIds: Set<string>;
   };
   setLaunchRunForm: (fn: (p: any) => any) => void;
-  evalTests: AgentEvalTest[];
+  evalTestSets: AgentEvalTestSetDetail[];
   onClose: () => void;
   onLaunch: () => void;
 }
 
-export function LaunchRunModal({ launchRunForm, setLaunchRunForm, evalTests, onClose, onLaunch }: LaunchRunModalProps) {
+export function LaunchRunModal({ launchRunForm, setLaunchRunForm, evalTestSets, onClose, onLaunch }: LaunchRunModalProps) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -115,24 +53,24 @@ export function LaunchRunModal({ launchRunForm, setLaunchRunForm, evalTests, onC
             ))}
           </div>
           <div>
-            <span className="text-xs font-medium text-secondary block mb-2">Tests to run</span>
+            <span className="text-xs font-medium text-secondary block mb-2">Test sets to run</span>
             <div className="max-h-48 overflow-y-auto space-y-1.5 border border-line rounded-lg p-2 bg-card/70">
-              {evalTests.map((t) => (
-                <label key={t.id} className="flex items-center gap-2 cursor-pointer hover:bg-hover/70 rounded px-1.5 py-1 transition">
+              {evalTestSets.map((ts) => (
+                <label key={ts.id} className="flex items-center gap-2 cursor-pointer hover:bg-hover/70 rounded px-1.5 py-1 transition">
                   <input
                     type="checkbox"
-                    checked={launchRunForm.selectedTestIds.has(t.id)}
+                    checked={launchRunForm.selectedTestSetIds.has(ts.id)}
                     onChange={(e) => {
                       setLaunchRunForm((p: any) => {
-                        const next = new Set(p.selectedTestIds);
-                        if (e.target.checked) next.add(t.id);
-                        else next.delete(t.id);
-                        return { ...p, selectedTestIds: next };
+                        const next = new Set(p.selectedTestSetIds);
+                        if (e.target.checked) next.add(ts.id);
+                        else next.delete(ts.id);
+                        return { ...p, selectedTestSetIds: next };
                       });
                     }}
                     className="accent-brand"
                   />
-                  <span className="text-xs text-secondary">{t.name}</span>
+                  <span className="text-xs text-secondary">{ts.name} <span className="text-tertiary">({ts.tests.length} tests)</span></span>
                 </label>
               ))}
             </div>
@@ -142,7 +80,7 @@ export function LaunchRunModal({ launchRunForm, setLaunchRunForm, evalTests, onC
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm bg-card hover:bg-hover border border-line/60 transition">Cancel</button>
           <button
             onClick={onLaunch}
-            disabled={!launchRunForm.name.trim() || launchRunForm.selectedTestIds.size === 0}
+            disabled={!launchRunForm.name.trim() || launchRunForm.selectedTestSetIds.size === 0}
             className="flex items-center gap-1.5 bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium text-white transition"
           >
             <Rocket className="h-4 w-4" /> Launch
@@ -154,13 +92,12 @@ export function LaunchRunModal({ launchRunForm, setLaunchRunForm, evalTests, onC
 }
 
 interface RunDetailModalProps {
-  run: import("@/lib/api").AgentEvalRunDetail;
-  evalTests: AgentEvalTest[];
+  run: AgentEvalRunDetail;
   onClose: () => void;
   onContextClick: (ctx: string) => void;
 }
 
-export function RunDetailModal({ run, evalTests, onClose, onContextClick }: RunDetailModalProps) {
+export function RunDetailModal({ run, onClose, onContextClick }: RunDetailModalProps) {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-canvas border border-line rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -181,7 +118,7 @@ export function RunDetailModal({ run, evalTests, onClose, onContextClick }: RunD
             run.results.map((res) => (
               <div key={res.id} className="border border-line rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-secondary">{res.test_name}</span>
+                  <span className="text-sm font-medium text-secondary">{res.test_name || res.test_id}</span>
                   <div className="flex items-center gap-2">
                     {res.passed !== null && (
                       <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${res.passed ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}>
@@ -205,12 +142,12 @@ export function RunDetailModal({ run, evalTests, onClose, onContextClick }: RunD
                 )}
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="bg-card border border-line/60 rounded-xl p-2.5">
-                    <span className="text-tertiary block mb-1">Expected</span>
-                    <p className="text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">{res.test_name ? evalTests.find((t) => t.id === res.test_id)?.expected_answer || "—" : "—"}</p>
-                  </div>
-                  <div className="bg-card border border-line/60 rounded-xl p-2.5">
                     <span className="text-tertiary block mb-1">Actual</span>
                     <p className="text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">{res.actual_answer || "—"}</p>
+                  </div>
+                  <div className="bg-card border border-line/60 rounded-xl p-2.5">
+                    <span className="text-tertiary block mb-1">Score</span>
+                    <p className="text-secondary whitespace-pre-wrap max-h-32 overflow-y-auto">{res.score !== null ? res.score.toFixed(3) : "—"}</p>
                   </div>
                 </div>
                 {res.retrieved_contexts && res.retrieved_contexts.length > 0 && (
