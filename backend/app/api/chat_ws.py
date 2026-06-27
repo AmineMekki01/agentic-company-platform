@@ -304,7 +304,7 @@ async def _handle_message(
 
         await websocket.send_text(json.dumps({
             "type": "done",
-            "message_id": str(uuid.uuid4()),
+            "message_id": str(ai_msg.id) if report_text else str(uuid.uuid4()),
         }))
 
 
@@ -442,5 +442,5 @@ async def _handle_clarification_response(
 
         await websocket.send_text(json.dumps({
             "type": "done",
-            "message_id": str(uuid.uuid4()),
+            "message_id": str(ai_msg.id) if report_text else str(uuid.uuid4()),
         }))
