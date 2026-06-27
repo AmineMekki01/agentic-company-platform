@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, Plus, RefreshCw, Trash2, BookOpen } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Trash2, BookOpen, ChevronDown, ChevronRight, FileText, Clock, Layers, Pencil } from "lucide-react";
 import {
   api,
   type Connector,
@@ -8,6 +8,7 @@ import {
   type NotionResource,
   type S3Bucket,
   type GDriveResource,
+  type SyncStatusOut,
 } from "@/lib/api";
 import ServiceIcon from "@/components/ServiceIcon";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -112,6 +113,45 @@ export default function AdminKnowledgeSources() {
   };
 
   const [syncingSlugs, setSyncingSlugs] = useState<Set<string>>(new Set());
+  const [expandedSync, setExpandedSync] = useState<string | null>(null);
+  const [syncStatusData, setSyncStatusData] = useState<Record<string, SyncStatusOut>>({});
+  const [syncStatusLoading, setSyncStatusLoading] = useState<string | null>(null);
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const startEdit = (s: KnowledgeSource) => {
+    setEditingSlug(s.slug);
+    setEditName(s.name);
+  };
+
+  const saveEdit = async (slug: string) => {
+    try {
+      await api.updateKnowledgeSource(slug, { name: editName.trim() });
+      setEditingSlug(null);
+      refresh();
+    } catch (e: any) {
+      alert(`Update failed: ${e.message}`);
+    }
+  };
+
+  const toggleSyncStatus = async (slug: string) => {
+    if (expandedSync === slug) {
+      setExpandedSync(null);
+      return;
+    }
+    setExpandedSync(slug);
+    if (!syncStatusData[slug]) {
+      setSyncStatusLoading(slug);
+      try {
+        const data = await api.getSyncStatus(slug);
+        setSyncStatusData((prev) => ({ ...prev, [slug]: data }));
+      } catch (e: any) {
+        alert(`Failed to load sync status: ${e.message}`);
+      } finally {
+        setSyncStatusLoading(null);
+      }
+    }
+  };
 
   const triggerSync = async (slug: string) => {
     setSyncingSlugs((prev) => new Set(prev).add(slug));
@@ -129,6 +169,14 @@ export default function AdminKnowledgeSources() {
             return next;
           });
           setSources(sources);
+          if (expandedSync === slug) {
+            try {
+              const data = await api.getSyncStatus(slug);
+              setSyncStatusData((prev) => ({ ...prev, [slug]: data }));
+            } catch (e: any) {
+              console.error("Failed to refresh sync status:", e.message);
+            }
+          }
         }
       }, 3000);
       // Safety: stop polling after 2 minutes
@@ -239,7 +287,7 @@ export default function AdminKnowledgeSources() {
     setForm({
       ...form,
       name: form.name || currentFolderName,
-      config: { ...form.config, folder_id: currentFolderId },
+      config: { ...form.config, folder_id: currentFolderId, folder_name: currentFolderName },
     });
   };
 
@@ -247,7 +295,7 @@ export default function AdminKnowledgeSources() {
     setForm({
       ...form,
       name: form.name || item.name,
-      config: { ...form.config, folder_id: item.id },
+      config: { ...form.config, folder_id: item.id, folder_name: item.name },
     });
   };
 
@@ -615,62 +663,209 @@ export default function AdminKnowledgeSources() {
           return (
             <div
               key={s.id}
-              className="flex items-center justify-between bg-card border border-line rounded-xl px-4 py-3 transition hover:border-line"
+              className="bg-card border border-line rounded-xl transition hover:border-line overflow-hidden"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas border border-line">
-                  <ServiceIcon type={s.source_type} size={22} />
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-canvas border border-line">
+                    <ServiceIcon type={s.source_type} size={22} />
+                  </div>
+                  <div className="flex-1">
+                    {editingSlug === s.slug ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit(s.slug);
+                            if (e.key === "Escape") setEditingSlug(null);
+                          }}
+                          autoFocus
+                          className="bg-canvas border border-brand/50 rounded-lg px-2 py-1 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
+                        />
+                        <button
+                          onClick={() => saveEdit(s.slug)}
+                          className="text-xs bg-success hover:bg-success-hover px-2 py-1 rounded-md text-white transition"
+                        >Save</button>
+                        <button
+                          onClick={() => setEditingSlug(null)}
+                          className="text-xs text-tertiary hover:text-secondary px-2 py-1 transition"
+                        >Cancel</button>
+                      </div>
+                    ) : (
+                      <div className="font-medium text-primary flex items-center gap-2">
+                        {s.name}
+                        <SourceBadge type={s.source_type} />
+                        <StatusBadge status={s.status} />
+                      </div>
+                    )}
+                    <div className="text-xs text-tertiary">
+                      {s.slug} · {s.chunk_count} chunks
+                      {s.last_sync_at && (
+                        <span className="ml-2">· Last sync: {new Date(s.last_sync_at).toLocaleString()}</span>
+                      )}
+                    </div>
+                    {conn && (
+                      <div className="text-xs text-tertiary">Connector: {conn.name}</div>
+                    )}
+                    {s.source_type === "notion" && (
+                      <div className="text-xs text-tertiary">
+                        {(() => {
+                          const cfg = s.config as Record<string, string> | null;
+                          if (cfg?.database_id) return `Database: ${cfg.database_id.slice(0, 8)}…`;
+                          if (cfg?.page_id) return `Page: ${cfg.page_id.slice(0, 8)}…`;
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                    {s.source_type === "gdrive" && (
+                      <div className="text-xs text-tertiary">
+                        {(() => {
+                          const cfg = s.config as Record<string, string> | null;
+                          if (cfg?.folder_name) return `Folder: ${cfg.folder_name}`;
+                          if (cfg?.folder_id) return `Folder: ${cfg.folder_id.slice(0, 8)}…`;
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                    {s.source_type === "s3" && (
+                      <div className="text-xs text-tertiary">
+                        {(() => {
+                          const cfg = s.config as Record<string, string> | null;
+                          if (cfg?.bucket) return `s3://${cfg.bucket}/${cfg.prefix || ""}`;
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <div className="font-medium text-primary flex items-center gap-2">
-                    {s.name}
-                    <SourceBadge type={s.source_type} />
-                    <StatusBadge status={s.status} />
-                  </div>
-                  <div className="text-xs text-tertiary">
-                    {s.slug} · {s.chunk_count} chunks
-                  </div>
-                  {conn && (
-                    <div className="text-xs text-tertiary">Connector: {conn.name}</div>
+                <div className="flex items-center gap-2">
+                  {editingSlug !== s.slug && (
+                    <button
+                      onClick={() => startEdit(s)}
+                      className="rounded-md p-2 text-tertiary hover:text-brand hover:bg-brand/10 transition"
+                      title="Rename"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
                   )}
-                  {s.source_type === "notion" && (
-                    <div className="text-xs text-tertiary">
-                      {(() => {
-                        const cfg = s.config as Record<string, string> | null;
-                        if (cfg?.database_id) return `DB: ${cfg.database_id}`;
-                        if (cfg?.page_id) return `Page: ${cfg.page_id}`;
-                        return null;
-                      })()}
-                    </div>
-                  )}
-                  {s.source_type === "gdrive" && (
-                    <div className="text-xs text-tertiary">
-                      {(() => {
-                        const cfg = s.config as Record<string, string> | null;
-                        if (cfg?.folder_id) return `Folder: ${cfg.folder_id}`;
-                        return null;
-                      })()}
-                    </div>
-                  )}
+                  <button
+                    onClick={() => toggleSyncStatus(s.slug)}
+                    className="flex items-center gap-1 text-sm bg-card hover:bg-hover border border-line/60 px-3 py-1.5 rounded-lg transition"
+                  >
+                    {expandedSync === s.slug ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    Details
+                  </button>
+                  <button
+                    onClick={() => triggerSync(s.slug)}
+                    disabled={syncingSlugs.has(s.slug)}
+                    className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-white transition"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${syncingSlugs.has(s.slug) ? "animate-spin" : ""}`} />
+                    {syncingSlugs.has(s.slug) ? "Syncing…" : "Sync"}
+                  </button>
+                  <button
+                    onClick={() => remove(s.slug)}
+                    className="rounded-md p-2 text-tertiary hover:text-danger hover:bg-danger-soft transition"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => triggerSync(s.slug)}
-                  disabled={syncingSlugs.has(s.slug)}
-                  className="flex items-center gap-1.5 text-sm bg-gradient-to-br from-brand to-violet-600 hover:from-brand-hover hover:to-violet-500 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-white transition"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${syncingSlugs.has(s.slug) ? "animate-spin" : ""}`} />
-                  {syncingSlugs.has(s.slug) ? "Syncing…" : "Sync"}
-                </button>
-                <button
-                  onClick={() => remove(s.slug)}
-                  className="rounded-md p-2 text-tertiary hover:text-danger hover:bg-danger-soft transition"
-                  title="Delete"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+
+              {expandedSync === s.slug && (
+                <div className="border-t border-line/60 bg-canvas/50 px-4 py-3">
+                  {syncStatusLoading === s.slug ? (
+                    <div className="flex items-center gap-2 text-tertiary text-sm py-4">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading sync status…
+                    </div>
+                  ) : syncStatusData[s.slug] ? (
+                    (() => {
+                      const status = syncStatusData[s.slug];
+                      const cleanTitle = (title: string) => {
+                        const parts = title.split(" - ");
+                        return parts.length > 1 ? parts.slice(1).join(" - ") : title;
+                      };
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-4 text-xs">
+                            <span className="flex items-center gap-1.5 text-secondary">
+                              <Layers className="h-3.5 w-3.5 text-tertiary" />
+                              <span className="font-medium text-primary">{status.document_count}</span> docs
+                            </span>
+                            <span className="flex items-center gap-1.5 text-secondary">
+                              <FileText className="h-3.5 w-3.5 text-tertiary" />
+                              <span className="font-medium text-primary">{status.chunk_count}</span> chunks
+                            </span>
+                            {status.last_sync_at && (
+                              <span className="flex items-center gap-1.5 text-secondary">
+                                <Clock className="h-3.5 w-3.5 text-tertiary" />
+                                {new Date(status.last_sync_at).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            )}
+                            <StatusBadge status={status.status} />
+                          </div>
+
+                          {status.documents.length > 0 ? (
+                            <div className="border border-line/60 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                              <table className="w-full text-xs">
+                                <thead className="sticky top-0">
+                                  <tr className="bg-hover text-tertiary">
+                                    <th className="text-left font-medium px-3 py-2">Document</th>
+                                    <th className="text-right font-medium px-3 py-2 w-16">Chunks</th>
+                                    <th className="text-left font-medium px-3 py-2 w-36">Modified</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {status.documents.map((doc) => (
+                                    <tr key={doc.source_id} className="border-t border-line/40 hover:bg-hover/50">
+                                      <td className="px-3 py-2 text-secondary">
+                                        <div className="flex items-center gap-2">
+                                          <FileText className="h-3 w-3 shrink-0 text-tertiary" />
+                                          <span className="truncate max-w-[280px]" title={doc.title}>{cleanTitle(doc.title)}</span>
+                                        </div>
+                                      </td>
+                                      <td className="px-3 py-2 text-right text-tertiary tabular-nums">{doc.chunk_count}</td>
+                                      <td className="px-3 py-2 text-tertiary whitespace-nowrap">
+                                        {doc.source_modified_at
+                                          ? new Date(doc.source_modified_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                                          : "—"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-6 text-tertiary">
+                              <FileText className="h-6 w-6 mb-2 opacity-50" />
+                              <p className="text-xs">No documents ingested yet. Run a sync to populate this source.</p>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setSyncStatusLoading(s.slug);
+                              api.getSyncStatus(s.slug).then((data) => {
+                                setSyncStatusData((prev) => ({ ...prev, [s.slug]: data }));
+                                setSyncStatusLoading(null);
+                              });
+                            }}
+                            className="flex items-center gap-1.5 text-xs text-tertiary hover:text-secondary transition"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Refresh status
+                          </button>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <p className="text-xs text-tertiary py-2">Failed to load sync status.</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import AdminUser, DbSession
 from app.models import AgentSettings, Connector, KnowledgeSource
-from app.schemas.knowledge_source import KnowledgeSourceCreate, KnowledgeSourceOut
+from app.schemas.knowledge_source import KnowledgeSourceCreate, KnowledgeSourceOut, KnowledgeSourceUpdate, SyncDocumentStatus, SyncStatusOut
 from app.services.gdrive import sync_gdrive_folder
 from app.services.notion import sync_notion_database, sync_notion_page
 from app.services.rag import RAGService
@@ -107,6 +107,63 @@ async def delete_knowledge_source(slug: str, user: AdminUser, db: DbSession, req
         await runtime.refresh_graph()
 
 
+@router.patch("/{slug}", response_model=KnowledgeSourceOut)
+async def update_knowledge_source(
+    slug: str,
+    user: AdminUser,
+    db: DbSession,
+    body: KnowledgeSourceUpdate,
+) -> KnowledgeSourceOut:
+    """Update a knowledge source's name, connector, or config."""
+    slug = slug.strip()
+    ks = await db.scalar(
+        select(KnowledgeSource)
+        .options(selectinload(KnowledgeSource.connector))
+        .where(func.trim(KnowledgeSource.slug) == slug)
+    )
+    if ks is None:
+        raise HTTPException(status_code=404, detail="Knowledge source not found")
+
+    data = body.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(ks, key, value)
+
+    await db.commit()
+    await db.refresh(ks)
+    return KnowledgeSourceOut.model_validate(ks)
+
+
+@router.get("/{slug}/sync-status", response_model=SyncStatusOut)
+async def get_sync_status(slug: str, user: AdminUser, db: DbSession) -> SyncStatusOut:
+    """Get per-document sync status for a knowledge source."""
+    slug = slug.strip()
+    ks = await db.scalar(select(KnowledgeSource).where(func.trim(KnowledgeSource.slug) == slug))
+    if ks is None:
+        raise HTTPException(status_code=404, detail="Knowledge source not found")
+
+    rag = RAGService()
+    ks_id = str(ks.id)
+    metadata = await rag.get_source_metadata(ks_id)
+
+    documents: list[SyncDocumentStatus] = []
+    for source_id, meta in sorted(metadata.items(), key=lambda x: x[1].get("title", "")):
+        documents.append(SyncDocumentStatus(
+            source_id=source_id,
+            title=meta.get("title", "Untitled"),
+            chunk_count=meta.get("chunk_count", 0),
+            source_modified_at=meta.get("source_modified_at"),
+        ))
+
+    return SyncStatusOut(
+        slug=ks.slug,
+        status=ks.status,
+        last_sync_at=ks.last_sync_at,
+        chunk_count=ks.chunk_count,
+        document_count=len(documents),
+        documents=documents,
+    )
+
+
 @router.post("/{slug}/sync", status_code=status.HTTP_202_ACCEPTED)
 async def trigger_knowledge_source_sync(
     slug: str,
@@ -133,6 +190,9 @@ async def trigger_knowledge_source_sync(
     )
     if ks is None:
         raise HTTPException(status_code=404, detail="Knowledge source not found")
+
+    ks.status = "syncing"
+    await db.commit()
 
     if ks.source_type == "notion":
         config = ks.config or {}

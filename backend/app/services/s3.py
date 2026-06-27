@@ -208,7 +208,7 @@ def sync_s3_prefix(
                         "s3_bucket": bucket,
                         "s3_key": key,
                         "file_name": key.split("/")[-1],
-                        "file_type": _detect_file_type(key),
+                        "file_type": _detect_file_type("", key),
                         "source_url": source_url,
                         "source_modified_at": modified_str,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),

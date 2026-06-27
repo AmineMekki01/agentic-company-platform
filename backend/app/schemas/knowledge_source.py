@@ -54,3 +54,29 @@ class KnowledgeSourceOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class SyncDocumentStatus(BaseModel):
+    source_id: str
+    title: str
+    chunk_count: int
+    source_modified_at: str | None = None
+    ingested_at: str | None = None
+    source_type: str | None = None
+    file_name: str | None = None
+    source_url: str | None = None
+
+
+class SyncStatusOut(BaseModel):
+    slug: str
+    status: str
+    last_sync_at: datetime | None
+    chunk_count: int
+    document_count: int
+    documents: list[SyncDocumentStatus]
+
+
+class KnowledgeSourceUpdate(BaseModel):
+    name: str | None = None
+    connector_id: UUID | None = None
+    config: dict[str, Any] | None = None
+
