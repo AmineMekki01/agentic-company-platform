@@ -28,6 +28,13 @@ services:
     ports:
       - "6379:6379"
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   backend:
     build: ./backend
     environment:
@@ -38,6 +45,8 @@ services:
       COHERE_API_KEY: ${COHERE_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       NOTION_TOKEN: ${NOTION_TOKEN:-}
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
       JIRA_BASE_URL: ${JIRA_BASE_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
@@ -85,6 +94,8 @@ services:
       COHERE_API_KEY: ${COHERE_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       NOTION_TOKEN: ${NOTION_TOKEN:-}
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
       JIRA_BASE_URL: ${JIRA_BASE_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
@@ -111,6 +122,8 @@ services:
       COHERE_API_KEY: ${COHERE_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       NOTION_TOKEN: ${NOTION_TOKEN:-}
+      OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
       JIRA_BASE_URL: ${JIRA_BASE_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
@@ -127,5 +140,6 @@ services:
 volumes:
   pg_data:
   qdrant_data:
+  ollama_data:
   backend_venv:
   frontend_node_modules:

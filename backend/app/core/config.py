@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
     notion_token: str = ""
 
+    ollama_enabled: bool = False
+    ollama_base_url: str = "http://ollama:11434/v1"
+
     jira_base_url: str = ""
     jira_email: str = ""
     jira_api_token: str = ""

@@ -570,6 +570,31 @@ def upgrade() -> None:
         sa.Column("created_by", sa.String(length=255), nullable=False),
     )
 
+    # llm_settings
+    op.create_table(
+        "llm_settings",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("ollama_enabled", sa.Boolean(), nullable=False, server_default="false"),
+        sa.Column(
+            "ollama_base_url",
+            sa.String(length=500),
+            nullable=False,
+            server_default="http://ollama:11434/v1",
+        ),
+        sa.Column(
+            "ollama_enabled_models",
+            sa.JSON(),
+            nullable=False,
+            server_default="[]",
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
     # token_usage
     op.create_table(
         "token_usage",
@@ -599,6 +624,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_table("llm_settings")
     op.drop_table("token_budgets")
     op.drop_table("token_usage")
     op.drop_table("agent_eval_schedules")

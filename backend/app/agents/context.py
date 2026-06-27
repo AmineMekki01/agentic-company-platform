@@ -14,15 +14,20 @@ MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "gpt-5.4-nano": 400_000,
     # Anthropic
     # Google
-    # Local LLMs
-
-    # will add this afer 
+    # Local LLMs (Ollama) — common models with known context windows
+    "ollama/qwen3.5:2b": 256_000,
 }
+
+OLLAMA_DEFAULT_CONTEXT_WINDOW = 8_192
 
 
 def resolve_context_window(model_name: str) -> int:
     """
     Look up a model's context window.
+
+    For Ollama models (prefixed with 'ollama/'), if the exact model isn't
+    in the lookup table, a conservative default is returned instead of
+    raising.
 
     Args:
         model_name: The name of the model to look up.
@@ -31,12 +36,16 @@ def resolve_context_window(model_name: str) -> int:
         The context window size for the model.
 
     Raises:
-        ValueError: If the model is not in MODEL_CONTEXT_WINDOWS.
+        ValueError: If the model is not in MODEL_CONTEXT_WINDOWS and is
+                    not an Ollama model.
     """
     key = model_name.lower().replace("-", "").replace(".", "")
     for known, limit in MODEL_CONTEXT_WINDOWS.items():
-        if known.lower().replace("-", "").replace(".", "") in key:
+        known_key = known.lower().replace("-", "").replace(".", "")
+        if known_key in key:
             return limit
+    if model_name.lower().startswith("ollama/"):
+        return OLLAMA_DEFAULT_CONTEXT_WINDOW
     raise ValueError(f"Unknown model '{model_name}' — no context window configured")
 
 

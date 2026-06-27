@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, ChevronRight, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, Cpu, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -15,6 +15,7 @@ const navGroups = [
     label: "Data & Integrations",
     items: [
       { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
+      { to: "/admin/llm-models", label: "LLM Models", icon: Cpu },
       { to: "/admin/connectors", label: "Connectors", icon: Plug },
       { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
     ],

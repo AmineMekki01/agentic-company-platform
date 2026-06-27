@@ -3,6 +3,7 @@ import type {
   AgentSetting, AgentSettingCreate, AgentVersion, AgentVersionDetail,
   AgentFeedbackSummary, MessageFeedback, AgentEvalTestSetDetail, AgentEvalRun,
   AgentEvalRunDetail, AgentEvalSchedule, DbUser, KnowledgeSource, UploadSettings,
+  ModelOption,
 } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import { ALL_TABS, hasDraftChanges, type TabKey } from "./agentUtils";
@@ -24,7 +25,7 @@ interface Props {
   agents: AgentSetting[];
   sources: KnowledgeSource[];
   users: DbUser[];
-  models: string[];
+  models: ModelOption[];
   uploadSettings: UploadSettings | null;
   activeTab: TabKey;
   setActiveTab: (t: TabKey) => void;

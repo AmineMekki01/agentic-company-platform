@@ -1,15 +1,17 @@
 import { Workflow } from "lucide-react";
-import type { AgentSetting, DbUser } from "@/lib/api";
+import type { AgentSetting, DbUser, ModelOption } from "@/lib/api";
 import { formatUserLabel } from "../agentUtils";
 
 interface Props {
   selected: AgentSetting;
   setSelected: (a: AgentSetting) => void;
   users: DbUser[];
-  models: string[];
+  models: ModelOption[];
 }
 
 export default function OverviewTab({ selected, setSelected, users, models }: Props) {
+  const providers = [...new Set(models.map((m) => m.provider))];
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
@@ -28,8 +30,12 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
             onChange={(e) => setSelected({ ...selected, llm_model: e.target.value })}
             className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           >
-            {models.map((m) => (
-              <option key={m} value={m}>{m}</option>
+            {providers.map((prov) => (
+              <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                {models.filter((m) => m.provider === prov).map((m) => (
+                  <option key={m.name} value={m.name}>{m.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
@@ -196,7 +202,13 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
                 }}
                 className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               >
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                {providers.map((prov) => (
+                  <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                    {models.filter((m) => m.provider === prov).map((m) => (
+                      <option key={m.name} value={m.name}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </label>
             <label className="block">
@@ -209,7 +221,13 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
                 }}
                 className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               >
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                {providers.map((prov) => (
+                  <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                    {models.filter((m) => m.provider === prov).map((m) => (
+                      <option key={m.name} value={m.name}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </label>
             <label className="block">
@@ -222,7 +240,13 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
                 }}
                 className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               >
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                {providers.map((prov) => (
+                  <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                    {models.filter((m) => m.provider === prov).map((m) => (
+                      <option key={m.name} value={m.name}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </label>
             <label className="block">
@@ -235,7 +259,13 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
                 }}
                 className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
               >
-                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                {providers.map((prov) => (
+                  <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                    {models.filter((m) => m.provider === prov).map((m) => (
+                      <option key={m.name} value={m.name}>{m.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </label>
           </div>

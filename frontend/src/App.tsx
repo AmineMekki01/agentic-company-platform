@@ -8,6 +8,7 @@ import AdminAgents from "@/pages/AdminAgents";
 import AdminConnectors from "@/pages/AdminConnectors";
 import AdminHealth from "@/pages/AdminHealth";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
+import AdminLLMModels from "@/pages/AdminLLMModels";
 import AdminUploadSettings from "@/pages/AdminUploadSettings";
 import AdminUsage from "@/pages/AdminUsage";
 import ChatPage from "@/pages/ChatPage";
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="agents/:agentSlug" element={<AdminAgents />} />
         <Route path="agent-templates" element={<AdminAgentTemplates />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
+        <Route path="llm-models" element={<AdminLLMModels />} />
         <Route path="connectors" element={<AdminConnectors />} />
         <Route path="system-status" element={<AdminHealth />} />
         <Route path="upload-settings" element={<AdminUploadSettings />} />

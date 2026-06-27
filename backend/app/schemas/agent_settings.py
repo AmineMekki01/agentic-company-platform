@@ -5,6 +5,13 @@ from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
 
+class ModelOption(BaseModel):
+    """A selectable LLM model option with provider metadata."""
+    name: str
+    provider: str
+    label: str
+
+
 class AgentSettingOut(BaseModel):
     """
     Agent setting output schema.

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Bot, Loader2, Plus } from "lucide-react";
-import type { AgentSetting, AgentSettingCreate, DbUser, UploadSettings } from "@/lib/api";
+import type { AgentSetting, AgentSettingCreate, DbUser, UploadSettings, ModelOption } from "@/lib/api";
 
 const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
 
@@ -12,7 +12,7 @@ interface CreateAgentPanelProps {
   onCreate: () => void;
   creating: boolean;
   users: DbUser[];
-  models: string[];
+  models: ModelOption[];
   agents: AgentSetting[];
   currentUserEmail?: string;
   error: string | null;
@@ -143,8 +143,12 @@ export default function CreateAgentPanel({
             onChange={(e) => onChange({ ...agent, llm_model: e.target.value })}
             className="w-full bg-canvas border border-line rounded-lg px-3 py-2 text-sm mt-1 text-primary focus:border-brand/50 focus:ring-2 focus:ring-brand/10 outline-none transition"
           >
-            {models.map((m) => (
-              <option key={m} value={m}>{m}</option>
+            {[...new Set(models.map((m) => m.provider))].map((prov) => (
+              <optgroup key={prov} label={prov === "ollama" ? "Ollama (Local)" : prov.charAt(0).toUpperCase() + prov.slice(1)}>
+                {models.filter((m) => m.provider === prov).map((m) => (
+                  <option key={m.name} value={m.name}>{m.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>

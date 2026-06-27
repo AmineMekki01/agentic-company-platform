@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.agents.runtime import AgentRuntime
 from app.api.admin_agent_templates import router as admin_agent_templates_router
 from app.api.admin_agents import router as admin_agents_router
+from app.api.admin_llm_settings import router as admin_llm_settings_router
 from app.api.admin_status import router as admin_status_router
 from app.api.admin_upload_settings import router as admin_upload_settings_router
 from app.api.admin_usage import router as admin_usage_router
@@ -88,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_users_router, prefix="/api")
     app.include_router(admin_status_router, prefix="/api")
     app.include_router(admin_upload_settings_router, prefix="/api")
+    app.include_router(admin_llm_settings_router, prefix="/api")
     app.include_router(knowledge_sources_router, prefix="/api")
     app.include_router(feedback_router, prefix="/api")
     app.include_router(connector_credentials_router, prefix="/api")

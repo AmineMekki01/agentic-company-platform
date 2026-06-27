@@ -10,7 +10,8 @@ from sqlalchemy import func, select, text
 
 from app.agents.context import MODEL_CONTEXT_WINDOWS
 from app.api.deps import AdminUser, DbSession
-from app.models import AgentSettings, AgentVersion, Connector, UploadSettings
+from app.core.config import settings
+from app.models import AgentSettings, AgentVersion, Connector, LLMSettings, UploadSettings
 from app.schemas.agent_settings import (
     AgentDraftSave,
     AgentPublishRequest,
@@ -18,6 +19,7 @@ from app.schemas.agent_settings import (
     AgentSettingOut,
     AgentSettingUpdate,
     AgentVersionOut,
+    ModelOption,
 )
 
 router = APIRouter(prefix="/admin/agents", tags=["admin"])
@@ -60,15 +62,29 @@ async def _fetch_agent_settings(db: DbSession, slug: str | None = None) -> list[
         rows.append(r)
     return rows
 
-@router.get("/models", response_model=list[str])
-async def list_models(user: AdminUser) -> list[str]:
-    """Return available LLM model names."""
-    models = list(MODEL_CONTEXT_WINDOWS.keys())
+async def _get_llm_settings(db: DbSession) -> LLMSettings | None:
+    return await db.scalar(select(LLMSettings))
 
-    if "gpt-5.4-nano" in models:
-        models.remove("gpt-5.4-nano")
-        models.insert(0, "gpt-5.4-nano")
-    return models
+
+@router.get("/models", response_model=list[ModelOption])
+async def list_models(user: AdminUser, db: DbSession) -> list[ModelOption]:
+    """Return available LLM model options grouped by provider."""
+    options: list[ModelOption] = []
+
+    cloud_models = [k for k in MODEL_CONTEXT_WINDOWS if not k.startswith("ollama/")]
+    if "gpt-5.4-nano" in cloud_models:
+        cloud_models.remove("gpt-5.4-nano")
+        cloud_models.insert(0, "gpt-5.4-nano")
+    for m in cloud_models:
+        options.append(ModelOption(name=m, provider="openai", label=m))
+
+    llm_settings = await _get_llm_settings(db)
+    if llm_settings and llm_settings.ollama_enabled:
+        for model_name in llm_settings.ollama_enabled_models:
+            label = model_name[len("ollama/"):] if model_name.startswith("ollama/") else model_name
+            options.append(ModelOption(name=model_name, provider="ollama", label=label))
+
+    return options
 
 @router.get("", response_model=list[AgentSettingOut])
 async def list_agent_settings(user: AdminUser, db: DbSession) -> list[AgentSettingOut]:

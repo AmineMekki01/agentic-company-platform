@@ -12,6 +12,7 @@ from app.models.conversation import Conversation
 from app.models.conversation_folder import ConversationFolder
 from app.models.feedback_attachment import FeedbackAttachment
 from app.models.knowledge_source import KnowledgeSource
+from app.models.llm_settings import LLMSettings
 from app.models.message import Message
 from app.models.message_feedback import MessageFeedback
 from app.models.token_budget import TokenBudget
@@ -34,6 +35,7 @@ __all__ = [
     "ConversationFolder",
     "FeedbackAttachment",
     "KnowledgeSource",
+    "LLMSettings",
     "Message",
     "MessageFeedback",
     "TokenBudget",

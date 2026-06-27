@@ -42,8 +42,10 @@ async def test_list_models(client, admin_headers):
     assert res.status_code == 200
     models = res.json()
     assert isinstance(models, list)
-    assert "gpt-5.4-nano" in models
-    assert models[0] == "gpt-5.4-nano"
+    assert all("name" in m and "provider" in m and "label" in m for m in models)
+    names = [m["name"] for m in models]
+    assert "gpt-5.4-nano" in names
+    assert names[0] == "gpt-5.4-nano"
 
 
 async def test_list_agent_settings(client, admin_headers, session_factory):

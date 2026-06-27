@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw, Bot } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTestSetDetail, type AgentEvalRun, type AgentEvalRunDetail, type AgentEvalSchedule, type UploadSettings } from "@/lib/api";
+import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTestSetDetail, type AgentEvalRun, type AgentEvalRunDetail, type AgentEvalSchedule, type UploadSettings, type ModelOption } from "@/lib/api";
 import AgentListTable from "@/components/admin/agents/AgentListTable";
 import CreateAgentPanel from "@/components/admin/agents/CreateAgentPanel";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -18,7 +18,7 @@ export default function AdminAgents() {
   const [agents, setAgents] = useState<AgentSetting[]>([]);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [users, setUsers] = useState<DbUser[]>([]);
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
   const [selected, setSelected] = useState<AgentSetting | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
