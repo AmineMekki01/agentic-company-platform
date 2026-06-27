@@ -6,6 +6,7 @@ import AdminLayout from "@/components/AdminLayout";
 import AdminAgentTemplates from "@/pages/AdminAgentTemplates";
 import AdminAgents from "@/pages/AdminAgents";
 import AdminConnectors from "@/pages/AdminConnectors";
+import AdminHealth from "@/pages/AdminHealth";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
 import AdminUploadSettings from "@/pages/AdminUploadSettings";
 import AdminUsage from "@/pages/AdminUsage";
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="agent-templates" element={<AdminAgentTemplates />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="connectors" element={<AdminConnectors />} />
+        <Route path="system-status" element={<AdminHealth />} />
         <Route path="upload-settings" element={<AdminUploadSettings />} />
         <Route path="usage" element={<AdminUsage />} />
       </Route>

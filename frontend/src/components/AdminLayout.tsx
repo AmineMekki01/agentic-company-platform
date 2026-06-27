@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, ChevronRight, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3 } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -23,6 +23,12 @@ const navGroups = [
     label: "Analytics",
     items: [
       { to: "/admin/usage", label: "Usage", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Monitoring",
+    items: [
+      { to: "/admin/system-status", label: "System Status", icon: Activity },
     ],
   },
 ];
