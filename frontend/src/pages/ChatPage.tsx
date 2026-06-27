@@ -233,13 +233,13 @@ export default function ChatPage() {
             )
           );
         },
-        onClarification: (question) => {
-          console.log("[DR-CB] onClarification", { placeholderId, question });
+        onClarification: (question, messageId) => {
+          console.log("[DR-CB] onClarification", { placeholderId, question, messageId });
           setMessages((ms) => {
             const found = ms.some((m) => m.id === placeholderId);
             console.log("[DR-CB] onClarification placeholder present?", found, { ids: ms.map((m) => m.id) });
             return ms.map((m) =>
-              m.id === placeholderId ? { ...m, content: question, step: undefined, streaming: false, awaitingClarification: true } : m
+              m.id === placeholderId ? { ...m, content: question, serverId: messageId, step: undefined, streaming: false, awaitingClarification: true } : m
             );
           });
         },

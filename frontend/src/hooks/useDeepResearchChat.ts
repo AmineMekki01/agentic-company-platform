@@ -9,7 +9,7 @@ export interface DeepResearchStep {
 
 export interface DeepResearchCallbacks {
   onStep?: (step: DeepResearchStep) => void;
-  onClarification?: (question: string) => void;
+  onClarification?: (question: string, messageId?: string) => void;
   onToken: (delta: string) => void;
   onSources?: (sources: any[]) => void;
   onDone?: (messageId: string) => void;
@@ -60,7 +60,7 @@ export function useDeepResearchChat() {
             cb.onStep?.(stepInfo);
           } else if (type === "clarification") {
             setClarification(data.question);
-            cb.onClarification?.(data.question);
+            cb.onClarification?.(data.question, data.message_id);
           } else if (type === "sources") {
             cb.onSources?.(data.sources || []);
           } else if (type === "token") {

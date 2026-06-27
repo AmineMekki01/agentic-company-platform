@@ -232,10 +232,12 @@ async def _handle_message(
                 )
                 db.add(ai_msg)
                 await db.commit()
+                await db.refresh(ai_msg)
 
                 await websocket.send_text(json.dumps({
                     "type": "clarification",
                     "question": question,
+                    "message_id": str(ai_msg.id),
                 }))
                 break
 
