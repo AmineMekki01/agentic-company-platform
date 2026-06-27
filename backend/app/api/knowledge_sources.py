@@ -11,7 +11,7 @@ from app.models import AgentSettings, Connector, KnowledgeSource
 from app.schemas.knowledge_source import KnowledgeSourceCreate, KnowledgeSourceOut, KnowledgeSourceUpdate, SyncDocumentStatus, SyncStatusOut
 from app.services.gdrive import sync_gdrive_folder
 from app.services.notion import sync_notion_database, sync_notion_page
-from app.services.rag import RAGService
+from app.services.rag import get_rag_service
 from app.services.s3 import sync_s3_prefix
 
 router = APIRouter(prefix="/admin/knowledge-sources", tags=["admin"])
@@ -86,7 +86,7 @@ async def delete_knowledge_source(slug: str, user: AdminUser, db: DbSession, req
     ks = await db.scalar(select(KnowledgeSource).where(func.trim(KnowledgeSource.slug) == slug))
     if ks is None:
         raise HTTPException(status_code=404, detail="Knowledge source not found")
-    rag = RAGService()
+    rag = get_rag_service()
     await rag.delete_by_knowledge_source(str(ks.id))
     await db.delete(ks)
     await db.commit()
@@ -141,7 +141,7 @@ async def get_sync_status(slug: str, user: AdminUser, db: DbSession) -> SyncStat
     if ks is None:
         raise HTTPException(status_code=404, detail="Knowledge source not found")
 
-    rag = RAGService()
+    rag = get_rag_service()
     ks_id = str(ks.id)
     metadata = await rag.get_source_metadata(ks_id)
 

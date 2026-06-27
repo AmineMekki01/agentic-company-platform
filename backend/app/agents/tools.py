@@ -6,7 +6,7 @@ from typing import Annotated
 
 from langchain_core.tools import tool
 
-from app.services.rag import RAGService, RetrievedChunk
+from app.services.rag import RetrievedChunk, get_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ async def _retrieve_and_format(
     Returns:
         Tuple of (formatted_text, source_metadata_list)
     """
-    rag = RAGService()
+    rag = get_rag_service()
     chunks: list[RetrievedChunk] = await rag.retrieve(query, source_ids=source_ids, top_k=top_k)
 
     if not chunks:

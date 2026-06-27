@@ -24,7 +24,7 @@ from app.api.health import router as health_router
 from app.api.knowledge_sources import router as knowledge_sources_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.services.rag import RAGService
+from app.services.rag import get_rag_service
 
 configure_logging()
 logger = get_logger(__name__)
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
         logger.exception("Agent runtime failed to start - chat endpoints will 503")
     app.state.runtime = runtime
 
-    rag = RAGService()
+    rag = get_rag_service()
     try:
         await rag.ensure_collection()
         logger.info("RAG collection ready")
@@ -51,6 +51,7 @@ async def lifespan(app: FastAPI):
 
     yield
     await runtime.shutdown()
+    await rag.close()
 
 
 def create_app() -> FastAPI:

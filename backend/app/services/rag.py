@@ -8,10 +8,11 @@ Design
   assistant can cite sources.
 """
 
+import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable, TypeVar
 
 import cohere
 import tiktoken
@@ -20,6 +21,32 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import AsyncQdrantClient, models
 
 from app.core.config import settings
+
+T = TypeVar("T")
+
+_QDRANT_MAX_RETRIES = 3
+_QDRANT_BASE_DELAY = 0.5
+
+
+async def _qdrant_retry(
+    func: Callable[..., Any],
+    *args: Any,
+    max_retries: int = _QDRANT_MAX_RETRIES,
+    base_delay: float = _QDRANT_BASE_DELAY,
+    **kwargs: Any,
+) -> Any:
+    for attempt in range(max_retries):
+        try:
+            return await func(*args, **kwargs)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            delay = base_delay * (2 ** attempt)
+            logger.warning(
+                "Qdrant op failed (attempt %d/%d): %s, retrying in %.1fs",
+                attempt + 1, max_retries, e, delay,
+            )
+            await asyncio.sleep(delay)
 
 
 
@@ -102,6 +129,18 @@ class RAGService:
         """Count tokens using the model-aware tokenizer."""
         return len(self._tokenizer.encode(text, disallowed_special=()))
 
+    async def close(self) -> None:
+        """Close underlying client connections."""
+        try:
+            await self.qdrant.close()
+        except Exception:
+            logger.warning("Error closing Qdrant client", exc_info=True)
+        if self.cohere is not None:
+            try:
+                await self.cohere.close()
+            except Exception:
+                logger.warning("Error closing Cohere client", exc_info=True)
+
     def _get_local_reranker(self) -> Any | None:
         """Lazily load a local cross-encoder reranker if sentence-transformers is available."""
         if self._local_reranker is not None:
@@ -162,9 +201,9 @@ class RAGService:
         If the collection exists but was created with an old unnamed vector
         schema, it is dropped and recreated.
         """
-        exists = await self.qdrant.collection_exists(COLLECTION_NAME)
+        exists = await _qdrant_retry(self.qdrant.collection_exists, COLLECTION_NAME)
         if exists:
-            info = await self.qdrant.get_collection(COLLECTION_NAME)
+            info = await _qdrant_retry(self.qdrant.get_collection, COLLECTION_NAME)
             vectors = info.config.params.vectors
 
             if vectors is not None and hasattr(vectors, "get") and vectors.get("dense"):
@@ -179,14 +218,15 @@ class RAGService:
                     "Collection %s has an old unnamed vector schema. Recreating.",
                     COLLECTION_NAME,
                 )
-                await self.qdrant.delete_collection(COLLECTION_NAME)
+                await _qdrant_retry(self.qdrant.delete_collection, COLLECTION_NAME)
             else:
                 logger.warning(
                     "Collection %s schema mismatch. Recreating.", COLLECTION_NAME
                 )
-                await self.qdrant.delete_collection(COLLECTION_NAME)
+                await _qdrant_retry(self.qdrant.delete_collection, COLLECTION_NAME)
 
-        await self.qdrant.create_collection(
+        await _qdrant_retry(
+            self.qdrant.create_collection,
             collection_name=COLLECTION_NAME,
             vectors_config={
                 "dense": models.VectorParams(
@@ -261,7 +301,7 @@ class RAGService:
                 )
             )
 
-        await self.qdrant.upsert(collection_name=COLLECTION_NAME, points=points)
+        await _qdrant_retry(self.qdrant.upsert, collection_name=COLLECTION_NAME, points=points)
         return len(points)
 
     async def _rerank(
@@ -350,61 +390,67 @@ class RAGService:
         rrf_limit = top_k * 2
         logger.warning("RAG retrieve query=%r source_ids=%s top_k=%d (prefetch=%d rrf=%d)", query, source_ids, top_k, prefetch_limit, rrf_limit)
 
-        dense_query = await self.embeddings.aembed_query(query)
-        sparse_query = self._embed_sparse([query])
-        sparse_available = sparse_query is not None
-        if not sparse_available:
-            logger.warning("RAG retrieve: sparse model unavailable, using dense-only search")
+        try:
+            dense_query = await self.embeddings.aembed_query(query)
+            sparse_query = self._embed_sparse([query])
+            sparse_available = sparse_query is not None
+            if not sparse_available:
+                logger.warning("RAG retrieve: sparse model unavailable, using dense-only search")
 
-        qdrant_filter = None
-        if source_ids:
-            qdrant_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="knowledge_source_id",
-                        match=models.MatchAny(any=source_ids),
-                    )
-                ]
-            )
-            logger.warning("RAG filter: knowledge_source_id IN %s", source_ids)
-        else:
-            logger.warning("RAG filter: NONE (searching all sources)")
+            qdrant_filter = None
+            if source_ids:
+                qdrant_filter = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="knowledge_source_id",
+                            match=models.MatchAny(any=source_ids),
+                        )
+                    ]
+                )
+                logger.warning("RAG filter: knowledge_source_id IN %s", source_ids)
+            else:
+                logger.warning("RAG filter: NONE (searching all sources)")
 
-        if sparse_available:
-            resp = await self.qdrant.query_points(
-                collection_name=COLLECTION_NAME,
-                prefetch=[
-                    models.Prefetch(
-                        query=dense_query,
-                        using="dense",
-                        limit=prefetch_limit,
-                        filter=qdrant_filter,
-                    ),
-                    models.Prefetch(
-                        query=sparse_query[0],
-                        using="sparse",
-                        limit=prefetch_limit,
-                        filter=qdrant_filter,
-                    ),
-                ],
-                query=models.FusionQuery(fusion=models.Fusion.RRF),
-                limit=rrf_limit,
-                with_payload=True,
-            )
-        else:
-            resp = await self.qdrant.query_points(
-                collection_name=COLLECTION_NAME,
-                prefetch=[
-                    models.Prefetch(
-                        query=dense_query,
-                        using="dense",
-                        limit=prefetch_limit,
-                        filter=qdrant_filter,
-                    ),
-                ],
-                limit=rrf_limit,
-                with_payload=True,
-            )
+            if sparse_available:
+                resp = await _qdrant_retry(
+                    self.qdrant.query_points,
+                    collection_name=COLLECTION_NAME,
+                    prefetch=[
+                        models.Prefetch(
+                            query=dense_query,
+                            using="dense",
+                            limit=prefetch_limit,
+                            filter=qdrant_filter,
+                        ),
+                        models.Prefetch(
+                            query=sparse_query[0],
+                            using="sparse",
+                            limit=prefetch_limit,
+                            filter=qdrant_filter,
+                        ),
+                    ],
+                    query=models.FusionQuery(fusion=models.Fusion.RRF),
+                    limit=rrf_limit,
+                    with_payload=True,
+                )
+            else:
+                resp = await _qdrant_retry(
+                    self.qdrant.query_points,
+                    collection_name=COLLECTION_NAME,
+                    prefetch=[
+                        models.Prefetch(
+                            query=dense_query,
+                            using="dense",
+                            limit=prefetch_limit,
+                            filter=qdrant_filter,
+                        ),
+                    ],
+                    limit=rrf_limit,
+                    with_payload=True,
+                )
+        except Exception:
+            logger.exception("Qdrant retrieve failed after retries, returning empty results")
+            return []
 
         raw_unique: dict[str, str] = {}
         for p in resp.points:
@@ -440,7 +486,8 @@ class RAGService:
         """
         total_deleted = 0
         while True:
-            points, next_offset = await self.qdrant.scroll(
+            points, next_offset = await _qdrant_retry(
+                self.qdrant.scroll,
                 collection_name=COLLECTION_NAME,
                 scroll_filter=models.Filter(
                     must=[
@@ -457,7 +504,8 @@ class RAGService:
             if not points:
                 break
             ids = [p.id for p in points]
-            await self.qdrant.delete(
+            await _qdrant_retry(
+                self.qdrant.delete,
                 collection_name=COLLECTION_NAME,
                 points_selector=models.PointIdsList(points=ids),
             )
@@ -480,7 +528,8 @@ class RAGService:
         """
         total_deleted = 0
         while True:
-            points, next_offset = await self.qdrant.scroll(
+            points, next_offset = await _qdrant_retry(
+                self.qdrant.scroll,
                 collection_name=COLLECTION_NAME,
                 scroll_filter=models.Filter(
                     must=[
@@ -501,7 +550,8 @@ class RAGService:
             if not points:
                 break
             ids = [p.id for p in points]
-            await self.qdrant.delete(
+            await _qdrant_retry(
+                self.qdrant.delete,
                 collection_name=COLLECTION_NAME,
                 points_selector=models.PointIdsList(points=ids),
             )
@@ -521,7 +571,8 @@ class RAGService:
         result: dict[str, dict[str, Any]] = {}
         offset = 0
         while True:
-            points, next_offset = await self.qdrant.scroll(
+            points, next_offset = await _qdrant_retry(
+                self.qdrant.scroll,
                 collection_name=COLLECTION_NAME,
                 scroll_filter=models.Filter(
                     must=[
@@ -551,3 +602,20 @@ class RAGService:
                 break
             offset += len(points)
         return result
+
+
+_rag_instance: RAGService | None = None
+
+
+def get_rag_service() -> RAGService:
+    """Return the singleton RAGService instance, creating it on first call."""
+    global _rag_instance
+    if _rag_instance is None:
+        _rag_instance = RAGService()
+    return _rag_instance
+
+
+def _reset_rag_service() -> None:
+    """Clear the singleton instance. Intended for test isolation only."""
+    global _rag_instance
+    _rag_instance = None

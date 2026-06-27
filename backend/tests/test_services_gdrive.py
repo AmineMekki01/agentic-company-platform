@@ -145,11 +145,11 @@ def test_sync_gdrive_folder_with_files():
              patch("app.services.gdrive._download_file_content", return_value=(b"content", "application/pdf")), \
              patch("app.services.gdrive._extract_text", return_value="extracted text"), \
              patch("app.services.gdrive._detect_file_type", return_value="pdf"), \
-             patch("app.services.gdrive.RAGService") as mock_rag_cls, \
+             patch("app.services.gdrive.get_rag_service") as mock_get_rag, \
              patch("app.services.gdrive.asyncio") as mock_asyncio, \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=3)
             mock_rag.delete_by_source_id = AsyncMock()
@@ -177,11 +177,11 @@ def test_sync_gdrive_folder_force_full():
              patch("app.services.gdrive._download_file_content", return_value=(b"content", "application/pdf")), \
              patch("app.services.gdrive._extract_text", return_value="text"), \
              patch("app.services.gdrive._detect_file_type", return_value="pdf"), \
-             patch("app.services.gdrive.RAGService") as mock_rag_cls, \
+             patch("app.services.gdrive.get_rag_service") as mock_get_rag, \
              patch("app.services.gdrive.asyncio") as mock_asyncio, \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_knowledge_source = AsyncMock()

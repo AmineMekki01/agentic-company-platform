@@ -11,7 +11,7 @@ from typing import Any
 from app.celery_app import celery_app
 from app.core.encryption import EncryptionService
 from app.services.parsers import _detect_file_type, parse_upload
-from app.services.rag import RAGService
+from app.services.rag import get_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ def sync_gdrive_folder(
             return {"status": "ok", "files": 0, "chunks": 0}
 
         async def _sync_all() -> int:
-            rag = RAGService()
+            rag = get_rag_service()
             ks_id = knowledge_source_id or slug
 
             if force_full:

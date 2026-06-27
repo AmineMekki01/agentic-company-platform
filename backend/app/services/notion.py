@@ -9,7 +9,7 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.encryption import EncryptionService
 from app.services.parsers import parse_upload
-from app.services.rag import RAGService
+from app.services.rag import RAGService, get_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -303,7 +303,7 @@ def sync_notion_database(
         logger.info("Fetched %d pages from Notion DB %s", len(pages), database_id)
 
         async def _sync_all() -> int:
-            rag = RAGService()
+            rag = get_rag_service()
             ks_id = knowledge_source_id or slug
 
             if force_full:
@@ -409,7 +409,7 @@ def sync_notion_page(
         token = _resolve_token(connector_credentials)
 
         async def _sync() -> int:
-            rag = RAGService()
+            rag = get_rag_service()
             ks_id = knowledge_source_id or slug
 
             if force_full:

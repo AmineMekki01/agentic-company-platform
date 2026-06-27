@@ -243,10 +243,10 @@ def test_sync_notion_database_no_pages():
     with patch.object(sync_notion_database, "retry", MagicMock()):
         with patch("app.services.notion._resolve_token", return_value="tok"), \
              patch("app.services.notion.fetch_database_pages", return_value=[]), \
-             patch("app.services.notion.RAGService") as mock_rag_cls, \
+             patch("app.services.notion.get_rag_service") as mock_get_rag, \
              patch("app.services.notion.asyncio") as mock_asyncio, \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.delete_by_source_id = AsyncMock()
             mock_asyncio.run = lambda coro: _run_coro_sync(coro)
@@ -269,11 +269,11 @@ def test_sync_notion_database_with_pages():
         with patch("app.services.notion._resolve_token", return_value="tok"), \
              patch("app.services.notion.fetch_database_pages", return_value=mock_pages), \
              patch("app.services.notion.fetch_page_content", return_value="page content"), \
-             patch("app.services.notion.RAGService") as mock_rag_cls, \
+             patch("app.services.notion.get_rag_service") as mock_get_rag, \
              patch("app.services.notion.asyncio") as mock_asyncio, \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=4)
             mock_rag.delete_by_source_id = AsyncMock()
@@ -299,11 +299,11 @@ def test_sync_notion_database_force_full():
         with patch("app.services.notion._resolve_token", return_value="tok"), \
              patch("app.services.notion.fetch_database_pages", return_value=mock_pages), \
              patch("app.services.notion.fetch_page_content", return_value="content"), \
-             patch("app.services.notion.RAGService") as mock_rag_cls, \
+             patch("app.services.notion.get_rag_service") as mock_get_rag, \
              patch("app.services.notion.asyncio") as mock_asyncio, \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_knowledge_source = AsyncMock()
@@ -343,11 +343,11 @@ def test_sync_notion_page_basic():
              patch("app.services.notion._fetch_page_metadata", return_value={"last_edited_time": "2024-01-01", "title": "My Page"}), \
              patch("app.services.notion.fetch_page_content", return_value="page text"), \
              patch("app.services.notion._find_child_pages", return_value=[]), \
-             patch("app.services.notion.RAGService") as mock_rag_cls, \
+             patch("app.services.notion.get_rag_service") as mock_get_rag, \
              patch("app.services.notion.asyncio") as mock_asyncio, \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=3)
             mock_rag.delete_by_source_id = AsyncMock()
@@ -373,11 +373,11 @@ def test_sync_notion_page_with_children():
              patch("app.services.notion._fetch_page_metadata", return_value={"last_edited_time": "2024-01-01", "title": "Page"}), \
              patch("app.services.notion.fetch_page_content", return_value="text"), \
              patch("app.services.notion._find_child_pages", return_value=[{"id": child_id, "title": "Child"}]), \
-             patch("app.services.notion.RAGService") as mock_rag_cls, \
+             patch("app.services.notion.get_rag_service") as mock_get_rag, \
              patch("app.services.notion.asyncio") as mock_asyncio, \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_source_id = AsyncMock()

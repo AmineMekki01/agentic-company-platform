@@ -163,11 +163,11 @@ def test_sync_s3_prefix_with_objects():
              patch("app.services.s3.parse_upload", return_value="parsed text"), \
              patch("app.services.s3._build_s3_url", return_value="https://s3.amazonaws.com/bucket/key"), \
              patch("app.services.s3._detect_file_type", return_value="txt"), \
-             patch("app.services.s3.RAGService") as mock_rag_cls, \
+             patch("app.services.s3.get_rag_service") as mock_get_rag, \
              patch("app.services.s3.asyncio") as mock_asyncio, \
              patch("app.services.s3.EncryptionService"):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.delete_by_knowledge_source = AsyncMock()
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=5)
@@ -202,11 +202,11 @@ def test_sync_s3_prefix_force_full():
              patch("app.services.s3.parse_upload", return_value="text"), \
              patch("app.services.s3._build_s3_url", return_value="url"), \
              patch("app.services.s3._detect_file_type", return_value="txt"), \
-             patch("app.services.s3.RAGService") as mock_rag_cls, \
+             patch("app.services.s3.get_rag_service") as mock_get_rag, \
              patch("app.services.s3.asyncio") as mock_asyncio, \
              patch("app.services.s3.EncryptionService"):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.delete_by_knowledge_source = AsyncMock()
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.ingest_document = AsyncMock(return_value=3)
@@ -239,11 +239,11 @@ def test_sync_s3_prefix_skips_unchanged():
         with patch("app.services.s3._decrypt_credentials", return_value={"access_key": "ak"}), \
              patch("app.services.s3._get_s3_client"), \
              patch("app.services.s3._list_objects", return_value=mock_objects), \
-             patch("app.services.s3.RAGService") as mock_rag_cls, \
+             patch("app.services.s3.get_rag_service") as mock_get_rag, \
              patch("app.services.s3.asyncio") as mock_asyncio, \
              patch("app.services.s3.EncryptionService"):
 
-            mock_rag = mock_rag_cls.return_value
+            mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={
                 sid: {"source_modified_at": "2024-01-01T00:00:00+00:00", "chunk_count": 7}
             })

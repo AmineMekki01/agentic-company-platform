@@ -57,7 +57,7 @@ async def test_delete_knowledge_source(client, admin_headers, monkeypatch):
     class FakeRAGService:
         async def delete_by_knowledge_source(self, *args, **kwargs):
             pass
-    monkeypatch.setattr("app.api.knowledge_sources.RAGService", FakeRAGService)
+    monkeypatch.setattr("app.api.knowledge_sources.get_rag_service", lambda: FakeRAGService())
     await client.post(
         "/api/admin/knowledge-sources",
         headers=admin_headers,
