@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Bot, ChevronDown, ChevronRight, Folder, FolderPlus, LogOut, MessageSquare, MoreHorizontal, Plus, Search, Settings, Trash2, X } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, Folder, FolderPlus, LogOut, MessageSquare, MoreHorizontal, Pencil, Plus, Search, Settings, Trash2, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import ThemeToggle from "@/components/ThemeToggle";
@@ -28,6 +28,7 @@ interface SidebarProps {
   onCreateFolder: (name: string, color: string | null) => void;
   onDeleteFolder: (id: string) => void;
   onMoveConversation: (conversationId: string, folderId: string | null) => void;
+  onRename: (conversationId: string, title: string) => void;
   onSearch: (query: string) => Promise<Conversation[]>;
 }
 
@@ -41,6 +42,7 @@ export default function Sidebar({
   onCreateFolder,
   onDeleteFolder,
   onMoveConversation,
+  onRename,
   onSearch,
 }: SidebarProps) {
   const { user, logout, isAdmin } = useAuth();
@@ -53,6 +55,8 @@ export default function Sidebar({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -74,6 +78,25 @@ export default function Sidebar({
       else next.add(id);
       return next;
     });
+  };
+
+  const startRename = (c: Conversation) => {
+    setRenamingId(c.id);
+    setRenameValue(c.title ?? "");
+    setMenuOpen(null);
+  };
+
+  const submitRename = () => {
+    if (renamingId && renameValue.trim()) {
+      onRename(renamingId, renameValue.trim());
+    }
+    setRenamingId(null);
+    setRenameValue("");
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameValue("");
   };
 
   const handleSearchChange = (value: string) => {
@@ -112,7 +135,31 @@ export default function Sidebar({
     setNewFolderColor(FOLDER_COLORS[5]);
   };
 
-  const ConversationItem = ({ c }: { c: Conversation }) => (
+  const ConversationItem = ({ c }: { c: Conversation }) => {
+    if (renamingId === c.id) {
+      return (
+        <div
+          key={c.id}
+          className="group flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+        >
+          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-tertiary" />
+          <input
+            autoFocus
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitRename();
+              if (e.key === "Escape") cancelRename();
+            }}
+            onBlur={submitRename}
+            placeholder="Conversation title…"
+            className="flex-1 rounded-md bg-hover px-2 py-1 text-xs text-primary placeholder-tertiary outline-none ring-1 ring-line focus:ring-brand"
+          />
+        </div>
+      );
+    }
+    return (
     <div
       key={c.id}
       className={`group flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
@@ -141,6 +188,16 @@ export default function Sidebar({
             ref={menuRef}
             className="animate-scale-in absolute right-0 top-7 z-50 w-44 overflow-hidden rounded-xl border border-line bg-popover py-1 shadow-2xl backdrop-blur-sm"
           >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                startRename(c);
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs text-secondary hover:bg-hover"
+            >
+              <Pencil className="h-3.5 w-3.5 text-tertiary" />
+              Rename…
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -208,7 +265,8 @@ export default function Sidebar({
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-line/70 bg-card backdrop-blur-sm">

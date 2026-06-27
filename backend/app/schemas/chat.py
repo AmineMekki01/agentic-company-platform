@@ -206,6 +206,11 @@ class MoveToFolderRequest(BaseModel):
     folder_id: uuid.UUID | None
 
 
+class RenameConversationRequest(BaseModel):
+    """Request schema to rename a conversation."""
+    title: str = Field(min_length=1, max_length=200)
+
+
 class MessageFeedbackCreate(BaseModel):
     """Schema for creating feedback on an assistant message."""
     thumbs_up: bool

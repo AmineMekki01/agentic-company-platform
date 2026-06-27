@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import Conversation, Message
-from app.schemas.chat import ConversationDetail, ConversationOut, MessageOut, MoveToFolderRequest
+from app.schemas.chat import ConversationDetail, ConversationOut, MessageOut, MoveToFolderRequest, RenameConversationRequest
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -179,6 +179,35 @@ async def get_conversation(
         **ConversationOut.model_validate(conversation).model_dump(),
         messages=messages,
     )
+
+
+@router.patch("/{conversation_id}", response_model=ConversationOut)
+async def rename_conversation(
+    conversation_id: uuid.UUID,
+    body: RenameConversationRequest,
+    user: CurrentUser,
+    db: DbSession,
+) -> ConversationOut:
+    """
+    Rename a conversation.
+
+    Args:
+        conversation_id: The conversation ID
+        body: Request body with the new title
+        user: The authenticated user
+        db: Database session
+
+    Returns:
+        Updated ConversationOut object
+
+    Raises:
+        HTTPException: If conversation not found or not owned by user
+    """
+    conversation = await get_owned_conversation(conversation_id, user.id, db)
+    conversation.title = body.title
+    await db.commit()
+    await db.refresh(conversation)
+    return ConversationOut.model_validate(conversation)
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

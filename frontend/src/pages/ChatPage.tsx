@@ -161,6 +161,13 @@ export default function ChatPage() {
     );
   }
 
+  async function handleRename(conversationId: string, title: string) {
+    const updated = await api.renameConversation(conversationId, title);
+    setConversations((cs) =>
+      cs.map((c) => (c.id === conversationId ? updated : c))
+    );
+  }
+
   async function handleSend(content: string, forcedAgent: string | null, files: File[] = []) {
     let conversationId = activeId;
     console.log("[CHAT] handleSend START", { activeId, hasActive: !!activeId });
@@ -583,6 +590,7 @@ export default function ChatPage() {
         onCreateFolder={handleCreateFolder}
         onDeleteFolder={handleDeleteFolder}
         onMoveConversation={handleMoveConversation}
+        onRename={handleRename}
         onSearch={(q) => api.searchConversations(q)}
       />
 
