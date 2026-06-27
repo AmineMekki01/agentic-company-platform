@@ -1,7 +1,7 @@
 """Celery app for background tasks (Notion sync, etc.)."""
 
 from celery import Celery
-from celery.signals import worker_process_init
+from celery.signals import worker_process_init, worker_process_shutdown
 from app.core.config import settings
 
 celery_app = Celery(
@@ -29,3 +29,16 @@ def init_worker_process(**kwargs):
     from app.db.session import engine
 
     engine.dispose()
+
+
+@worker_process_shutdown.connect
+def shutdown_worker_process(**kwargs):
+    """Dispose the Celery-shared async engine on worker shutdown."""
+    import asyncio
+
+    from app.db.celery_session import dispose_celery_engine
+
+    try:
+        asyncio.run(dispose_celery_engine())
+    except Exception:
+        pass

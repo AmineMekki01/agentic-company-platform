@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import uuid
@@ -8,6 +7,7 @@ from typing import Any
 from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.encryption import EncryptionService
+from app.db.celery_session import run_async
 from app.services.parsers import parse_upload
 from app.services.rag import RAGService, get_rag_service
 
@@ -375,11 +375,11 @@ def sync_notion_database(
             logger.info("Notion DB sync complete: %d total chunks, %d pages skipped (unchanged)", total, skipped)
             return total
 
-        total_chunks = asyncio.run(_sync_all())
+        total_chunks = run_async(_sync_all())
         return {"status": "ok", "pages": len(pages), "chunks": total_chunks}
     except Exception as exc:
         logger.exception("Notion sync failed for DB %s", database_id)
-        asyncio.run(_update_source_status(slug, 0, status="error"))
+        run_async(_update_source_status(slug, 0, status="error"))
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -428,11 +428,11 @@ def sync_notion_page(
             await _update_source_status(slug, total)
             return total
 
-        total_chunks = asyncio.run(_sync())
+        total_chunks = run_async(_sync())
         return {"status": "ok", "chunks": total_chunks}
     except Exception as exc:
         logger.exception("Notion page sync failed for page %s", page_id)
-        asyncio.run(_update_source_status(slug, 0, status="error"))
+        run_async(_update_source_status(slug, 0, status="error"))
         raise self.retry(exc=exc, countdown=60)
 
 
@@ -469,11 +469,12 @@ async def _update_source_status(slug: str, chunk_count: int, status: str = "read
     Raises:
         Exception: If database update fails
     """
-    from app.db.session import async_session_factory
+    from app.db.celery_session import get_celery_session_factory
     from app.models import KnowledgeSource
     from sqlalchemy import select
 
-    async with async_session_factory() as db:
+    session_factory = get_celery_session_factory()
+    async with session_factory() as db:
         try:
             result = await db.execute(select(KnowledgeSource).where(KnowledgeSource.slug == slug))
             source = result.scalar_one_or_none()

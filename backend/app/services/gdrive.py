@@ -1,6 +1,5 @@
 """Google Drive connector: sync files from Drive folders into the knowledge base."""
 
-import asyncio
 import io
 import json
 import logging
@@ -10,6 +9,7 @@ from typing import Any
 
 from app.celery_app import celery_app
 from app.core.encryption import EncryptionService
+from app.db.celery_session import run_async
 from app.services.parsers import _detect_file_type, parse_upload
 from app.services.rag import get_rag_service
 
@@ -158,7 +158,7 @@ def sync_gdrive_folder(
         logger.info("Found %d supported files in Google Drive folder %s", len(files), folder_id)
 
         if not files:
-            asyncio.run(_update_source_status(slug, 0))
+            run_async(_update_source_status(slug, 0))
             return {"status": "ok", "files": 0, "chunks": 0}
 
         async def _sync_all() -> int:
@@ -232,39 +232,33 @@ def sync_gdrive_folder(
             logger.info("Google Drive sync complete: %d total chunks, %d files skipped (unchanged)", total, skipped)
             return total
 
-        total_chunks = asyncio.run(_sync_all())
+        total_chunks = run_async(_sync_all())
         return {"status": "ok", "files": len(files), "chunks": total_chunks}
     except Exception as exc:
         logger.exception("Google Drive sync failed for folder %s", folder_id)
-        asyncio.run(_update_source_status(slug, 0, status="error"))
+        run_async(_update_source_status(slug, 0, status="error"))
         raise self.retry(exc=exc, countdown=60)
 
 
 async def _update_source_status(slug: str, chunk_count: int, status: str = "ready") -> None:
     """Update KnowledgeSource status and chunk_count after sync."""
     from sqlalchemy import select
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-    from sqlalchemy.pool import NullPool
 
-    from app.core.config import settings
+    from app.db.celery_session import get_celery_session_factory
     from app.models import KnowledgeSource
 
-    engine = create_async_engine(settings.database_url, poolclass=NullPool)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    try:
-        async with session_factory() as db:
-            try:
-                result = await db.execute(
-                    select(KnowledgeSource).where(KnowledgeSource.slug == slug)
-                )
-                source = result.scalar_one_or_none()
-                if source:
-                    source.status = status
-                    source.chunk_count = chunk_count
-                    source.last_sync_at = datetime.now(timezone.utc)
-                    await db.commit()
-            except Exception:
-                logger.exception("Failed to update source status for %s", slug)
-                await db.rollback()
-    finally:
-        await engine.dispose()
+    session_factory = get_celery_session_factory()
+    async with session_factory() as db:
+        try:
+            result = await db.execute(
+                select(KnowledgeSource).where(KnowledgeSource.slug == slug)
+            )
+            source = result.scalar_one_or_none()
+            if source:
+                source.status = status
+                source.chunk_count = chunk_count
+                source.last_sync_at = datetime.now(timezone.utc)
+                await db.commit()
+        except Exception:
+            logger.exception("Failed to update source status for %s", slug)
+            await db.rollback()

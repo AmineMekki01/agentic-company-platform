@@ -10,17 +10,14 @@ pytestmark = pytest.mark.asyncio
 
 
 async def test_run_evaluation_run_not_found():
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls:
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(return_value=None)
 
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        mock_session.get = AsyncMock(return_value=None)
-
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(uuid.uuid4()))
 
@@ -31,18 +28,15 @@ async def test_run_evaluation_agent_not_found():
     mock_run.id = run_id
     mock_run.agent_id = uuid.uuid4()
 
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls:
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=[mock_run, None])
+    mock_session.commit = AsyncMock()
 
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        mock_session.get = AsyncMock(side_effect=[mock_run, None])
-        mock_session.commit = AsyncMock()
-
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id))
 
@@ -60,24 +54,21 @@ async def test_run_evaluation_no_tests():
     mock_agent.slug = "hr"
     mock_agent.is_published = True
 
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls:
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
+    mock_session.commit = AsyncMock()
 
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_execute = MagicMock()
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = []
+    mock_execute.scalars.return_value = mock_scalars
+    mock_session.execute = AsyncMock(return_value=mock_execute)
 
-        mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
-        mock_session.commit = AsyncMock()
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        mock_execute = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = []
-        mock_execute.scalars.return_value = mock_scalars
-        mock_session.execute = AsyncMock(return_value=mock_execute)
-
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id))
 
@@ -102,26 +93,24 @@ async def test_run_evaluation_with_tests():
     mock_test.question = "What is the policy?"
     mock_test.expected_answer = "30 days"
 
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls, \
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
+    mock_session.commit = AsyncMock()
+    mock_session.add = MagicMock()
+
+    mock_execute = MagicMock()
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [mock_test]
+    mock_execute.scalars.return_value = mock_scalars
+    mock_session.execute = AsyncMock(return_value=mock_execute)
+
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
          patch("app.agents.runtime.AgentRuntime") as mock_runtime_cls:
-
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
-
-        mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
-        mock_session.commit = AsyncMock()
-        mock_session.add = MagicMock()
-
-        mock_execute = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_test]
-        mock_execute.scalars.return_value = mock_scalars
-        mock_session.execute = AsyncMock(return_value=mock_execute)
 
         mock_runtime = mock_runtime_cls.return_value
         mock_runtime.startup = AsyncMock()
@@ -160,26 +149,24 @@ async def test_run_evaluation_test_exception_handled():
     mock_test.question = "What?"
     mock_test.expected_answer = "Answer"
 
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls, \
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
+    mock_session.commit = AsyncMock()
+    mock_session.add = MagicMock()
+
+    mock_execute = MagicMock()
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [mock_test]
+    mock_execute.scalars.return_value = mock_scalars
+    mock_session.execute = AsyncMock(return_value=mock_execute)
+
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
          patch("app.agents.runtime.AgentRuntime") as mock_runtime_cls:
-
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
-
-        mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
-        mock_session.commit = AsyncMock()
-        mock_session.add = MagicMock()
-
-        mock_execute = MagicMock()
-        mock_scalars = MagicMock()
-        mock_scalars.all.return_value = [mock_test]
-        mock_execute.scalars.return_value = mock_scalars
-        mock_session.execute = AsyncMock(return_value=mock_execute)
 
         mock_runtime = mock_runtime_cls.return_value
         mock_runtime.startup = AsyncMock()
@@ -199,17 +186,14 @@ async def test_run_evaluation_test_exception_handled():
 async def test_run_evaluation_outer_exception():
     run_id = uuid.uuid4()
 
-    with patch("app.tasks.eval_tasks.create_async_engine") as mock_engine_cls, \
-         patch("app.tasks.eval_tasks.async_sessionmaker") as mock_sf_cls:
+    mock_session = AsyncMock()
+    mock_session.get = AsyncMock(side_effect=[Exception("DB connection lost"), None])
+    mock_session.commit = AsyncMock()
 
-        mock_engine = mock_engine_cls.return_value
-        mock_engine.dispose = AsyncMock()
-        mock_session = AsyncMock()
-        mock_sf_cls.return_value.return_value.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_sf_cls.return_value.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_sf = MagicMock()
+    mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        mock_session.get = AsyncMock(side_effect=[Exception("DB connection lost"), None])
-        mock_session.commit = AsyncMock()
-
+    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id))

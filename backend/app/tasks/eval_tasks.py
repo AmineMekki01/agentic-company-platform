@@ -4,11 +4,9 @@ import logging
 import uuid
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from sqlalchemy.pool import NullPool
 
 from app.celery_app import celery_app
-from app.core.config import settings
+from app.db.celery_session import get_celery_session_factory, run_async
 from app.models import AgentEvalRun, AgentEvalResult, AgentEvalTest, AgentSettings
 from app.services.eval_runner import run_single_test
 
@@ -18,16 +16,13 @@ logger = logging.getLogger(__name__)
 @celery_app.task(bind=True, max_retries=3)
 def execute_eval_run(self, run_id: str):
     """Execute an agent evaluation run in a background Celery task."""
-    import asyncio
-
-    asyncio.run(_run_evaluation(run_id))
+    run_async(_run_evaluation(run_id))
 
 
 async def _run_evaluation(run_id: str):
     from datetime import datetime, timezone
 
-    engine = create_async_engine(settings.database_url, poolclass=NullPool)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    session_factory = get_celery_session_factory()
 
     try:
         async with session_factory() as db:
@@ -130,5 +125,3 @@ async def _run_evaluation(run_id: str):
                 run.status = "failed"
                 run.completed_at = datetime.now(timezone.utc)
                 await db.commit()
-    finally:
-        await engine.dispose()

@@ -244,12 +244,11 @@ def test_sync_notion_database_no_pages():
         with patch("app.services.notion._resolve_token", return_value="tok"), \
              patch("app.services.notion.fetch_database_pages", return_value=[]), \
              patch("app.services.notion.get_rag_service") as mock_get_rag, \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
             mock_rag = mock_get_rag.return_value
             mock_rag.get_source_metadata = AsyncMock(return_value={})
             mock_rag.delete_by_source_id = AsyncMock()
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             result = sync_notion_database.run(
                 database_id="db1", source_title="Test",
                 connector_credentials="creds", slug="test-src",
@@ -270,7 +269,7 @@ def test_sync_notion_database_with_pages():
              patch("app.services.notion.fetch_database_pages", return_value=mock_pages), \
              patch("app.services.notion.fetch_page_content", return_value="page content"), \
              patch("app.services.notion.get_rag_service") as mock_get_rag, \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -278,8 +277,6 @@ def test_sync_notion_database_with_pages():
             mock_rag.ingest_document = AsyncMock(return_value=4)
             mock_rag.delete_by_source_id = AsyncMock()
             mock_rag.delete_by_knowledge_source = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_notion_database.run(
                 database_id="db1", source_title="Test",
@@ -300,7 +297,7 @@ def test_sync_notion_database_force_full():
              patch("app.services.notion.fetch_database_pages", return_value=mock_pages), \
              patch("app.services.notion.fetch_page_content", return_value="content"), \
              patch("app.services.notion.get_rag_service") as mock_get_rag, \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -308,8 +305,6 @@ def test_sync_notion_database_force_full():
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_knowledge_source = AsyncMock()
             mock_rag.delete_by_source_id = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_notion_database.run(
                 database_id="db1", source_title="Test",
@@ -324,9 +319,8 @@ def test_sync_notion_database_exception_retries():
     mock_retry = MagicMock(side_effect=Exception("retry failed"))
     with patch.object(sync_notion_database, "retry", mock_retry):
         with patch("app.services.notion._resolve_token", side_effect=Exception("token error")), \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             with pytest.raises(Exception):
                 sync_notion_database.run(
                     database_id="db1", source_title="Test",
@@ -344,7 +338,7 @@ def test_sync_notion_page_basic():
              patch("app.services.notion.fetch_page_content", return_value="page text"), \
              patch("app.services.notion._find_child_pages", return_value=[]), \
              patch("app.services.notion.get_rag_service") as mock_get_rag, \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -352,8 +346,6 @@ def test_sync_notion_page_basic():
             mock_rag.ingest_document = AsyncMock(return_value=3)
             mock_rag.delete_by_source_id = AsyncMock()
             mock_rag.delete_by_knowledge_source = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_notion_page.run(
                 page_id=page_id, page_title="My Page",
@@ -374,7 +366,7 @@ def test_sync_notion_page_with_children():
              patch("app.services.notion.fetch_page_content", return_value="text"), \
              patch("app.services.notion._find_child_pages", return_value=[{"id": child_id, "title": "Child"}]), \
              patch("app.services.notion.get_rag_service") as mock_get_rag, \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -382,8 +374,6 @@ def test_sync_notion_page_with_children():
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_source_id = AsyncMock()
             mock_rag.delete_by_knowledge_source = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_notion_page.run(
                 page_id=page_id, page_title="Page",
@@ -398,9 +388,8 @@ def test_sync_notion_page_exception_retries():
     mock_retry = MagicMock(side_effect=Exception("retry failed"))
     with patch.object(sync_notion_page, "retry", mock_retry):
         with patch("app.services.notion._resolve_token", side_effect=Exception("no token")), \
-             patch("app.services.notion.asyncio") as mock_asyncio, \
+             patch("app.services.notion.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.notion._update_source_status", new=AsyncMock()):
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             with pytest.raises(Exception):
                 sync_notion_page.run(
                     page_id="page1", page_title="Title",

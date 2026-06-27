@@ -131,10 +131,8 @@ def test_sync_s3_prefix_no_objects():
         with patch("app.services.s3._decrypt_credentials", return_value={"access_key": "ak"}), \
              patch("app.services.s3._get_s3_client"), \
              patch("app.services.s3._list_objects", return_value=[]), \
-             patch("app.services.s3.asyncio") as mock_asyncio, \
+             patch("app.services.s3.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.s3.EncryptionService"):
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             with patch("app.services.s3._update_source_status", new=AsyncMock()):
                 result = sync_s3_prefix.run(
@@ -164,7 +162,7 @@ def test_sync_s3_prefix_with_objects():
              patch("app.services.s3._build_s3_url", return_value="https://s3.amazonaws.com/bucket/key"), \
              patch("app.services.s3._detect_file_type", return_value="txt"), \
              patch("app.services.s3.get_rag_service") as mock_get_rag, \
-             patch("app.services.s3.asyncio") as mock_asyncio, \
+             patch("app.services.s3.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.s3.EncryptionService"):
 
             mock_rag = mock_get_rag.return_value
@@ -174,8 +172,6 @@ def test_sync_s3_prefix_with_objects():
             mock_rag.delete_by_source_id = AsyncMock()
 
             with patch("app.services.s3._update_source_status", new=AsyncMock()):
-                mock_asyncio.run = lambda coro: _run_coro_sync(coro)
-
                 result = sync_s3_prefix.run(
                     bucket="mybucket",
                     prefix="data/",
@@ -203,7 +199,7 @@ def test_sync_s3_prefix_force_full():
              patch("app.services.s3._build_s3_url", return_value="url"), \
              patch("app.services.s3._detect_file_type", return_value="txt"), \
              patch("app.services.s3.get_rag_service") as mock_get_rag, \
-             patch("app.services.s3.asyncio") as mock_asyncio, \
+             patch("app.services.s3.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.s3.EncryptionService"):
 
             mock_rag = mock_get_rag.return_value
@@ -213,8 +209,6 @@ def test_sync_s3_prefix_force_full():
             mock_rag.delete_by_source_id = AsyncMock()
 
             with patch("app.services.s3._update_source_status", new=AsyncMock()):
-                mock_asyncio.run = lambda coro: _run_coro_sync(coro)
-
                 result = sync_s3_prefix.run(
                     bucket="mybucket",
                     prefix="data/",
@@ -240,7 +234,7 @@ def test_sync_s3_prefix_skips_unchanged():
              patch("app.services.s3._get_s3_client"), \
              patch("app.services.s3._list_objects", return_value=mock_objects), \
              patch("app.services.s3.get_rag_service") as mock_get_rag, \
-             patch("app.services.s3.asyncio") as mock_asyncio, \
+             patch("app.services.s3.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.s3.EncryptionService"):
 
             mock_rag = mock_get_rag.return_value
@@ -251,8 +245,6 @@ def test_sync_s3_prefix_skips_unchanged():
             mock_rag.delete_by_source_id = AsyncMock()
 
             with patch("app.services.s3._update_source_status", new=AsyncMock()):
-                mock_asyncio.run = lambda coro: _run_coro_sync(coro)
-
                 result = sync_s3_prefix.run(
                     bucket="mybucket",
                     prefix="data/",
@@ -269,9 +261,8 @@ def test_sync_s3_prefix_exception_retries():
     mock_retry = MagicMock(side_effect=Exception("retry failed"))
     with patch.object(sync_s3_prefix, "retry", mock_retry):
         with patch("app.services.s3._decrypt_credentials", side_effect=Exception("decrypt failed")), \
-             patch("app.services.s3.asyncio") as mock_asyncio, \
+             patch("app.services.s3.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.s3.EncryptionService"):
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             with patch("app.services.s3._update_source_status", new=AsyncMock()):
                 with pytest.raises(Exception):
                     sync_s3_prefix.run(

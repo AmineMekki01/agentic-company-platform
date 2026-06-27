@@ -122,9 +122,8 @@ def test_sync_gdrive_folder_no_files():
     with patch.object(sync_gdrive_folder, "retry", MagicMock()):
         with patch("app.services.gdrive._get_drive_service"), \
              patch("app.services.gdrive._list_folder_files", return_value=[]), \
-             patch("app.services.gdrive.asyncio") as mock_asyncio, \
+             patch("app.services.gdrive.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             result = sync_gdrive_folder.run(
                 folder_id="folder1", source_title="Test",
                 connector_credentials="creds", slug="test-src",
@@ -146,7 +145,7 @@ def test_sync_gdrive_folder_with_files():
              patch("app.services.gdrive._extract_text", return_value="extracted text"), \
              patch("app.services.gdrive._detect_file_type", return_value="pdf"), \
              patch("app.services.gdrive.get_rag_service") as mock_get_rag, \
-             patch("app.services.gdrive.asyncio") as mock_asyncio, \
+             patch("app.services.gdrive.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -154,8 +153,6 @@ def test_sync_gdrive_folder_with_files():
             mock_rag.ingest_document = AsyncMock(return_value=3)
             mock_rag.delete_by_source_id = AsyncMock()
             mock_rag.delete_by_knowledge_source = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_gdrive_folder.run(
                 folder_id="folder1", source_title="Test",
@@ -178,7 +175,7 @@ def test_sync_gdrive_folder_force_full():
              patch("app.services.gdrive._extract_text", return_value="text"), \
              patch("app.services.gdrive._detect_file_type", return_value="pdf"), \
              patch("app.services.gdrive.get_rag_service") as mock_get_rag, \
-             patch("app.services.gdrive.asyncio") as mock_asyncio, \
+             patch("app.services.gdrive.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
 
             mock_rag = mock_get_rag.return_value
@@ -186,8 +183,6 @@ def test_sync_gdrive_folder_force_full():
             mock_rag.ingest_document = AsyncMock(return_value=2)
             mock_rag.delete_by_knowledge_source = AsyncMock()
             mock_rag.delete_by_source_id = AsyncMock()
-
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
 
             result = sync_gdrive_folder.run(
                 folder_id="folder1", source_title="Test",
@@ -202,9 +197,8 @@ def test_sync_gdrive_folder_exception_retries():
     mock_retry = MagicMock(side_effect=Exception("retry failed"))
     with patch.object(sync_gdrive_folder, "retry", mock_retry):
         with patch("app.services.gdrive._get_drive_service", side_effect=Exception("auth failed")), \
-             patch("app.services.gdrive.asyncio") as mock_asyncio, \
+             patch("app.services.gdrive.run_async", side_effect=lambda coro: _run_coro_sync(coro)), \
              patch("app.services.gdrive._update_source_status", new=AsyncMock()):
-            mock_asyncio.run = lambda coro: _run_coro_sync(coro)
             import pytest
             with pytest.raises(Exception):
                 sync_gdrive_folder.run(
