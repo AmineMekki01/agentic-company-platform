@@ -783,7 +783,10 @@ async def run_deep_research(
 
         sources = final_values.get("sources", [])
         if sources:
-            yield {"type": "sources", "sources": sources}
+            numbered_sources = []
+            for i, s in enumerate(sources, start=1):
+                numbered_sources.append({**s, "rank": i})
+            yield {"type": "sources", "sources": numbered_sources}
 
         yield {"type": "report", "content": report}
 

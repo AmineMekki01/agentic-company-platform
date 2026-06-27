@@ -397,6 +397,7 @@ def make_agent_node(
 
             logger.info("Deep research agent=%s starting research", spec.slug)
             report_text = ""
+            dr_sources: list[dict] = []
             async for event in run_deep_research(
                 user_message=last_user_msg,
                 config=dr_config,
@@ -404,6 +405,8 @@ def make_agent_node(
             ):
                 if event.get("type") == "report":
                     report_text = event["content"]
+                elif event.get("type") == "sources":
+                    dr_sources = event.get("sources", [])
                 elif event.get("type") == "clarification":
                     question = event.get("question", "")
                     logger.info("Deep research agent=%s clarification needed (SSE mode - auto-answering)", spec.slug)
@@ -416,6 +419,8 @@ def make_agent_node(
                     ):
                         if event2.get("type") == "report":
                             report_text = event2["content"]
+                        elif event2.get("type") == "sources":
+                            dr_sources = event2.get("sources", [])
                         elif event2.get("type") == "error":
                             report_text = f"Deep research failed: {event2.get('detail', 'unknown error')}"
                 elif event.get("type") == "error":
@@ -425,11 +430,11 @@ def make_agent_node(
             if not report_text:
                 report_text = "Deep research completed but no report was generated."
 
-            logger.info("Deep research agent=%s report_len=%d", spec.slug, len(report_text))
+            logger.info("Deep research agent=%s report_len=%d sources=%d", spec.slug, len(report_text), len(dr_sources))
             return {
                 "messages": [AIMessage(content=report_text)],
                 "response_text": report_text,
-                "sources": state.get("sources"),
+                "sources": dr_sources if dr_sources else state.get("sources"),
                 "step_count": (state.get("step_count") or 0) + 1,
                 "mode": state.get("mode") or "auto",
             }

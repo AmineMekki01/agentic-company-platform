@@ -83,6 +83,17 @@ function AssistantMessage({
   const [showModal, setShowModal] = useState(false);
   const [modalInitialUp, setModalInitialUp] = useState(true);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const sourceListRef = useRef<HTMLUListElement>(null);
+  const sourceItemRefs = useRef<Map<number, HTMLLIElement>>(new Map());
+
+  const handleCitationClick = (rank: number) => {
+    setHighlightedRank(rank);
+    setSourcesExpanded(true);
+    requestAnimationFrame(() => {
+      const el = sourceItemRefs.current.get(rank);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
 
 
   const seenTitles = new Set<string>();
@@ -117,7 +128,7 @@ function AssistantMessage({
               const canonical = rankMap.get(rank) ?? rank;
               return (
                 <button
-                  onClick={() => setHighlightedRank(canonical)}
+                  onClick={() => handleCitationClick(canonical)}
                   className="inline-flex items-center text-brand hover:text-brand-hover font-medium text-xs align-super cursor-pointer"
                   title={`Jump to source [${canonical}]`}
                 >
@@ -162,7 +173,7 @@ function AssistantMessage({
             )}
           </button>
           {sourcesExpanded && (
-            <ul className="mt-2 space-y-0.5 rounded-xl border border-line/60 bg-hover/70 px-3 py-2.5">
+            <ul ref={sourceListRef} className="mt-2 space-y-0.5 rounded-xl border border-line/60 bg-hover/70 px-3 py-2.5">
               {dedupedSources.map((s) => {
                 const content = (
                   <>
@@ -173,6 +184,10 @@ function AssistantMessage({
                 return (
                   <li
                     key={s.id}
+                    ref={(el) => {
+                      if (el) sourceItemRefs.current.set(s.rank, el);
+                      else sourceItemRefs.current.delete(s.rank);
+                    }}
                     className={`text-xs rounded-md px-2 py-1 transition ${
                       highlightedRank === s.rank
                         ? "bg-brand/10 text-brand border border-brand/20"
