@@ -335,20 +335,6 @@ export default function Sidebar({
           </div>
         ) : (
           <>
-            {/* Unfiled conversations */}
-            {unfiled.length > 0 && (
-              <div className="space-y-0.5">
-                {folders.length > 0 && (
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
-                    Unfiled
-                  </div>
-                )}
-                {unfiled.map((c) => (
-                  <ConversationItem key={c.id} c={c} />
-                ))}
-              </div>
-            )}
-
             {/* Folders */}
             {folders.map((folder) => {
               const items = byFolder(folder.id);
@@ -395,6 +381,20 @@ export default function Sidebar({
                 </div>
               );
             })}
+
+            {/* Unfiled conversations */}
+            {unfiled.length > 0 && (
+              <div className="space-y-0.5 pt-1">
+                {folders.length > 0 && (
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-tertiary">
+                    Unfiled
+                  </div>
+                )}
+                {unfiled.map((c) => (
+                  <ConversationItem key={c.id} c={c} />
+                ))}
+              </div>
+            )}
 
             {conversations.length === 0 && (
               <div className="px-3 py-10 text-center">

@@ -41,17 +41,20 @@ async def list_conversations(
     user: CurrentUser,
     db: DbSession,
     folder_id: uuid.UUID | None = Query(None),
+    unfiled: bool = Query(False, description="Filter conversations with no folder"),
 ) -> list[ConversationOut]:
     """
     List all conversations for the current user.
-    
-    Optionally filter by folder_id. Pass folder_id=null to get unfiled conversations.
-    
+
+    Optionally filter by folder_id, or pass unfiled=true to get conversations
+    with no folder assigned.
+
     Args:
         user: The authenticated user
         db: Database session
         folder_id: Optional folder ID filter
-        
+        unfiled: If true, return only conversations with no folder
+
     Returns:
         List of ConversationOut objects
     """
@@ -60,10 +63,10 @@ async def list_conversations(
         .where(Conversation.user_id == user.id)
         .order_by(Conversation.updated_at.desc())
     )
-    if folder_id is not None:
+    if unfiled:
+        stmt = stmt.where(Conversation.folder_id.is_(None))
+    elif folder_id is not None:
         stmt = stmt.where(Conversation.folder_id == folder_id)
-    else:
-        pass
     result = await db.scalars(stmt)
     return [ConversationOut.model_validate(c) for c in result.all()]
 
