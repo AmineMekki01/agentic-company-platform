@@ -12,7 +12,7 @@ export interface DeepResearchCallbacks {
   onClarification?: (question: string, messageId?: string) => void;
   onToken: (delta: string) => void;
   onSources?: (sources: any[]) => void;
-  onDone?: (messageId: string) => void;
+  onDone?: (messageId: string, title?: string) => void;
   onError?: (detail: string) => void;
   onBudgetWarning?: (message: string) => void;
 }
@@ -67,7 +67,7 @@ export function useDeepResearchChat() {
             cb.onToken(data.delta || "");
           } else if (type === "done") {
             setStreaming(false);
-            cb.onDone?.(data.message_id || "");
+            cb.onDone?.(data.message_id || "", data.title);
             ws.close();
             wsRef.current = null;
           } else if (type === "budget_warning") {

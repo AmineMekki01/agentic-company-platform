@@ -285,6 +285,7 @@ async def _handle_message(
             await db.commit()
             await db.refresh(ai_msg)
 
+            title = conv.title
             if conv.title is None:
                 try:
                     from app.services.titles import generate_title
@@ -298,6 +299,7 @@ async def _handle_message(
                         await db.commit()
                 except Exception:
                     logger.exception("Title generation failed")
+                    title = None
 
             await websocket.send_text(json.dumps({
                 "type": "token",
@@ -307,6 +309,7 @@ async def _handle_message(
         await websocket.send_text(json.dumps({
             "type": "done",
             "message_id": str(ai_msg.id) if report_text else str(uuid.uuid4()),
+            "title": title if conv.title is None else None,
         }))
 
 
@@ -425,6 +428,7 @@ async def _handle_clarification_response(
                 }))
                 return
 
+        title: str | None = None
         if report_text:
             ai_msg = Message(
                 conversation_id=conversation_id,
@@ -437,6 +441,27 @@ async def _handle_clarification_response(
             await db.commit()
             await db.refresh(ai_msg)
 
+            conv = await db.scalar(
+                select(Conversation).where(
+                    Conversation.id == conversation_id,
+                    Conversation.user_id == user.id,
+                )
+            )
+            if conv and conv.title is None:
+                try:
+                    from app.services.titles import generate_title
+                    title = await generate_title(answer)
+                    if title:
+                        await db.execute(
+                            update(Conversation)
+                            .where(Conversation.id == conversation_id)
+                            .values(title=title)
+                        )
+                        await db.commit()
+                except Exception:
+                    logger.exception("Title generation failed")
+                    title = None
+
             await websocket.send_text(json.dumps({
                 "type": "token",
                 "delta": report_text,
@@ -445,4 +470,5 @@ async def _handle_clarification_response(
         await websocket.send_text(json.dumps({
             "type": "done",
             "message_id": str(ai_msg.id) if report_text else str(uuid.uuid4()),
+            "title": title,
         }))

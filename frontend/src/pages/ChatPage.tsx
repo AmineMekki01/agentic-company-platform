@@ -264,13 +264,20 @@ export default function ChatPage() {
             )
           );
         },
-        onDone: (messageId) => {
-          console.log("[DR-CB] onDone", { placeholderId, messageId });
+        onDone: (messageId, title) => {
+          console.log("[DR-CB] onDone", { placeholderId, messageId, title });
           setMessages((ms) =>
             ms.map((m) =>
               m.id === placeholderId ? { ...m, serverId: messageId, streaming: false, step: undefined, awaitingClarification: false } : m
             )
           );
+          if (title) {
+            setConversations((cs) =>
+              cs.map((c) =>
+                c.id === conversationId ? { ...c, title } : c
+              )
+            );
+          }
           loadConversations();
         },
         onError: (detail) => {
