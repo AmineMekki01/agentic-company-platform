@@ -4,6 +4,7 @@ from app.models.agent_eval_result import AgentEvalResult
 from app.models.agent_eval_test import AgentEvalTest
 from app.models.agent_eval_test_set import AgentEvalTestSet
 from app.models.agent_settings import AgentSettings
+from app.models.agent_skill import AgentSkill
 from app.models.agent_version import AgentVersion
 from app.models.agent_workflow import AgentWorkflow
 from app.models.chat_attachment import ChatAttachment
@@ -15,6 +16,7 @@ from app.models.knowledge_source import KnowledgeSource
 from app.models.llm_settings import LLMSettings
 from app.models.message import Message
 from app.models.message_feedback import MessageFeedback
+from app.models.skill import Skill
 from app.models.token_budget import TokenBudget
 from app.models.token_usage import TokenUsage
 from app.models.upload_settings import UploadSettings
@@ -27,6 +29,7 @@ __all__ = [
     "AgentEvalTest",
     "AgentEvalTestSet",
     "AgentSettings",
+    "AgentSkill",
     "AgentVersion",
     "AgentWorkflow",
     "ChatAttachment",
@@ -38,6 +41,7 @@ __all__ = [
     "LLMSettings",
     "Message",
     "MessageFeedback",
+    "Skill",
     "TokenBudget",
     "TokenUsage",
     "UploadSettings",

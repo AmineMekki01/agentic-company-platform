@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Plus, RefreshCw, Bot } from "lucide-react";
-import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTestSetDetail, type AgentEvalRun, type AgentEvalRunDetail, type AgentEvalSchedule, type UploadSettings, type ModelOption } from "@/lib/api";
+import { api, type AgentSetting, type AgentSettingCreate, type KnowledgeSource, type DbUser, type AgentVersion, type AgentVersionDetail, type MessageFeedback, type AgentFeedbackSummary, type AgentEvalTestSetDetail, type AgentEvalRun, type AgentEvalRunDetail, type AgentEvalSchedule, type UploadSettings, type ModelOption, type Skill, type SkillCreate } from "@/lib/api";
 import AgentListTable from "@/components/admin/agents/AgentListTable";
 import CreateAgentPanel from "@/components/admin/agents/CreateAgentPanel";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -61,6 +61,10 @@ export default function AdminAgents() {
   const [evalSchedules, setEvalSchedules] = useState<AgentEvalSchedule[]>([]);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [uploadSettings, setUploadSettings] = useState<UploadSettings | null>(null);
+  const [agentSkills, setAgentSkills] = useState<Skill[]>([]);
+  const [sharedSkills, setSharedSkills] = useState<Skill[]>([]);
+  const [assignedSkillIds, setAssignedSkillIds] = useState<Set<string>>(new Set());
+  const [skillsLoading, setSkillsLoading] = useState(false);
 
   const closeSelected = () => {
     setSelected(null);
@@ -169,6 +173,63 @@ export default function AdminAgents() {
       loadEvalData(selected.slug);
     }
   }, [selected, activeTab, loadEvalData]);
+
+  const loadSkills = useCallback(async (slug: string) => {
+    setSkillsLoading(true);
+    try {
+      const [agentSkillList, allShared] = await Promise.all([
+        api.listAgentSkills(slug),
+        api.listAllSkills(),
+      ]);
+      setAgentSkills(agentSkillList.filter((s) => s.scope === "agent"));
+      const shared = allShared.filter((s) => s.scope === "shared");
+      setSharedSkills(shared);
+      const assigned = new Set(agentSkillList.filter((s) => s.scope === "shared").map((s) => s.id));
+      setAssignedSkillIds(assigned);
+    } catch {
+      setAgentSkills([]);
+      setSharedSkills([]);
+      setAssignedSkillIds(new Set());
+    } finally {
+      setSkillsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selected && activeTab === "skills") {
+      loadSkills(selected.slug);
+    }
+  }, [selected, activeTab, loadSkills]);
+
+  const handleCreateAgentSkill = async (body: SkillCreate) => {
+    if (!selected) return;
+    await api.createAgentSkill(selected.slug, body);
+    await loadSkills(selected.slug);
+  };
+
+  const handleUpdateAgentSkill = async (skillId: string, body: Partial<SkillCreate>) => {
+    if (!selected) return;
+    await api.updateAgentSkill(selected.slug, skillId, body);
+    await loadSkills(selected.slug);
+  };
+
+  const handleDeleteAgentSkill = async (skillId: string) => {
+    if (!selected) return;
+    await api.deleteAgentSkill(selected.slug, skillId);
+    await loadSkills(selected.slug);
+  };
+
+  const handleToggleAgentSkill = async (skillId: string) => {
+    if (!selected) return;
+    await api.toggleAgentSkill(selected.slug, skillId);
+    await loadSkills(selected.slug);
+  };
+
+  const handleBatchAssignSkills = async (assign: string[], unassign: string[]) => {
+    if (!selected) return;
+    await api.batchUpdateAgentSkills(selected.slug, { assign, unassign });
+    await loadSkills(selected.slug);
+  };
 
   const handlePublish = async () => {
     if (!selected) return;
@@ -490,6 +551,15 @@ export default function AdminAgents() {
               selectedContext={selectedContext}
               onSelectContext={setSelectedContext}
               onCloseContext={() => setSelectedContext(null)}
+              agentSkills={agentSkills}
+              sharedSkills={sharedSkills}
+              assignedSkillIds={assignedSkillIds}
+              skillsLoading={skillsLoading}
+              onCreateAgentSkill={handleCreateAgentSkill}
+              onUpdateAgentSkill={handleUpdateAgentSkill}
+              onDeleteAgentSkill={handleDeleteAgentSkill}
+              onToggleAgentSkill={handleToggleAgentSkill}
+              onBatchAssignSkills={handleBatchAssignSkills}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-64 text-tertiary">

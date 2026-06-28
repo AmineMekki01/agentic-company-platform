@@ -12,7 +12,7 @@ from app.agents.graph import build_graph
 from app.agents.registry import AgentSpec
 from app.core.config import settings
 from app.db.session import async_session_factory
-from app.models import AgentSettings, AgentWorkflow, KnowledgeSource
+from app.models import AgentSettings, AgentSkill, AgentWorkflow, KnowledgeSource, Skill
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,39 @@ class AgentRuntime:
                 normalized.append(str(ks.id))
         return normalized if normalized else None
 
+    async def _load_agent_skills(self, session) -> dict[str, list[dict]]:
+        """Load enabled skills for each agent (per-agent + assigned shared)."""
+        skills_map: dict[str, list[dict]] = {}
+
+        per_agent_result = await session.execute(
+            select(Skill).where(Skill.scope == "agent", Skill.is_enabled == True)
+        )
+        for skill in per_agent_result.scalars().all():
+            if not skill.agent_slug:
+                continue
+            skills_map.setdefault(skill.agent_slug, []).append({
+                "name": skill.name,
+                "description": skill.description,
+                "content": skill.content,
+            })
+
+        shared_result = await session.execute(
+            select(AgentSkill, Skill)
+            .join(Skill, AgentSkill.skill_id == Skill.id)
+            .where(Skill.scope == "shared", Skill.is_enabled == True)
+        )
+        for link, skill in shared_result.all():
+            skills_map.setdefault(link.agent_slug, []).append({
+                "name": skill.name,
+                "description": skill.description,
+                "content": skill.content,
+            })
+
+        for agent_slug, agent_skill_list in skills_map.items():
+            logger.info("Skills loaded for agent=%s: %s", agent_slug, [s["name"] for s in agent_skill_list])
+
+        return skills_map
+
     async def _load_agent_registry(self, session) -> dict[str, AgentSpec]:
         """Build the agent registry from DB settings."""
         registry: dict[str, AgentSpec] = {}
@@ -113,6 +146,7 @@ class AgentRuntime:
         try:
             async with async_session_factory() as session:
                 agent_registry = await self._load_agent_registry(session)
+                skills_map = await self._load_agent_skills(session)
                 result = await session.scalars(select(AgentSettings))
                 for row in result.all():
                     raw_sources = row.connected_sources
@@ -124,6 +158,7 @@ class AgentRuntime:
                         "connected_sources": sources,
                         "agent_type": row.agent_type if row.agent_type else "standard",
                         "research_config": row.research_config,
+                        "skills": skills_map.get(row.slug, []),
                     }
                     logger.warning(
                         "Agent config loaded: slug=%s connected_sources=%s (raw=%s)",
@@ -151,6 +186,7 @@ class AgentRuntime:
         try:
             async with async_session_factory() as session:
                 agent_registry = await self._load_agent_registry(session)
+                skills_map = await self._load_agent_skills(session)
                 for slug, spec in agent_registry.items():
                     agent_row = await session.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
                     if agent_row:
@@ -163,6 +199,7 @@ class AgentRuntime:
                             "connected_sources": sources,
                             "agent_type": agent_row.agent_type if agent_row.agent_type else "standard",
                             "research_config": agent_row.research_config,
+                            "skills": skills_map.get(slug, []),
                         }
                         logger.warning(
                             "Agent config refreshed: slug=%s connected_sources=%s (raw=%s)",

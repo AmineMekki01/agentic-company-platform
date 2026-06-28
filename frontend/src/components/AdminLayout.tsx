@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, ChevronRight, Cpu, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, Cpu, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity, Sparkles } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -9,6 +9,7 @@ const navGroups = [
     items: [
       { to: "/admin/agents", label: "Agents", icon: Bot },
       { to: "/admin/agent-templates", label: "Templates", icon: Store },
+      { to: "/admin/skills", label: "Skills", icon: Sparkles },
     ],
   },
   {

@@ -105,3 +105,15 @@ async def web_search(query: Annotated[str, "The web search query"]) -> str:
     except Exception as exc:
         logger.exception("Tavily search failed")
         return json.dumps({"text": f"Web search error: {exc}", "sources": []})
+
+
+@tool
+async def read_skill(
+    skill_name: Annotated[str, "The name of the skill to read"],
+) -> str:
+    """
+    Read a skill's full instructions. Call this when a user's request matches
+    a skill you know about, to get the step-by-step procedure you should follow.
+    Returns the complete skill content as markdown.
+    """
+    return f"Skill '{skill_name}' not found. Available skills are listed in your system prompt."

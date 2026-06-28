@@ -3,12 +3,13 @@ import type {
   AgentSetting, AgentSettingCreate, AgentVersion, AgentVersionDetail,
   AgentFeedbackSummary, MessageFeedback, AgentEvalTestSetDetail, AgentEvalRun,
   AgentEvalRunDetail, AgentEvalSchedule, DbUser, KnowledgeSource, UploadSettings,
-  ModelOption,
+  ModelOption, Skill, SkillCreate,
 } from "@/lib/api";
 import AgentIcon from "@/components/AgentIcon";
 import { ALL_TABS, hasDraftChanges, type TabKey } from "./agentUtils";
 import OverviewTab from "./tabs/OverviewTab";
 import ToolsTab from "./tabs/ToolsTab";
+import SkillsTab from "./tabs/SkillsTab";
 import KnowledgeTab from "./tabs/KnowledgeTab";
 import DeployTab from "./tabs/DeployTab";
 import AgentToAgentTab from "./tabs/AgentToAgentTab";
@@ -94,6 +95,16 @@ interface Props {
   selectedContext: string | null;
   onSelectContext: (ctx: string) => void;
   onCloseContext: () => void;
+
+  agentSkills: Skill[];
+  sharedSkills: Skill[];
+  assignedSkillIds: Set<string>;
+  skillsLoading: boolean;
+  onCreateAgentSkill: (body: SkillCreate) => Promise<void>;
+  onUpdateAgentSkill: (skillId: string, body: Partial<SkillCreate>) => Promise<void>;
+  onDeleteAgentSkill: (skillId: string) => Promise<void>;
+  onToggleAgentSkill: (skillId: string) => Promise<void>;
+  onBatchAssignSkills: (assign: string[], unassign: string[]) => Promise<void>;
 }
 
 export default function AgentDetailPanel(props: Props) {
@@ -216,6 +227,20 @@ export default function AgentDetailPanel(props: Props) {
             )}
             {props.activeTab === "tools" && (
               <ToolsTab selected={s} setSelected={props.setSelected} toggleTool={props.toggleTool} />
+            )}
+            {props.activeTab === "skills" && (
+              <SkillsTab
+                agentSlug={s.slug}
+                agentSkills={props.agentSkills}
+                sharedSkills={props.sharedSkills}
+                assignedSkillIds={props.assignedSkillIds}
+                loading={props.skillsLoading}
+                onCreateSkill={props.onCreateAgentSkill}
+                onUpdateSkill={props.onUpdateAgentSkill}
+                onDeleteSkill={props.onDeleteAgentSkill}
+                onToggleSkill={props.onToggleAgentSkill}
+                onBatchAssign={props.onBatchAssignSkills}
+              />
             )}
             {props.activeTab === "knowledge" && (
               <KnowledgeTab selected={s} setSelected={props.setSelected} sources={props.sources} uploadSettings={props.uploadSettings} />

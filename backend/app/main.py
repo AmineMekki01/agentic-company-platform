@@ -9,6 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.agents.runtime import AgentRuntime
 from app.api.admin_agent_templates import router as admin_agent_templates_router
 from app.api.admin_agents import router as admin_agents_router
+from app.api.admin_skills import router as admin_skills_router
 from app.api.admin_llm_settings import router as admin_llm_settings_router
 from app.api.admin_status import router as admin_status_router
 from app.api.admin_upload_settings import router as admin_upload_settings_router
@@ -90,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_upload_router, prefix="/api")
     app.include_router(chat_ws_router, prefix="/api")
     app.include_router(admin_agents_router, prefix="/api")
+    app.include_router(admin_skills_router, prefix="/api")
     app.include_router(admin_agent_templates_router, prefix="/api")
     app.include_router(admin_usage_router, prefix="/api")
     app.include_router(agent_eval_router, prefix="/api")

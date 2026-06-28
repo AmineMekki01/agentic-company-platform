@@ -15,7 +15,7 @@ from app.agents.context import (
 from app.agents.llm import get_chat_model
 from app.agents.registry import AgentSpec
 from app.agents.state import AgentState
-from app.agents.tools import retrieve, web_search
+from app.agents.tools import read_skill, retrieve, web_search
 from app.agents.tools_jira import create_jira_ticket
 from app.services.token_tracker import record_usage as _record_token_usage
 
@@ -53,7 +53,7 @@ def _extract_and_record_tokens(
     except Exception:
         logger.debug("Could not extract/record token usage", exc_info=True)
 
-_TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket}
+_TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket, "read_skill": read_skill}
 
 _FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
 
@@ -364,6 +364,7 @@ def make_agent_node(
     settings_map: dict[str, dict] | None = None,
     agent_type: str = "standard",
     research_config: dict | None = None,
+    skills: list[dict] | None = None,
 ):
     """Build an agent node that reasons and may emit tool_calls (ReAct pattern).
 
@@ -455,6 +456,9 @@ def make_agent_node(
         if t in _TOOL_REGISTRY and t != "retrieve":
             agent_tools.append(_TOOL_REGISTRY[t])
 
+    if skills:
+        agent_tools.append(_TOOL_REGISTRY["read_skill"])
+
     llm_with_tools = llm.bind_tools(agent_tools) if agent_tools else llm
 
     async def node(state: AgentState) -> dict:
@@ -502,6 +506,19 @@ def make_agent_node(
                 break
 
         dynamic_prompt = prompt
+        if skills:
+            skill_names = [s["name"] for s in skills]
+            logger.info("Agent[%s] skills injected into prompt: %s", spec.slug, skill_names)
+            skill_lines = "\n".join(
+                f"- **{s['name']}**: {s['description']}" for s in skills
+            )
+            skills_block = (
+                "\n\n## Available Skills\n"
+                "You have access to the following skills. When a user's request matches a skill, "
+                "use the read_skill tool to read its full instructions, then follow them.\n\n"
+                f"{skill_lines}\n"
+            )
+            dynamic_prompt = dynamic_prompt + skills_block
         user_allowed = state.get("user_allowed_slugs")
         accessible_names = [registry[slug].name for slug in (user_allowed or []) if slug in registry]
         registry_names = [spec.name for spec in registry.values()]
@@ -880,6 +897,25 @@ def make_tools_node(agent_settings: dict[str, dict]):
                 })
                 logger.info("Jira ticket result: %s", result)
                 results.append(str(result))
+
+            elif name == "read_skill":
+                skill_name = args.get("skill_name", "")
+                agent_skills = cfg.get("skills", [])
+                matched = next((s for s in agent_skills if s.get("name") == skill_name), None)
+                if matched:
+                    results.append(matched.get("content", ""))
+                    logger.info(
+                        "SKILL USED | agent=%s skill=%s content_len=%d",
+                        current_agent, skill_name, len(matched.get("content", "")),
+                    )
+                else:
+                    available = ", ".join(s.get("name", "") for s in agent_skills)
+                    results.append(f"Skill '{skill_name}' not found. Available skills: {available}")
+                    logger.warning(
+                        "SKILL MISS | agent=%s requested=%s available=[%s]",
+                        current_agent, skill_name, available,
+                    )
+
             else:
                 results.append(f"Error: unknown tool '{name}'")
 
@@ -1035,6 +1071,7 @@ def build_graph(
         )
         agent_type = cfg.get("agent_type") or spec.agent_type or "standard"
         research_config = cfg.get("research_config") or spec.research_config
+        skills = cfg.get("skills") or []
         builder.add_node(
             slug,
             make_agent_node(
@@ -1048,6 +1085,7 @@ def build_graph(
                 settings_map=settings_map,
                 agent_type=agent_type,
                 research_config=research_config,
+                skills=skills,
             ),
         )
 

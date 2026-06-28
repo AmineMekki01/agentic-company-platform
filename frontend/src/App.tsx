@@ -5,6 +5,7 @@ import { Bot } from "lucide-react";
 import AdminLayout from "@/components/AdminLayout";
 import AdminAgentTemplates from "@/pages/AdminAgentTemplates";
 import AdminAgents from "@/pages/AdminAgents";
+import AdminSkills from "@/pages/AdminSkills";
 import AdminConnectors from "@/pages/AdminConnectors";
 import AdminHealth from "@/pages/AdminHealth";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="agents" element={<AdminAgents />} />
         <Route path="agents/:agentSlug" element={<AdminAgents />} />
         <Route path="agent-templates" element={<AdminAgentTemplates />} />
+        <Route path="skills" element={<AdminSkills />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="llm-models" element={<AdminLLMModels />} />
         <Route path="connectors" element={<AdminConnectors />} />

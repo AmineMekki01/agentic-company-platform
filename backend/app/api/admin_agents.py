@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from app.agents.context import MODEL_CONTEXT_WINDOWS
 from app.api.deps import AdminUser, DbSession
 from app.core.config import settings
-from app.models import AgentSettings, AgentVersion, Connector, LLMSettings, UploadSettings
+from app.models import AgentSettings, AgentSkill, AgentVersion, Connector, LLMSettings, Skill, UploadSettings
 from app.schemas.agent_settings import (
     AgentDraftSave,
     AgentPublishRequest,
@@ -648,6 +648,21 @@ async def test_agent_draft(
     connected_sources = draft.get("connected_sources") if "connected_sources" in draft else row.connected_sources
     retrieval_top_k = draft.get("retrieval_top_k") if "retrieval_top_k" in draft else row.retrieval_top_k
 
+    # Load skills for the draft agent (per-agent + assigned shared)
+    draft_skills: list[dict] = []
+    per_agent_skills = await db.execute(
+        select(Skill).where(Skill.agent_slug == slug, Skill.scope == "agent", Skill.is_enabled == True)
+    )
+    for s in per_agent_skills.scalars().all():
+        draft_skills.append({"name": s.name, "description": s.description, "content": s.content})
+    assigned_shared = await db.execute(
+        select(Skill)
+        .join(AgentSkill, AgentSkill.skill_id == Skill.id)
+        .where(AgentSkill.agent_slug == slug, Skill.scope == "shared", Skill.is_enabled == True)
+    )
+    for s in assigned_shared.scalars().all():
+        draft_skills.append({"name": s.name, "description": s.description, "content": s.content})
+
     all_agents = await db.scalars(select(AgentSettings))
     registry: dict[str, AgentSpec] = {}
     settings_map: dict[str, dict] = {}
@@ -672,6 +687,7 @@ async def test_agent_draft(
                 "connected_sources": connected_sources or [],
                 "agent_type": draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
                 "research_config": draft.get("research_config") if "research_config" in draft else a.research_config,
+                "skills": draft_skills,
             }
         else:
             registry[a.slug] = AgentSpec(

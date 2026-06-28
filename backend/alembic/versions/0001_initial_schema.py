@@ -622,8 +622,59 @@ def upgrade() -> None:
         sa.UniqueConstraint("scope", "scope_id", name="uq_token_budgets_scope_scope_id"),
     )
 
+    # skills
+    op.create_table(
+        "skills",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("description", sa.Text(), nullable=False),
+        sa.Column("content", sa.Text(), nullable=False, server_default=""),
+        sa.Column("scope", sa.String(length=20), nullable=False, server_default="shared"),
+        sa.Column(
+            "agent_slug",
+            sa.String(length=50),
+            sa.ForeignKey("agent_settings.slug", ondelete="CASCADE"),
+            nullable=True,
+        ),
+        sa.Column("is_enabled", sa.Boolean(), nullable=False, server_default="1"),
+        sa.Column("created_by", sa.String(length=255), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+    )
+
+    # agent_skills
+    op.create_table(
+        "agent_skills",
+        sa.Column(
+            "agent_slug",
+            sa.String(length=50),
+            sa.ForeignKey("agent_settings.slug", ondelete="CASCADE"),
+            primary_key=True,
+            nullable=False,
+        ),
+        sa.Column(
+            "skill_id",
+            sa.Uuid(),
+            sa.ForeignKey("skills.id", ondelete="CASCADE"),
+            primary_key=True,
+            nullable=False,
+        ),
+    )
+
 
 def downgrade() -> None:
+    op.drop_table("agent_skills")
+    op.drop_table("skills")
     op.drop_table("llm_settings")
     op.drop_table("token_budgets")
     op.drop_table("token_usage")

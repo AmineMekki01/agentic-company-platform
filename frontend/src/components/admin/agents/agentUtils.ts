@@ -1,11 +1,12 @@
 import type { AgentSetting, AgentSettingCreate, DbUser, KnowledgeSource } from "@/lib/api";
-import { Settings, Wrench, BookOpen, Workflow, Globe, History, ThumbsUp, Activity } from "lucide-react";
+import { Settings, Wrench, BookOpen, Workflow, Globe, History, ThumbsUp, Activity, Sparkles } from "lucide-react";
 
-export type TabKey = "overview" | "tools" | "knowledge" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
+export type TabKey = "overview" | "tools" | "skills" | "knowledge" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
 
 export const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] = [
   { key: "overview", label: "Overview", icon: Settings },
   { key: "tools", label: "Tools", icon: Wrench },
+  { key: "skills", label: "Skills", icon: Sparkles },
   { key: "knowledge", label: "Knowledge", icon: BookOpen },
   { key: "agent-to-agent", label: "Agent-to-Agent", icon: Workflow },
   { key: "deploy", label: "Deploy", icon: Globe },
