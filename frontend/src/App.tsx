@@ -59,6 +59,7 @@ export default function App() {
         <Route index element={<Navigate to="/admin/agents" replace />} />
         <Route path="agents" element={<AdminAgents />} />
         <Route path="agents/:agentSlug" element={<AdminAgents />} />
+        <Route path="agents/:agentSlug/:tab" element={<AdminAgents />} />
         <Route path="agent-templates" element={<AdminAgentTemplates />} />
         <Route path="skills" element={<AdminSkills />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />

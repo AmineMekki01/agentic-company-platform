@@ -12,7 +12,7 @@ import { mergeAgentDraft, makeDefaultNewAgent, type TabKey } from "@/components/
 
 export default function AdminAgents() {
   const { user: currentUser } = useAuth();
-  const { agentSlug: urlAgentSlug } = useParams();
+  const { agentSlug: urlAgentSlug, tab: urlTab } = useParams<{ agentSlug?: string; tab?: string }>();
   const navigate = useNavigate();
   const didAutoOpen = useRef(false);
   const [agents, setAgents] = useState<AgentSetting[]>([]);
@@ -72,6 +72,13 @@ export default function AdminAgents() {
     navigate("/admin/agents");
   };
 
+  const handleTabChange = (t: TabKey) => {
+    setActiveTab(t);
+    if (selected) {
+      navigate(`/admin/agents/${selected.slug}/${t}`);
+    }
+  };
+
   const refresh = async () => {
     setLoading(true);
     setError(null);
@@ -94,7 +101,9 @@ export default function AdminAgents() {
         const target = mergedAgents.find((a) => a.slug === urlAgentSlug) ?? null;
         if (target) {
           setSelected(target);
-          setActiveTab("overview");
+          const validTabs: TabKey[] = ["overview","tools","skills","knowledge","agent-to-agent","deploy","versions","feedback","evaluation"];
+          const tab = urlTab && validTabs.includes(urlTab as TabKey) ? urlTab as TabKey : "overview";
+          setActiveTab(tab);
         }
         didAutoOpen.current = true;
       } else if (selected) {
@@ -477,7 +486,7 @@ export default function AdminAgents() {
               if (a) {
                 setSelected(a);
                 setActiveTab("overview");
-                navigate(`/admin/agents/${slug}`);
+                navigate(`/admin/agents/${slug}/overview`);
               }
             }}
             onDelete={(slug: string) => setDeleteConfirm(slug)}
@@ -494,7 +503,7 @@ export default function AdminAgents() {
               models={models}
               uploadSettings={uploadSettings}
               activeTab={activeTab}
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               setSelected={setSelected}
               onClose={closeSelected}
               saving={saving}
