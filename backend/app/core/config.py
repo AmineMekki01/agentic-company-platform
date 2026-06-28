@@ -44,6 +44,20 @@ class Settings(BaseSettings):
     ollama_enabled: bool = False
     ollama_base_url: str = "http://ollama:11434/v1"
 
+    llm_api_concurrency: int = 50
+    llm_local_concurrency: int = 4
+    llm_timeout: float = 60.0
+    llm_local_timeout: float = 120.0
+    llm_max_retries: int = 3
+
+    checkpointer_pool_size: int = 20
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+
+    rate_limit_chat: str = "30/minute"
+    rate_limit_actions: str = "10/minute"
+    rate_limit_storage_uri: str = "memory://"
+
     jira_base_url: str = ""
     jira_email: str = ""
     jira_api_token: str = ""

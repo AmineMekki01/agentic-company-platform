@@ -41,6 +41,7 @@ dependencies = [
     "google-auth-httplib2>=0.2.0",
     "fastembed>=0.5.0",
     "ragas>=0.2.0",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

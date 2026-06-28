@@ -96,7 +96,7 @@ class AgentRuntime:
         self._pool = AsyncConnectionPool(
             conninfo,
             open=False,
-            max_size=5,
+            max_size=settings.checkpointer_pool_size,
             kwargs={
                 "autocommit": True,
                 "prepare_threshold": 0,

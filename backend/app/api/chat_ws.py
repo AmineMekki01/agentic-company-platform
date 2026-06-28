@@ -14,6 +14,8 @@ from sqlalchemy import func, select, update
 
 from app.agents.deep_research import DeepResearchConfig, run_deep_research
 from app.agents.runtime import AgentRuntime
+from app.core.config import settings
+from app.core.rate_limit import check_rate_limit
 from app.db.session import async_session_factory
 from app.models import AgentSettings, Conversation, Message, UserRole
 from app.models.user import User
@@ -126,6 +128,13 @@ async def _handle_message(
         await websocket.send_text(json.dumps({
             "type": "error",
             "detail": "Missing 'content' or 'agent' field",
+        }))
+        return
+
+    if not check_rate_limit(f"user:{user.id}", settings.rate_limit_chat):
+        await websocket.send_text(json.dumps({
+            "type": "error",
+            "detail": "Rate limit exceeded. Please slow down.",
         }))
         return
 

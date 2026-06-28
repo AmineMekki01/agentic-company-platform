@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import func, select, update
 from sse_starlette.sse import EventSourceResponse
@@ -17,6 +17,8 @@ from app.db.session import async_session_factory
 from app.models import AgentSettings, ChatAttachment, Conversation, Message, UserRole
 from app.schemas.chat import AgentOut, ChatRequest, EditMessageRequest, JiraTicketDraft, JiraTicketCreateRequest, JiraTicketOut, RegenerateRequest
 from app.services.jira import get_first_jira_connector, get_jira_service_from_connector
+from app.core.config import settings as app_settings
+from app.core.rate_limit import limiter
 from app.services.titles import generate_title
 from app.services.token_tracker import check_budget as _check_token_budget
 
@@ -386,7 +388,9 @@ def _make_stream_response(
 
 
 @router.post("/chat/{conversation_id}/stream")
+@limiter.limit(app_settings.rate_limit_chat)
 async def chat_stream(
+    request: Request,
     conversation_id: uuid.UUID,
     body: ChatRequest,
     user: CurrentUser,
@@ -614,7 +618,9 @@ async def chat_stream(
 
 
 @router.post("/chat/{conversation_id}/regenerate")
+@limiter.limit(app_settings.rate_limit_actions)
 async def regenerate_response(
+    request: Request,
     conversation_id: uuid.UUID,
     body: RegenerateRequest,
     user: CurrentUser,
@@ -735,7 +741,9 @@ async def regenerate_response(
 
 
 @router.post("/chat/{conversation_id}/messages/{message_id}/edit")
+@limiter.limit(app_settings.rate_limit_actions)
 async def edit_message(
+    request: Request,
     conversation_id: uuid.UUID,
     message_id: uuid.UUID,
     body: EditMessageRequest,
@@ -865,7 +873,9 @@ async def edit_message(
 
 
 @router.post("/chat/{conversation_id}/actions/jira-draft", response_model=JiraTicketDraft)
+@limiter.limit(app_settings.rate_limit_actions)
 async def generate_jira_ticket_draft(
+    request: Request,
     conversation_id: uuid.UUID,
     user: CurrentUser,
     db: DbSession,
@@ -941,7 +951,9 @@ async def generate_jira_ticket_draft(
 
 
 @router.post("/chat/{conversation_id}/actions/jira-create", response_model=JiraTicketOut)
+@limiter.limit(app_settings.rate_limit_actions)
 async def create_jira_ticket(
+    request: Request,
     conversation_id: uuid.UUID,
     body: JiraTicketCreateRequest,
     user: CurrentUser,

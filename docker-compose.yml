@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    command: postgres -c max_connections=200
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
@@ -30,6 +31,8 @@ services:
 
   ollama:
     image: ollama/ollama:latest
+    environment:
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-4}
     ports:
       - "11434:11434"
     volumes:
@@ -47,6 +50,18 @@ services:
       NOTION_TOKEN: ${NOTION_TOKEN:-}
       OLLAMA_ENABLED: ${OLLAMA_ENABLED:-false}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434/v1}
+      LLM_API_CONCURRENCY: ${LLM_API_CONCURRENCY:-50}
+      LLM_LOCAL_CONCURRENCY: ${LLM_LOCAL_CONCURRENCY:-4}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-60}
+      LLM_LOCAL_TIMEOUT: ${LLM_LOCAL_TIMEOUT:-120}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-3}
+      CHECKPOINTER_POOL_SIZE: ${CHECKPOINTER_POOL_SIZE:-20}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-5}
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-3}
+      RATE_LIMIT_CHAT: ${RATE_LIMIT_CHAT:-30/minute}
+      RATE_LIMIT_ACTIONS: ${RATE_LIMIT_ACTIONS:-10/minute}
+      RATE_LIMIT_STORAGE_URL: ${RATE_LIMIT_STORAGE_URL:-redis://redis:6379/1}
       JIRA_BASE_URL: ${JIRA_BASE_URL:-}
       JIRA_EMAIL: ${JIRA_EMAIL:-}
       JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
