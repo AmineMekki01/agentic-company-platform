@@ -137,8 +137,12 @@ class AgentRuntime:
             },
         )
         await self._pool.open()
-        checkpointer = AsyncPostgresSaver(self._pool)
-        await checkpointer.setup()
+        try:
+            checkpointer = AsyncPostgresSaver(self._pool)
+            await checkpointer.setup()
+        except Exception:
+            logger.exception("Checkpointer setup failed at startup — will retry on first request")
+            return
 
         agent_registry: dict[str, AgentSpec] = {}
         agent_settings: dict[str, dict] = {}
@@ -218,6 +222,7 @@ class AgentRuntime:
 
         self.agent_registry = agent_registry
         checkpointer = AsyncPostgresSaver(self._pool)
+        await checkpointer.setup()
         self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings, workflows=workflows)
         logger.info("Agent graph refreshed with settings for %d agents", len(agent_registry))
 
@@ -227,21 +232,24 @@ class AgentRuntime:
             await self._pool.close()
 
 
-def get_runtime(request: Request) -> AgentRuntime:
+async def get_runtime(request: Request) -> AgentRuntime:
     """
     Get the agent runtime from the request state.
-    
-    Args:
-        request: FastAPI request object
-        
-    Returns:
-        AgentRuntime instance
-        
-    Raises:
-        HTTPException: If the runtime is not ready
+    If the graph failed to build at startup but the connection pool is open, attempt a lazy rebuild before returning 503.
     """
     runtime = getattr(request.app.state, "runtime", None)
-    if runtime is None or runtime.graph is None:
+    if runtime is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Agent runtime is not ready",
+        )
+    if runtime.graph is None and runtime._pool is not None:
+        logger.warning("Runtime graph is None but pool is open — attempting lazy rebuild")
+        try:
+            await runtime.refresh_graph()
+        except Exception:
+            logger.exception("Lazy runtime rebuild failed")
+    if runtime.graph is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Agent runtime is not ready",
