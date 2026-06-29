@@ -450,6 +450,7 @@ export default function EvalTab({
                   <tr>
                     <th className="px-4 py-2 font-medium">Name</th>
                     <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Config</th>
                     <th className="px-4 py-2 font-medium">Pass Rate</th>
                     <th className="px-4 py-2 font-medium">Date</th>
                     <th className="px-4 py-2 font-medium w-24"></th>
@@ -468,6 +469,15 @@ export default function EvalTab({
                         }`}>
                           {r.status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
                           {r.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                          r.config_source === "draft"
+                            ? "bg-warning-soft text-warning"
+                            : "bg-success-soft text-success"
+                        }`}>
+                          {r.config_source === "draft" ? "Draft" : "Published"}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">

@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from sqlalchemy import func, select, update
 from sse_starlette.sse import EventSourceResponse
 
-from app.agents.graph import _clean_citations
+from app.agents.graph import _clean_citations, build_graph
 from app.agents.runtime import RuntimeDep
 from app.api.conversations import get_owned_conversation
 from app.api.deps import CurrentUser, DbSession
@@ -455,67 +455,9 @@ async def chat_stream(
     graph = runtime.graph
     draft_registry = runtime.agent_registry
     if body.draft and user.role == UserRole.ADMIN and agent_row:
-        from app.agents.graph import build_graph
-        from app.agents.registry import AgentSpec
-        draft = agent_row.draft_config or {}
-        system_prompt = draft.get("system_prompt") or agent_row.system_prompt
-        model_name = draft.get("llm_model") or agent_row.llm_model
-        tools = draft.get("tools") if "tools" in draft else agent_row.tools
-        is_orchestrator = draft.get("is_orchestrator") if "is_orchestrator" in draft else agent_row.is_orchestrator
-        is_router = draft.get("is_router") if "is_router" in draft else agent_row.is_router
-        routes_to = draft.get("routes_to") if "routes_to" in draft else agent_row.routes_to
-        connected_sources = draft.get("connected_sources") if "connected_sources" in draft else agent_row.connected_sources
-        retrieval_top_k = draft.get("retrieval_top_k") if "retrieval_top_k" in draft else agent_row.retrieval_top_k
-
-        all_agents = await db.scalars(select(AgentSettings))
-        registry: dict[str, AgentSpec] = {}
-        settings_map: dict[str, dict] = {}
-        for a in all_agents.all():
-            if a.slug == agent:
-                registry[a.slug] = AgentSpec(
-                    slug=a.slug,
-                    name=draft.get("name") or a.name or a.slug,
-                    description=draft.get("description") or a.description or "",
-                    system_prompt=system_prompt,
-                    default_model=model_name or "gpt-5.4-nano",
-                    tools=tools or [],
-                    is_orchestrator=bool(is_orchestrator),
-                    is_router=bool(is_router),
-                    routes_to=routes_to or [],
-                    agent_type=draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
-                    research_config=draft.get("research_config") if "research_config" in draft else a.research_config,
-                )
-                settings_map[a.slug] = {
-                    "model": model_name,
-                    "system_prompt": system_prompt,
-                    "retrieval_top_k": retrieval_top_k or 5,
-                    "connected_sources": connected_sources or [],
-                    "agent_type": draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
-                    "research_config": draft.get("research_config") if "research_config" in draft else a.research_config,
-                }
-            else:
-                registry[a.slug] = AgentSpec(
-                    slug=a.slug,
-                    name=a.name or a.slug,
-                    description=a.description or "",
-                    system_prompt=a.system_prompt,
-                    default_model=a.llm_model or "gpt-5.4-nano",
-                    tools=a.tools or [],
-                    is_orchestrator=bool(a.is_orchestrator),
-                    is_router=bool(a.is_router) if a.is_router is not None else False,
-                    routes_to=a.routes_to or [],
-                    agent_type=a.agent_type or "standard",
-                    research_config=a.research_config,
-                )
-                settings_map[a.slug] = {
-                    "model": a.llm_model,
-                    "system_prompt": a.system_prompt,
-                    "retrieval_top_k": a.retrieval_top_k or 5,
-                    "connected_sources": a.connected_sources or [],
-                    "agent_type": a.agent_type or "standard",
-                    "research_config": a.research_config,
-                }
-        graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
+        from app.agents.runtime import build_graph_config
+        registry, settings_map, workflows = await build_graph_config(db, slug=agent)
+        graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map, workflows=workflows)
         draft_registry = registry
 
     if body.attachment_ids and agent_row and not agent_row.allow_uploads:

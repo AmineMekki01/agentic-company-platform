@@ -103,7 +103,16 @@ export function RunDetailModal({ run, onClose, onContextClick }: RunDetailModalP
       <div className="bg-canvas border border-line rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
-            <h2 className="font-semibold text-lg">{run.name}</h2>
+            <h2 className="font-semibold text-lg flex items-center gap-2">
+              {run.name}
+              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                run.config_source === "draft"
+                  ? "bg-warning-soft text-warning"
+                  : "bg-success-soft text-success"
+              }`}>
+                {run.config_source === "draft" ? "Draft" : "Published"}
+              </span>
+            </h2>
             <p className="text-xs text-tertiary">
               {run.status} • Thresholds: {Object.entries(run.thresholds || {}).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v.toFixed(2)}`).join(", ")} •
               Pass: {run.pass_count}/{run.total_tests}

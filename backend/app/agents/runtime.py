@@ -66,7 +66,12 @@ class AgentRuntime:
                 normalized.append(str(ks.id))
         return normalized if normalized else None
 
-    async def _load_agent_skills(self, session) -> dict[str, list[dict]]:
+    async def _load_agent_skills(
+        self,
+        session,
+        draft_slug: str | None = None,
+        draft_skill_ids: list[str] | None = None,
+    ) -> dict[str, list[dict]]:
         """Load enabled skills for each agent (per-agent + assigned shared)."""
         skills_map: dict[str, list[dict]] = {}
 
@@ -82,17 +87,46 @@ class AgentRuntime:
                 "content": skill.content,
             })
 
-        shared_result = await session.execute(
-            select(AgentSkill, Skill)
-            .join(Skill, AgentSkill.skill_id == Skill.id)
-            .where(Skill.scope == "shared", Skill.is_enabled == True)
-        )
-        for link, skill in shared_result.all():
-            skills_map.setdefault(link.agent_slug, []).append({
-                "name": skill.name,
-                "description": skill.description,
-                "content": skill.content,
-            })
+        if draft_slug and draft_skill_ids is not None:
+            draft_uuids = [str(sid) for sid in draft_skill_ids]
+            shared_result = await session.execute(
+                select(Skill).where(
+                    Skill.scope == "shared",
+                    Skill.is_enabled == True,
+                    Skill.id.in_([uuid.UUID(sid) for sid in draft_uuids if sid]),
+                )
+            )
+            for skill in shared_result.scalars().all():
+                skills_map.setdefault(draft_slug, []).append({
+                    "name": skill.name,
+                    "description": skill.description,
+                    "content": skill.content,
+                })
+
+            non_draft_result = await session.execute(
+                select(AgentSkill, Skill)
+                .join(Skill, AgentSkill.skill_id == Skill.id)
+                .where(Skill.scope == "shared", Skill.is_enabled == True)
+                .where(AgentSkill.agent_slug != draft_slug)
+            )
+            for link, skill in non_draft_result.all():
+                skills_map.setdefault(link.agent_slug, []).append({
+                    "name": skill.name,
+                    "description": skill.description,
+                    "content": skill.content,
+                })
+        else:
+            shared_result = await session.execute(
+                select(AgentSkill, Skill)
+                .join(Skill, AgentSkill.skill_id == Skill.id)
+                .where(Skill.scope == "shared", Skill.is_enabled == True)
+            )
+            for link, skill in shared_result.all():
+                skills_map.setdefault(link.agent_slug, []).append({
+                    "name": skill.name,
+                    "description": skill.description,
+                    "content": skill.content,
+                })
 
         for agent_slug, agent_skill_list in skills_map.items():
             logger.info("Skills loaded for agent=%s: %s", agent_slug, [s["name"] for s in agent_skill_list])
@@ -149,33 +183,7 @@ class AgentRuntime:
         workflows: dict[str, dict] = {}
         try:
             async with async_session_factory() as session:
-                agent_registry = await self._load_agent_registry(session)
-                skills_map = await self._load_agent_skills(session)
-                result = await session.scalars(select(AgentSettings))
-                for row in result.all():
-                    raw_sources = row.connected_sources
-                    sources = await self._normalize_sources(session, raw_sources)
-                    agent_settings[row.slug] = {
-                        "model": row.llm_model,
-                        "system_prompt": row.system_prompt,
-                        "retrieval_top_k": row.retrieval_top_k,
-                        "connected_sources": sources,
-                        "agent_type": row.agent_type if row.agent_type else "standard",
-                        "research_config": row.research_config,
-                        "skills": skills_map.get(row.slug, []),
-                    }
-                    logger.warning(
-                        "Agent config loaded: slug=%s connected_sources=%s (raw=%s)",
-                        row.slug,
-                        sources,
-                        raw_sources,
-                    )
-                wf_result = await session.scalars(select(AgentWorkflow).where(AgentWorkflow.enabled == True))
-                for wf in wf_result.all():
-                    definition = dict(wf.definition)
-                    definition["enabled"] = wf.enabled
-                    workflows[wf.owner_agent_slug] = definition
-                    logger.warning("Workflow loaded for agent=%s name=%s", wf.owner_agent_slug, wf.name)
+                agent_registry, agent_settings, workflows = await build_graph_config(session)
         except Exception:
             logger.exception("Failed to load agent settings at startup")
 
@@ -189,34 +197,7 @@ class AgentRuntime:
         workflows: dict[str, dict] = {}
         try:
             async with async_session_factory() as session:
-                agent_registry = await self._load_agent_registry(session)
-                skills_map = await self._load_agent_skills(session)
-                for slug, spec in agent_registry.items():
-                    agent_row = await session.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
-                    if agent_row:
-                        raw_sources = agent_row.connected_sources
-                        sources = await self._normalize_sources(session, raw_sources)
-                        agent_settings[slug] = {
-                            "model": agent_row.llm_model,
-                            "system_prompt": agent_row.system_prompt,
-                            "retrieval_top_k": agent_row.retrieval_top_k,
-                            "connected_sources": sources,
-                            "agent_type": agent_row.agent_type if agent_row.agent_type else "standard",
-                            "research_config": agent_row.research_config,
-                            "skills": skills_map.get(slug, []),
-                        }
-                        logger.warning(
-                            "Agent config refreshed: slug=%s connected_sources=%s (raw=%s)",
-                            slug,
-                            sources,
-                            raw_sources,
-                        )
-                wf_result = await session.scalars(select(AgentWorkflow).where(AgentWorkflow.enabled == True))
-                for wf in wf_result.all():
-                    definition = dict(wf.definition)
-                    definition["enabled"] = wf.enabled
-                    workflows[wf.owner_agent_slug] = definition
-                    logger.warning("Workflow refreshed for agent=%s name=%s", wf.owner_agent_slug, wf.name)
+                agent_registry, agent_settings, workflows = await build_graph_config(session)
         except Exception:
             logger.exception("Failed to reload agent settings during refresh")
 
@@ -230,6 +211,95 @@ class AgentRuntime:
         """Close the database connection pool."""
         if self._pool is not None:
             await self._pool.close()
+
+
+async def build_graph_config(
+    session,
+    slug: str | None = None,
+) -> tuple[dict[str, AgentSpec], dict[str, dict], dict[str, dict]]:
+    """
+    Build (registry, settings_map, workflows) from the DB.
+    """
+    from app.models import AgentSettings as _AS
+
+    result = await session.scalars(select(_AS))
+    rows = result.all()
+
+    draft_skill_ids: list[str] | None = None
+    if slug:
+        draft_row = next((r for r in rows if r.slug == slug and r.draft_config), None)
+        if draft_row and "skill_ids" in draft_row.draft_config:
+            draft_skill_ids = draft_row.draft_config["skill_ids"]
+
+    skills_map = await AgentRuntime()._load_agent_skills(
+        session,
+        draft_slug=slug if draft_skill_ids is not None else None,
+        draft_skill_ids=draft_skill_ids,
+    )
+
+    workflows: dict[str, dict] = {}
+    wf_result = await session.scalars(select(AgentWorkflow).where(AgentWorkflow.enabled == True))
+    for wf in wf_result.all():
+        definition = dict(wf.definition)
+        definition["enabled"] = wf.enabled
+        workflows[wf.owner_agent_slug] = definition
+
+    registry: dict[str, AgentSpec] = {}
+    settings_map: dict[str, dict] = {}
+
+    for row in rows:
+        draft = row.draft_config if (slug and row.slug == slug and row.draft_config) else None
+
+        def _val(key: str, fallback):
+            if draft and key in draft:
+                return draft[key]
+            return fallback
+
+        name = _val("name", row.name or row.slug)
+        description = _val("description", row.description or "")
+        system_prompt = _val("system_prompt", row.system_prompt)
+        model_name = _val("llm_model", row.llm_model)
+        tools = _val("tools", row.tools) if (draft and "tools" in draft) else row.tools
+        is_orchestrator = _val("is_orchestrator", row.is_orchestrator) if (draft and "is_orchestrator" in draft) else row.is_orchestrator
+        is_router = _val("is_router", row.is_router) if (draft and "is_router" in draft) else row.is_router
+        routes_to = _val("routes_to", row.routes_to) if (draft and "routes_to" in draft) else row.routes_to
+        connected_sources = _val("connected_sources", row.connected_sources) if (draft and "connected_sources" in draft) else row.connected_sources
+        retrieval_top_k = _val("retrieval_top_k", row.retrieval_top_k)
+        agent_type = _val("agent_type", row.agent_type) if (draft and "agent_type" in draft) else (row.agent_type or "standard")
+        research_config = _val("research_config", row.research_config) if (draft and "research_config" in draft) else row.research_config
+
+        registry[row.slug] = AgentSpec(
+            slug=row.slug,
+            name=name,
+            description=description,
+            system_prompt=system_prompt,
+            default_model=model_name or "gpt-5.4-nano",
+            tools=tools or [],
+            is_orchestrator=bool(is_orchestrator),
+            is_router=bool(is_router) if is_router is not None else False,
+            routes_to=routes_to or [],
+            agent_type=agent_type,
+            research_config=research_config,
+        )
+
+        raw_sources = connected_sources
+        sources = await AgentRuntime()._normalize_sources(session, raw_sources)
+        settings_map[row.slug] = {
+            "model": model_name,
+            "system_prompt": system_prompt,
+            "retrieval_top_k": retrieval_top_k or 5,
+            "connected_sources": sources,
+            "agent_type": agent_type,
+            "research_config": research_config,
+            "skills": skills_map.get(row.slug, []),
+        }
+
+        if slug and row.slug == slug and draft:
+            logger.info("build_graph_config: agent=%s using DRAFT config (draft keys=%s)", row.slug, list(draft.keys()))
+        else:
+            logger.debug("build_graph_config: agent=%s using published config", row.slug)
+
+    return registry, settings_map, workflows
 
 
 async def get_runtime(request: Request) -> AgentRuntime:

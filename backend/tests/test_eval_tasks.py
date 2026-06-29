@@ -53,6 +53,8 @@ async def test_run_evaluation_no_tests():
     mock_agent = MagicMock()
     mock_agent.slug = "hr"
     mock_agent.is_published = True
+    mock_agent.draft_config = None
+    mock_agent.published_version_id = None
 
     mock_session = AsyncMock()
     mock_session.get = AsyncMock(side_effect=[mock_run, mock_agent, mock_agent])
@@ -87,6 +89,8 @@ async def test_run_evaluation_with_tests():
     mock_agent = MagicMock()
     mock_agent.slug = "hr"
     mock_agent.is_published = True
+    mock_agent.draft_config = None
+    mock_agent.published_version_id = None
 
     mock_test = MagicMock()
     mock_test.id = uuid.uuid4()
@@ -108,13 +112,15 @@ async def test_run_evaluation_with_tests():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
+    mock_runtime = MagicMock()
+    mock_runtime.graph = MagicMock()
+    mock_runtime.refresh_graph = AsyncMock()
+    mock_runtime.startup = AsyncMock()
+    mock_runtime.shutdown = AsyncMock()
+
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
-         patch("app.agents.runtime.AgentRuntime") as mock_runtime_cls:
-
-        mock_runtime = mock_runtime_cls.return_value
-        mock_runtime.startup = AsyncMock()
-        mock_runtime.shutdown = AsyncMock()
+         patch("app.tasks.eval_tasks._get_worker_runtime", new_callable=AsyncMock, return_value=mock_runtime):
 
         mock_run_test.return_value = {
             "actual_answer": "The policy is 30 days.",
@@ -143,6 +149,8 @@ async def test_run_evaluation_test_exception_handled():
     mock_agent = MagicMock()
     mock_agent.slug = "hr"
     mock_agent.is_published = True
+    mock_agent.draft_config = None
+    mock_agent.published_version_id = None
 
     mock_test = MagicMock()
     mock_test.id = uuid.uuid4()
@@ -164,13 +172,15 @@ async def test_run_evaluation_test_exception_handled():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
+    mock_runtime = MagicMock()
+    mock_runtime.graph = MagicMock()
+    mock_runtime.refresh_graph = AsyncMock()
+    mock_runtime.startup = AsyncMock()
+    mock_runtime.shutdown = AsyncMock()
+
     with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
-         patch("app.agents.runtime.AgentRuntime") as mock_runtime_cls:
-
-        mock_runtime = mock_runtime_cls.return_value
-        mock_runtime.startup = AsyncMock()
-        mock_runtime.shutdown = AsyncMock()
+         patch("app.tasks.eval_tasks._get_worker_runtime", new_callable=AsyncMock, return_value=mock_runtime):
 
         mock_run_test.side_effect = Exception("LLM timeout")
 

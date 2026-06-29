@@ -501,6 +501,18 @@ def upgrade() -> None:
         sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=False),
         sa.Column(
+            "config_source",
+            sa.String(length=20),
+            nullable=False,
+            server_default="published",
+        ),
+        sa.Column(
+            "agent_version_id",
+            sa.Uuid(),
+            sa.ForeignKey("agent_versions.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
+        sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),

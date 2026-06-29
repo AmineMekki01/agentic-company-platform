@@ -19,6 +19,10 @@ class AgentEvalRun(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="pending")
     thresholds: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    config_source: Mapped[str] = mapped_column(String(20), nullable=False, server_default="published")
+    agent_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agent_versions.id", ondelete="SET NULL"), nullable=True
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

@@ -12,6 +12,17 @@ from app.services.eval_runner import run_single_test
 
 logger = logging.getLogger(__name__)
 
+_worker_runtime = None
+
+async def _get_worker_runtime():
+    """Return a singleton AgentRuntime for the Celery worker process."""
+    global _worker_runtime
+    if _worker_runtime is None or _worker_runtime.graph is None:
+        from app.agents.runtime import AgentRuntime
+        _worker_runtime = AgentRuntime()
+        await _worker_runtime.startup()
+    return _worker_runtime
+
 
 @celery_app.task(bind=True, max_retries=3)
 def execute_eval_run(self, run_id: str, test_set_ids: list[str] | None = None):
@@ -39,9 +50,16 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
                 await db.commit()
                 return
 
-            logger.info("Agent %s is_published=%s before eval run", agent.slug, agent.is_published)
+            use_draft = agent.draft_config is not None and len(agent.draft_config) > 0
+            logger.info(
+                "Agent %s is_published=%s use_draft=%s before eval run",
+                agent.slug, agent.is_published, use_draft,
+            )
             run.status = "running"
             run.started_at = datetime.now(timezone.utc)
+            run.config_source = "draft" if use_draft else "published"
+            if not use_draft:
+                run.agent_version_id = agent.published_version_id
             await db.commit()
 
             if test_set_ids:
@@ -67,61 +85,68 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
                 await db.commit()
                 return
 
-            from app.agents.runtime import AgentRuntime
+            if use_draft:
+                from app.agents.runtime import build_graph_config
+                from app.agents.graph import build_graph
+                async with session_factory() as cfg_session:
+                    registry, settings_map, workflows = await build_graph_config(cfg_session, slug=agent.slug)
+                graph = build_graph(
+                    checkpointer=None,
+                    agent_registry=registry,
+                    agent_settings=settings_map,
+                    workflows=workflows,
+                )
+            else:
+                runtime = await _get_worker_runtime()
+                await runtime.refresh_graph()
+                graph = runtime.graph
 
-            runtime = AgentRuntime()
-            await runtime.startup()
-
-            try:
-                for test in tests:
-                    logger.info("Evaluating test %s for agent %s", test.id, agent.slug)
-                    try:
-                        eval_result = await run_single_test(
-                            runtime=runtime,
-                            agent_slug=agent.slug,
-                            question=test.question,
-                            expected_answer=test.expected_answer,
-                        )
-                    except Exception:
-                        logger.exception("Test %s failed", test.id)
-                        eval_result = {
-                            "actual_answer": "",
-                            "retrieved_contexts": [],
-                            "metrics": {},
-                            "score": 0.0,
-                            "duration_ms": 0,
-                        }
-
-                    thresholds = run.thresholds or {}
-                    metric_passes: dict[str, bool] = {}
-                    for metric_name, value in eval_result.get("metrics", {}).items():
-                        threshold = thresholds.get(metric_name, 0.5)
-                        metric_passes[metric_name] = value >= threshold
-
-                    passed = all(metric_passes.values()) if metric_passes else False
-
-                    logger.info(
-                        "Test %s score=%.3f passed=%s metric_passes=%s",
-                        test.id, eval_result["score"], passed, metric_passes,
+            for test in tests:
+                logger.info("Evaluating test %s for agent %s", test.id, agent.slug)
+                try:
+                    eval_result = await run_single_test(
+                        graph=graph,
+                        agent_slug=agent.slug,
+                        question=test.question,
+                        expected_answer=test.expected_answer,
                     )
+                except Exception:
+                    logger.exception("Test %s failed", test.id)
+                    eval_result = {
+                        "actual_answer": "",
+                        "retrieved_contexts": [],
+                        "metrics": {},
+                        "score": 0.0,
+                        "duration_ms": 0,
+                    }
 
-                    res = AgentEvalResult(
-                        run_id=run.id,
-                        test_id=test.id,
-                        actual_answer=eval_result["actual_answer"],
-                        retrieved_contexts=eval_result["retrieved_contexts"],
-                        metrics=eval_result["metrics"],
-                        metric_passes=metric_passes,
-                        score=eval_result["score"],
-                        passed=passed,
-                        duration_ms=eval_result["duration_ms"],
-                    )
-                    db.add(res)
+                thresholds = run.thresholds or {}
+                metric_passes: dict[str, bool] = {}
+                for metric_name, value in eval_result.get("metrics", {}).items():
+                    threshold = thresholds.get(metric_name, 0.5)
+                    metric_passes[metric_name] = value >= threshold
 
-                await db.commit()
-            finally:
-                await runtime.shutdown()
+                passed = all(metric_passes.values()) if metric_passes else False
 
+                logger.info(
+                    "Test %s score=%.3f passed=%s metric_passes=%s",
+                    test.id, eval_result["score"], passed, metric_passes,
+                )
+
+                res = AgentEvalResult(
+                    run_id=run.id,
+                    test_id=test.id,
+                    actual_answer=eval_result["actual_answer"],
+                    retrieved_contexts=eval_result["retrieved_contexts"],
+                    metrics=eval_result["metrics"],
+                    metric_passes=metric_passes,
+                    score=eval_result["score"],
+                    passed=passed,
+                    duration_ms=eval_result["duration_ms"],
+                )
+                db.add(res)
+
+            await db.commit()
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
             await db.commit()

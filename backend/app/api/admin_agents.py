@@ -441,7 +441,19 @@ async def publish_agent(
             await _validate_upload_settings(db, draft["allow_uploads"])
         if "connected_sources" in draft:
             draft["retrieval_enabled"] = bool(draft["connected_sources"])
+
+        if "skill_ids" in draft:
+            existing_links = (await db.execute(
+                select(AgentSkill).where(AgentSkill.agent_slug == slug)
+            )).scalars().all()
+            for link in existing_links:
+                await db.delete(link)
+            for sid in draft["skill_ids"]:
+                db.add(AgentSkill(agent_slug=slug, skill_id=sid))
+
         for key, value in draft.items():
+            if key == "skill_ids":
+                continue
             if hasattr(row, key):
                 setattr(row, key, value)
         row.draft_config = None
@@ -632,86 +644,15 @@ async def test_agent_draft(
     retrieval, routing, and orchestration are all tested with the draft settings.
     """
     from app.agents.graph import build_graph
-    from app.agents.registry import AgentSpec
+    from app.agents.runtime import build_graph_config
     from langchain_core.messages import HumanMessage
 
     row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    draft = row.draft_config or {}
-    system_prompt = draft.get("system_prompt") or row.system_prompt
-    model_name = draft.get("llm_model") or row.llm_model
-    tools = draft.get("tools") if "tools" in draft else row.tools
-    is_orchestrator = draft.get("is_orchestrator") if "is_orchestrator" in draft else row.is_orchestrator
-    routes_to = draft.get("routes_to") if "routes_to" in draft else row.routes_to
-    connected_sources = draft.get("connected_sources") if "connected_sources" in draft else row.connected_sources
-    retrieval_top_k = draft.get("retrieval_top_k") if "retrieval_top_k" in draft else row.retrieval_top_k
-
-    # Load skills for the draft agent (per-agent + assigned shared)
-    draft_skills: list[dict] = []
-    per_agent_skills = await db.execute(
-        select(Skill).where(Skill.agent_slug == slug, Skill.scope == "agent", Skill.is_enabled == True)
-    )
-    for s in per_agent_skills.scalars().all():
-        draft_skills.append({"name": s.name, "description": s.description, "content": s.content})
-    assigned_shared = await db.execute(
-        select(Skill)
-        .join(AgentSkill, AgentSkill.skill_id == Skill.id)
-        .where(AgentSkill.agent_slug == slug, Skill.scope == "shared", Skill.is_enabled == True)
-    )
-    for s in assigned_shared.scalars().all():
-        draft_skills.append({"name": s.name, "description": s.description, "content": s.content})
-
-    all_agents = await db.scalars(select(AgentSettings))
-    registry: dict[str, AgentSpec] = {}
-    settings_map: dict[str, dict] = {}
-    for a in all_agents.all():
-        if a.slug == slug:
-            registry[a.slug] = AgentSpec(
-                slug=a.slug,
-                name=draft.get("name") or a.name or a.slug,
-                description=draft.get("description") or a.description or "",
-                system_prompt=system_prompt,
-                default_model=model_name or "gpt-5.4-nano",
-                tools=tools or [],
-                is_orchestrator=bool(is_orchestrator),
-                routes_to=routes_to or [],
-                agent_type=draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
-                research_config=draft.get("research_config") if "research_config" in draft else a.research_config,
-            )
-            settings_map[a.slug] = {
-                "model": model_name,
-                "system_prompt": system_prompt,
-                "retrieval_top_k": retrieval_top_k or 5,
-                "connected_sources": connected_sources or [],
-                "agent_type": draft.get("agent_type") if "agent_type" in draft else (a.agent_type or "standard"),
-                "research_config": draft.get("research_config") if "research_config" in draft else a.research_config,
-                "skills": draft_skills,
-            }
-        else:
-            registry[a.slug] = AgentSpec(
-                slug=a.slug,
-                name=a.name or a.slug,
-                description=a.description or "",
-                system_prompt=a.system_prompt,
-                default_model=a.llm_model or "gpt-5.4-nano",
-                tools=a.tools or [],
-                is_orchestrator=bool(a.is_orchestrator),
-                routes_to=a.routes_to or [],
-                agent_type=a.agent_type or "standard",
-                research_config=a.research_config,
-            )
-            settings_map[a.slug] = {
-                "model": a.llm_model,
-                "system_prompt": a.system_prompt,
-                "retrieval_top_k": a.retrieval_top_k or 5,
-                "connected_sources": a.connected_sources or [],
-                "agent_type": a.agent_type or "standard",
-                "research_config": a.research_config,
-            }
-
-    graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map)
+    registry, settings_map, workflows = await build_graph_config(db, slug=slug)
+    graph = build_graph(checkpointer=None, agent_registry=registry, agent_settings=settings_map, workflows=workflows)
 
     input_state = {
         "messages": [HumanMessage(content=body.content)],

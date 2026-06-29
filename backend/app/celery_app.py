@@ -39,12 +39,18 @@ def init_worker_process(**kwargs):
 
 @worker_process_shutdown.connect
 def shutdown_worker_process(**kwargs):
-    """Dispose the Celery-shared async engine on worker shutdown."""
+    """Dispose the Celery-shared async engine and eval runtime on worker shutdown."""
     import asyncio
 
     from app.db.celery_session import dispose_celery_engine
 
+    async def _shutdown():
+        await dispose_celery_engine()
+        from app.tasks.eval_tasks import _worker_runtime
+        if _worker_runtime is not None:
+            await _worker_runtime.shutdown()
+
     try:
-        asyncio.run(dispose_celery_engine())
+        asyncio.run(_shutdown())
     except Exception:
         pass

@@ -64,6 +64,8 @@ class AgentEvalRunOut(BaseModel):
     name: str
     status: str
     thresholds: dict[str, float]
+    config_source: str = "published"
+    agent_version_id: uuid.UUID | None = None
     started_at: datetime | None
     completed_at: datetime | None
     created_at: datetime

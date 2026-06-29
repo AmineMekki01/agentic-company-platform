@@ -1,12 +1,13 @@
 """Admin skills API."""
 
+import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 
 from app.api.deps import AdminUser, DbSession
-from app.models import AgentSkill, Skill
+from app.models import AgentSettings, AgentSkill, Skill
 from app.schemas.skill import AgentSkillAssign, AgentSkillBatchUpdate, SkillCreate, SkillOut, SkillUpdate
 
 router = APIRouter(tags=["admin"])
@@ -16,6 +17,25 @@ async def _refresh_runtime(request: Request) -> None:
     runtime = getattr(request.app.state, "runtime", None)
     if runtime:
         await runtime.refresh_graph()
+
+
+async def _get_published_skill_ids(db, slug: str) -> list[str]:
+    """Get the current published shared skill IDs for an agent."""
+    result = await db.execute(
+        select(AgentSkill.skill_id).where(AgentSkill.agent_slug == slug)
+    )
+    return [str(row[0]) for row in result.all()]
+
+
+async def _save_draft_skill_ids(db, slug: str, skill_ids: list[str]) -> None:
+    """Store skill_ids in draft_config for a published agent."""
+    row = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    if row is None:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    draft = dict(row.draft_config or {})
+    draft["skill_ids"] = skill_ids
+    row.draft_config = draft
+    await db.commit()
 
 
 @router.get("/admin/skills", response_model=list[SkillOut])
@@ -70,16 +90,31 @@ async def list_agent_skills(user: AdminUser, db: DbSession, slug: str):
     per_agent = await db.execute(
         select(Skill).where(Skill.agent_slug == slug, Skill.scope == "agent").order_by(Skill.created_at.desc())
     )
-    assigned_ids = await db.execute(
-        select(AgentSkill.skill_id).where(AgentSkill.agent_slug == slug)
-    )
-    assigned_id_list = [row[0] for row in assigned_ids]
-    shared_skills = []
-    if assigned_id_list:
-        shared_result = await db.execute(
-            select(Skill).where(Skill.id.in_(assigned_id_list)).order_by(Skill.created_at.desc())
+
+    agent = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    draft_skill_ids = None
+    if agent and agent.is_published and agent.draft_config and "skill_ids" in agent.draft_config:
+        draft_skill_ids = agent.draft_config["skill_ids"]
+
+    if draft_skill_ids is not None:
+        draft_uuids = [uuid.UUID(sid) for sid in draft_skill_ids if sid]
+        shared_skills = []
+        if draft_uuids:
+            shared_result = await db.execute(
+                select(Skill).where(Skill.id.in_(draft_uuids)).order_by(Skill.created_at.desc())
+            )
+            shared_skills = shared_result.scalars().all()
+    else:
+        assigned_ids = await db.execute(
+            select(AgentSkill.skill_id).where(AgentSkill.agent_slug == slug)
         )
-        shared_skills = shared_result.scalars().all()
+        assigned_id_list = [row[0] for row in assigned_ids]
+        shared_skills = []
+        if assigned_id_list:
+            shared_result = await db.execute(
+                select(Skill).where(Skill.id.in_(assigned_id_list)).order_by(Skill.created_at.desc())
+            )
+            shared_skills = shared_result.scalars().all()
     return list(per_agent.scalars().all()) + shared_skills
 
 
@@ -137,11 +172,20 @@ async def toggle_agent_skill(user: AdminUser, db: DbSession, request: Request, s
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found for this agent")
 
     if skill.scope == "shared":
-        assigned = await db.execute(
-            select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
-        )
-        if not assigned.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared skill not assigned to this agent")
+        agent = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+        if agent is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+        if agent.is_published and agent.draft_config and "skill_ids" in agent.draft_config:
+            draft_ids = set(agent.draft_config["skill_ids"])
+            if str(skill_id) not in draft_ids:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared skill not assigned to this agent")
+        else:
+            assigned = await db.execute(
+                select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
+            )
+            if not assigned.scalar_one_or_none():
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared skill not assigned to this agent")
 
     skill.is_enabled = not skill.is_enabled
     await db.commit()
@@ -158,28 +202,53 @@ async def assign_shared_skill(user: AdminUser, db: DbSession, request: Request, 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not found")
     if skill.scope != "shared":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only shared skills can be assigned")
-    existing = await db.execute(
-        select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == body.skill_id)
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Skill already assigned")
-    db.add(AgentSkill(agent_slug=slug, skill_id=body.skill_id))
-    await db.commit()
-    await _refresh_runtime(request)
+
+    agent = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    if agent.is_published:
+        current = agent.draft_config.get("skill_ids") if agent.draft_config and "skill_ids" in agent.draft_config else await _get_published_skill_ids(db, slug)
+        sid = str(body.skill_id)
+        if sid in current:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Skill already assigned")
+        new_ids = [*current, sid]
+        await _save_draft_skill_ids(db, slug, new_ids)
+    else:
+        existing = await db.execute(
+            select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == body.skill_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Skill already assigned")
+        db.add(AgentSkill(agent_slug=slug, skill_id=body.skill_id))
+        await db.commit()
+        await _refresh_runtime(request)
     return skill
 
 
 @router.delete("/admin/agents/{slug}/skills/{skill_id}/unassign", status_code=status.HTTP_204_NO_CONTENT)
 async def unassign_shared_skill(user: AdminUser, db: DbSession, request: Request, slug: str, skill_id: UUID):
-    result = await db.execute(
-        select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
-    )
-    link = result.scalar_one_or_none()
-    if not link:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not assigned to this agent")
-    await db.delete(link)
-    await db.commit()
-    await _refresh_runtime(request)
+    agent = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    if agent.is_published:
+        current = agent.draft_config.get("skill_ids") if agent.draft_config and "skill_ids" in agent.draft_config else await _get_published_skill_ids(db, slug)
+        sid = str(skill_id)
+        if sid not in current:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not assigned to this agent")
+        new_ids = [s for s in current if s != sid]
+        await _save_draft_skill_ids(db, slug, new_ids)
+    else:
+        result = await db.execute(
+            select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
+        )
+        link = result.scalar_one_or_none()
+        if not link:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Skill not assigned to this agent")
+        await db.delete(link)
+        await db.commit()
+        await _refresh_runtime(request)
 
 
 @router.post("/admin/agents/{slug}/skills/batch", response_model=list[SkillOut])
@@ -190,26 +259,44 @@ async def batch_update_agent_skills(
     import logging as _log
     _logger = _log.getLogger("app.api.admin_skills")
 
-    for skill_id in body.assign:
-        existing = await db.execute(
-            select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
-        )
-        if not existing.scalar_one_or_none():
-            db.add(AgentSkill(agent_slug=slug, skill_id=skill_id))
+    agent = await db.scalar(select(AgentSettings).where(AgentSettings.slug == slug))
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
-    for skill_id in body.unassign:
-        result = await db.execute(
-            select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
+    if agent.is_published:
+        current = agent.draft_config.get("skill_ids") if agent.draft_config and "skill_ids" in agent.draft_config else await _get_published_skill_ids(db, slug)
+        current_set = set(current)
+        for skill_id in body.assign:
+            current_set.add(str(skill_id))
+        for skill_id in body.unassign:
+            current_set.discard(str(skill_id))
+        new_ids = list(current_set)
+        await _save_draft_skill_ids(db, slug, new_ids)
+        _logger.info(
+            "SKILL BATCH (draft) | agent=%s assigned=%d unassigned=%d",
+            slug, len(body.assign), len(body.unassign),
         )
-        link = result.scalar_one_or_none()
-        if link:
-            await db.delete(link)
+    else:
+        for skill_id in body.assign:
+            existing = await db.execute(
+                select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
+            )
+            if not existing.scalar_one_or_none():
+                db.add(AgentSkill(agent_slug=slug, skill_id=skill_id))
 
-    await db.commit()
-    _logger.info(
-        "SKILL BATCH | agent=%s assigned=%d unassigned=%d",
-        slug, len(body.assign), len(body.unassign),
-    )
-    await _refresh_runtime(request)
+        for skill_id in body.unassign:
+            result = await db.execute(
+                select(AgentSkill).where(AgentSkill.agent_slug == slug, AgentSkill.skill_id == skill_id)
+            )
+            link = result.scalar_one_or_none()
+            if link:
+                await db.delete(link)
+
+        await db.commit()
+        _logger.info(
+            "SKILL BATCH | agent=%s assigned=%d unassigned=%d",
+            slug, len(body.assign), len(body.unassign),
+        )
+        await _refresh_runtime(request)
 
     return await list_agent_skills(user, db, slug)

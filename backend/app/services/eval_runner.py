@@ -15,7 +15,6 @@ if "langchain_community.chat_models.vertexai" not in sys.modules:
 from langchain_core.messages import HumanMessage
 
 from app.agents.llm import get_chat_model
-from app.agents.runtime import AgentRuntime
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -36,13 +35,13 @@ def _get_ragas_embeddings():
 
 
 async def run_single_test(
-    runtime: AgentRuntime,
+    graph,
     agent_slug: str,
     question: str,
     expected_answer: str,
 ) -> dict[str, Any]:
     """
-    Run a single evaluation test against the live agent graph.
+    Run a single evaluation test against the provided agent graph.
 
     Returns a dict with:
     - actual_answer: str
@@ -57,7 +56,7 @@ async def run_single_test(
     config = {"configurable": {"thread_id": thread_id}}
 
     initial_state = {"messages": [HumanMessage(content=question)], "forced_agent": agent_slug}
-    final_state = await runtime.graph.ainvoke(initial_state, config)
+    final_state = await graph.ainvoke(initial_state, config)
 
     duration_ms = int(time.time() * 1000) - start_ms
 

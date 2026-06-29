@@ -11,7 +11,7 @@ pytestmark = pytest.mark.asyncio
 async def test_run_single_test_basic():
     from app.services import eval_runner
 
-    fake_runtime = MagicMock()
+    fake_graph = MagicMock()
     fake_final_state = {
         "messages": [
             HumanMessage(content="What is the policy?"),
@@ -19,7 +19,7 @@ async def test_run_single_test_basic():
         ],
         "sources": [],
     }
-    fake_runtime.graph.ainvoke = AsyncMock(return_value=fake_final_state)
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
 
     with patch("app.services.eval_runner._get_ragas_llm") as mock_llm, \
          patch("app.services.eval_runner._get_ragas_embeddings") as mock_emb, \
@@ -37,7 +37,7 @@ async def test_run_single_test_basic():
         mock_as_cls.return_value = MagicMock()
 
         result = await eval_runner.run_single_test(
-            fake_runtime,
+            fake_graph,
             "hr",
             "What is the policy?",
             "The policy is 30 days.",
@@ -57,7 +57,7 @@ async def test_run_single_test_with_retrieved_contexts_from_tool():
     tool_msg.name = "retrieve"
     tool_msg.content = "Policy document content"
 
-    fake_runtime = MagicMock()
+    fake_graph = MagicMock()
     fake_final_state = {
         "messages": [
             HumanMessage(content="What is the policy?"),
@@ -66,7 +66,7 @@ async def test_run_single_test_with_retrieved_contexts_from_tool():
         ],
         "sources": [],
     }
-    fake_runtime.graph.ainvoke = AsyncMock(return_value=fake_final_state)
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
 
     with patch("app.services.eval_runner._get_ragas_llm"), \
          patch("app.services.eval_runner._get_ragas_embeddings"), \
@@ -84,7 +84,7 @@ async def test_run_single_test_with_retrieved_contexts_from_tool():
         mock_as_cls.return_value = MagicMock()
 
         result = await eval_runner.run_single_test(
-            fake_runtime, "hr", "question", "answer"
+            fake_graph, "hr", "question", "answer"
         )
         assert len(result["retrieved_contexts"]) == 1
         assert result["retrieved_contexts"][0] == "Policy document content"
@@ -94,7 +94,7 @@ async def test_run_single_test_with_retrieved_contexts_from_tool():
 async def test_run_single_test_with_sources_list():
     from app.services import eval_runner
 
-    fake_runtime = MagicMock()
+    fake_graph = MagicMock()
     fake_final_state = {
         "messages": [
             HumanMessage(content="question"),
@@ -105,7 +105,7 @@ async def test_run_single_test_with_sources_list():
             {"text": "source chunk 2"},
         ],
     }
-    fake_runtime.graph.ainvoke = AsyncMock(return_value=fake_final_state)
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
 
     with patch("app.services.eval_runner._get_ragas_llm"), \
          patch("app.services.eval_runner._get_ragas_embeddings"), \
@@ -123,7 +123,7 @@ async def test_run_single_test_with_sources_list():
         mock_as_cls.return_value = MagicMock()
 
         result = await eval_runner.run_single_test(
-            fake_runtime, "hr", "question", "answer"
+            fake_graph, "hr", "question", "answer"
         )
         assert len(result["retrieved_contexts"]) == 2
         assert result["retrieved_contexts"][0] == "source chunk 1"
@@ -133,12 +133,12 @@ async def test_run_single_test_with_sources_list():
 async def test_run_single_test_metric_exception_returns_zero():
     from app.services import eval_runner
 
-    fake_runtime = MagicMock()
+    fake_graph = MagicMock()
     fake_final_state = {
         "messages": [HumanMessage(content="q"), AIMessage(content="a")],
         "sources": [],
     }
-    fake_runtime.graph.ainvoke = AsyncMock(return_value=fake_final_state)
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
 
     with patch("app.services.eval_runner._get_ragas_llm"), \
          patch("app.services.eval_runner._get_ragas_embeddings"), \
@@ -155,7 +155,7 @@ async def test_run_single_test_metric_exception_returns_zero():
         mock_as_cls.return_value = MagicMock()
 
         result = await eval_runner.run_single_test(
-            fake_runtime, "hr", "q", "a"
+            fake_graph, "hr", "q", "a"
         )
         assert result["metrics"]["answer_correctness"] == 0.0
         assert result["metrics"]["answer_relevancy"] == 0.0
@@ -164,7 +164,7 @@ async def test_run_single_test_metric_exception_returns_zero():
 async def test_run_single_test_content_as_list():
     from app.services import eval_runner
 
-    fake_runtime = MagicMock()
+    fake_graph = MagicMock()
     ai_msg = MagicMock()
     ai_msg.type = "ai"
     ai_msg.role = "assistant"
@@ -174,7 +174,7 @@ async def test_run_single_test_content_as_list():
         "messages": [HumanMessage(content="q"), ai_msg],
         "sources": [],
     }
-    fake_runtime.graph.ainvoke = AsyncMock(return_value=fake_final_state)
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
 
     with patch("app.services.eval_runner._get_ragas_llm"), \
          patch("app.services.eval_runner._get_ragas_embeddings"), \
@@ -191,6 +191,6 @@ async def test_run_single_test_content_as_list():
         mock_as_cls.return_value = MagicMock()
 
         result = await eval_runner.run_single_test(
-            fake_runtime, "hr", "q", "a"
+            fake_graph, "hr", "q", "a"
         )
         assert result["actual_answer"] == "List answer"
