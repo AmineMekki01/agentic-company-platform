@@ -5,31 +5,26 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const navGroups = [
   {
-    label: "Agents",
+    label: "Agent Studio",
     items: [
       { to: "/admin/agents", label: "Agents", icon: Bot },
       { to: "/admin/agent-templates", label: "Templates", icon: Store },
       { to: "/admin/skills", label: "Skills", icon: Sparkles },
-    ],
-  },
-  {
-    label: "Data & Integrations",
-    items: [
-      { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
       { to: "/admin/llm-models", label: "LLM Models", icon: Cpu },
-      { to: "/admin/connectors", label: "Connectors", icon: Plug },
-      { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
     ],
   },
   {
-    label: "Analytics",
+    label: "Integrations",
     items: [
-      { to: "/admin/usage", label: "Usage", icon: BarChart3 },
+      { to: "/admin/connectors", label: "Connectors", icon: Plug },
+      { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
+      { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },
     ],
   },
   {
     label: "Monitoring",
     items: [
+      { to: "/admin/usage", label: "Usage", icon: BarChart3 },
       { to: "/admin/system-status", label: "System Status", icon: Activity },
     ],
   },
