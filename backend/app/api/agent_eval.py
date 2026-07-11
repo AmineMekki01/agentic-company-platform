@@ -357,6 +357,7 @@ async def get_eval_run_detail(
             "score": res.score,
             "passed": res.passed,
             "duration_ms": res.duration_ms,
+            "trace_url": res.trace_url,
             "created_at": res.created_at,
         }
         results_out.append(AgentEvalResultOut.model_validate(res_dict))

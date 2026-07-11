@@ -246,6 +246,30 @@ async def test_chat_stream_persists_messages_and_title(client, auth_headers, cha
     assert detail["messages"][1]["agent_id"] == "hr"
 
 
+async def test_chat_stream_includes_trace_url_when_tracing_enabled(client, auth_headers, chat_env, monkeypatch):
+    """When Langfuse is enabled, the done event and persisted assistant message
+    should both carry a trace_url so the UI can link to the exact trace."""
+    from unittest.mock import MagicMock
+
+    fake_handler = MagicMock()
+    monkeypatch.setattr(chat_module, "new_langfuse_handler", lambda: fake_handler)
+    monkeypatch.setattr(chat_module, "trace_url_for", lambda handler: "http://localhost:3000/trace/abc123" if handler is fake_handler else None)
+
+    convo = (await client.post("/api/conversations", headers=auth_headers)).json()
+    res = await client.post(
+        f"/api/chat/{convo['id']}/stream",
+        headers=auth_headers,
+        json={"content": "What is the vacation policy?"},
+    )
+    assert res.status_code == 200
+    assert '"trace_url": "http://localhost:3000/trace/abc123"' in res.text
+
+    detail = (
+        await client.get(f"/api/conversations/{convo['id']}", headers=auth_headers)
+    ).json()
+    assert detail["messages"][1]["trace_url"] == "http://localhost:3000/trace/abc123"
+
+
 async def test_chat_rejects_unknown_agent(client, auth_headers, chat_env):
     convo = (await client.post("/api/conversations", headers=auth_headers)).json()
     res = await client.post(

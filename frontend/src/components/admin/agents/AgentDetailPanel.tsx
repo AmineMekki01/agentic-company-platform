@@ -66,6 +66,7 @@ interface Props {
   testDraftMessage: string;
   setTestDraftMessage: (v: string) => void;
   testDraftResponse: string;
+  testDraftTraceUrl?: string | null;
   testingDraft: boolean;
   onOpenTestDraft: () => void;
   onTestDraft: () => void;
@@ -312,6 +313,7 @@ export default function AgentDetailPanel(props: Props) {
           testDraftMessage={props.testDraftMessage}
           setTestDraftMessage={props.setTestDraftMessage}
           testDraftResponse={props.testDraftResponse}
+          testDraftTraceUrl={props.testDraftTraceUrl}
           testingDraft={props.testingDraft}
           onCancel={props.onCloseTestDraft}
           onSend={props.onTestDraft}

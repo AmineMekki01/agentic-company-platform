@@ -48,6 +48,53 @@ async def test_run_single_test_basic():
         assert "answer_relevancy" in result["metrics"]
         assert result["score"] > 0
         assert result["duration_ms"] >= 0
+        assert result["trace_url"] is None  # no Langfuse configured in tests
+
+
+async def test_run_single_test_includes_trace_url_when_tracing_enabled():
+    """When Langfuse is enabled, run_single_test should surface a trace link
+    built from the fresh per-call handler's last_trace_id, so an eval result
+    can link straight to the exact trace for that test."""
+    from app.services import eval_runner
+
+    fake_graph = MagicMock()
+    fake_final_state = {
+        "messages": [
+            HumanMessage(content="What is the policy?"),
+            AIMessage(content="The policy is 30 days."),
+        ],
+        "sources": [],
+    }
+    fake_graph.ainvoke = AsyncMock(return_value=fake_final_state)
+
+    fake_handler = MagicMock()
+    fake_handler.last_trace_id = "abc123"
+
+    with patch("app.services.eval_runner._get_ragas_llm") as mock_llm, \
+         patch("app.services.eval_runner._get_ragas_embeddings") as mock_emb, \
+         patch("app.services.eval_runner.new_langfuse_handler", return_value=fake_handler), \
+         patch("app.services.eval_runner.trace_url_for", return_value="http://localhost:3000/trace/abc123"), \
+         patch("ragas.dataset_schema.SingleTurnSample"), \
+         patch("ragas.metrics.AnswerCorrectness") as mock_ac_cls, \
+         patch("ragas.metrics.AnswerRelevancy") as mock_ar_cls, \
+         patch("ragas.metrics.Faithfulness") as mock_f_cls, \
+         patch("ragas.metrics._answer_similarity.AnswerSimilarity") as mock_as_cls:
+
+        mock_metric = MagicMock()
+        mock_metric.single_turn_ascore = AsyncMock(return_value=0.85)
+        mock_ac_cls.return_value = mock_metric
+        mock_ar_cls.return_value = mock_metric
+        mock_f_cls.return_value = mock_metric
+        mock_as_cls.return_value = MagicMock()
+
+        result = await eval_runner.run_single_test(
+            fake_graph, "hr", "What is the policy?", "The policy is 30 days.",
+        )
+
+        assert result["trace_url"] == "http://localhost:3000/trace/abc123"
+
+        call_args = fake_graph.ainvoke.call_args
+        assert call_args[0][1]["callbacks"] == [fake_handler]
 
 
 async def test_run_single_test_with_retrieved_contexts_from_tool():

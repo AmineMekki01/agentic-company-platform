@@ -41,6 +41,7 @@ export default function AdminAgents() {
   const [showTestDraft, setShowTestDraft] = useState(false);
   const [testDraftMessage, setTestDraftMessage] = useState("");
   const [testDraftResponse, setTestDraftResponse] = useState("");
+  const [testDraftTraceUrl, setTestDraftTraceUrl] = useState<string | null>(null);
   const [testingDraft, setTestingDraft] = useState(false);
 
   const [evalTestSets, setEvalTestSets] = useState<AgentEvalTestSetDetail[]>([]);
@@ -298,8 +299,10 @@ export default function AdminAgents() {
     try {
       const res = await api.testAgentDraft(selected.slug, { message: testDraftMessage } as any);
       setTestDraftResponse((res as any).response || (res as any).output || JSON.stringify(res));
+      setTestDraftTraceUrl((res as any).trace_url ?? null);
     } catch (e: any) {
       setTestDraftResponse(e.message || "Test failed");
+      setTestDraftTraceUrl(null);
     } finally {
       setTestingDraft(false);
     }
@@ -535,10 +538,11 @@ export default function AdminAgents() {
               testDraftMessage={testDraftMessage}
               setTestDraftMessage={setTestDraftMessage}
               testDraftResponse={testDraftResponse}
+              testDraftTraceUrl={testDraftTraceUrl}
               testingDraft={testingDraft}
               onOpenTestDraft={() => setShowTestDraft(true)}
               onTestDraft={handleTestDraft}
-              onCloseTestDraft={() => { setShowTestDraft(false); setTestDraftMessage(""); setTestDraftResponse(""); }}
+              onCloseTestDraft={() => { setShowTestDraft(false); setTestDraftMessage(""); setTestDraftResponse(""); setTestDraftTraceUrl(null); }}
               evalTestSets={evalTestSets}
               evalRuns={evalRuns}
               evalLoading={evalLoading}

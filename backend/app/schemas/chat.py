@@ -81,6 +81,7 @@ class MessageOut(BaseModel):
     agent_id: str | None
     citations: list[Any] | None
     tool_calls_log: list[dict[str, Any]] | None = None
+    trace_url: str | None = None
     attachments: list[AttachmentOut] = []
     created_at: datetime
 

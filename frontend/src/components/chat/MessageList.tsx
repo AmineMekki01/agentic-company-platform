@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Bot, ChevronDown, ChevronRight, FileText, Loader2, Paperclip, Pencil, RotateCcw, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight, X, SendHorizonal } from "lucide-react";
+import { Bot, ChevronDown, ChevronRight, ExternalLink, FileText, Loader2, Paperclip, Pencil, RotateCcw, ThumbsUp, ThumbsDown, User as UserIcon, ArrowRight, X, SendHorizonal } from "lucide-react";
 
 import type { Agent } from "@/lib/api";
 import FeedbackModal from "./FeedbackModal";
@@ -30,6 +30,7 @@ export interface DisplayMessage {
   attachments?: AttachmentInfo[];
   draft?: boolean;
   awaitingClarification?: boolean;
+  trace_url?: string | null;
 }
 
 interface MessageListProps {
@@ -43,6 +44,7 @@ interface MessageListProps {
   onRegenerate?: () => void;
   onEditMessage?: (messageId: string, newContent: string) => void;
   canRegenerate?: boolean;
+  isAdmin?: boolean;
 }
 
 function agentName(agents: Agent[], slug: string | null): string {
@@ -69,6 +71,7 @@ function AssistantMessage({
   onFeedbackSubmitted,
   onRegenerate,
   isLastAssistant,
+  isAdmin,
 }: {
   m: DisplayMessage;
   renderAction?: (message: DisplayMessage) => React.ReactNode;
@@ -78,6 +81,7 @@ function AssistantMessage({
   onFeedbackSubmitted?: (messageId: string, thumbsUp: boolean) => void;
   onRegenerate?: () => void;
   isLastAssistant?: boolean;
+  isAdmin?: boolean;
 }) {
   const [highlightedRank, setHighlightedRank] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -256,6 +260,17 @@ function AssistantMessage({
               <RotateCcw className="h-4 w-4" />
             </button>
           )}
+          {isAdmin && m.trace_url && (
+            <a
+              href={m.trace_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 rounded-lg p-1.5 text-tertiary opacity-40 transition hover:opacity-100 hover:text-secondary hover:bg-hover"
+              title="View trace in Langfuse"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
         </div>
       )}
       {showModal && conversationId && (
@@ -285,6 +300,7 @@ export default function MessageList({
   onRegenerate,
   onEditMessage,
   canRegenerate,
+  isAdmin,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -469,6 +485,7 @@ export default function MessageList({
                         onFeedbackSubmitted={onFeedbackSubmitted}
                         onRegenerate={onRegenerate}
                         isLastAssistant={idx === lastAssistantIdx && canRegenerate}
+                        isAdmin={isAdmin}
                       />
                     </div>
                   </div>

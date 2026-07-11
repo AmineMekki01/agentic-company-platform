@@ -94,6 +94,7 @@ export default function ChatPage() {
             role: m.role,
             content: m.content,
             agent_id: m.agent_id,
+            trace_url: m.trace_url,
             sources: (m.citations as SourceInfo[] | undefined) ?? undefined,
             attachments: m.attachments?.map((att) => ({
               filename: att.filename,
@@ -323,10 +324,10 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, sources } : m
           )
         ),
-      onDone: ({ message_id, title, user_message_id }) => {
+      onDone: ({ message_id, title, user_message_id, trace_url }) => {
         setMessages((ms) =>
           ms.map((m) => {
-            if (m.id === placeholderId) return { ...m, serverId: message_id, streaming: false, step: undefined };
+            if (m.id === placeholderId) return { ...m, serverId: message_id, streaming: false, step: undefined, trace_url };
             if (user_message_id && m.id === userMsg.id) return { ...m, serverId: user_message_id };
             return m;
           })
@@ -398,10 +399,10 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, sources } : m
           )
         ),
-      onDone: ({ message_id, title }) => {
+      onDone: ({ message_id, title, trace_url }) => {
         setMessages((ms) =>
           ms.map((m) =>
-            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
+            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined, trace_url } : m
           )
         );
         if (title) {
@@ -473,10 +474,10 @@ export default function ChatPage() {
             m.id === placeholderId ? { ...m, sources } : m
           )
         ),
-      onDone: ({ message_id, title }) => {
+      onDone: ({ message_id, title, trace_url }) => {
         setMessages((ms) =>
           ms.map((m) =>
-            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined } : m
+            m.id === placeholderId ? { ...m, serverId: message_id, streaming: false, step: undefined, trace_url } : m
           )
         );
         if (title) {
@@ -708,6 +709,7 @@ export default function ChatPage() {
               onRegenerate={handleRegenerate}
               onEditMessage={handleEditMessage}
               canRegenerate={!streaming && !!activeId}
+              isAdmin={isAdmin()}
               renderAction={(msg) => {
                 if (!activeId || msg.role !== "assistant" || msg.streaming || !msg.agent_id) {
                   return null;

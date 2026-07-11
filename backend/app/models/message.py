@@ -29,6 +29,7 @@ class Message(Base):
     agent_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     citations: Mapped[list[Any] | None] = mapped_column(JSON, nullable=True)
     tool_calls_log: Mapped[list[dict[str, Any]] | None] = mapped_column(JSON, nullable=True)
+    trace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

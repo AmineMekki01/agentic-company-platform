@@ -19,6 +19,7 @@ from app.schemas.chat import AgentOut, ChatRequest, EditMessageRequest, JiraTick
 from app.services.jira import get_first_jira_connector, get_jira_service_from_connector
 from app.core.config import settings as app_settings
 from app.core.rate_limit import limiter
+from app.core.tracing import new_langfuse_handler, trace_config, trace_url_for
 from app.services.titles import generate_title
 from app.services.token_tracker import check_budget as _check_token_budget
 
@@ -151,7 +152,12 @@ def _make_stream_response(
     async def event_generator():
         collected: list[str] = []
         try:
+            langfuse_handler = new_langfuse_handler()
             config = {"configurable": {"thread_id": str(conversation_id)}}
+            config = trace_config(
+                config, conversation_id=str(conversation_id), user_id=str(user_id), agent_slug=agent,
+                handler=langfuse_handler,
+            )
 
             if input_messages is not None:
                 try:
@@ -339,9 +345,12 @@ def _make_stream_response(
                 yield {"event": "sources", "data": json.dumps({"sources": sources})}
 
             logger.warning("Streaming done for conv=%s", conversation_id)
+            trace_url = trace_url_for(langfuse_handler)
             done_data: dict = {"message_id": message_id, "title": title}
             if user_message_id:
                 done_data["user_message_id"] = user_message_id
+            if trace_url:
+                done_data["trace_url"] = trace_url
             yield {
                 "event": "done",
                 "data": json.dumps(done_data),
@@ -358,6 +367,7 @@ def _make_stream_response(
                             agent_id=routed_agent,
                             citations=sources,
                             tool_calls_log=tool_calls_log if tool_calls_log else None,
+                            trace_url=trace_url,
                         )
                     )
                     if needs_title:

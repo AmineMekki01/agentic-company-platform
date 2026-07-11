@@ -15,7 +15,7 @@ export interface StreamCallbacks {
   onSources?: (sources: SourceInfo[]) => void;
   onStep?: (step: string) => void;
   onTitle?: (title: string) => void;
-  onDone?: (payload: { message_id: string; title: string | null; user_message_id?: string }) => void;
+  onDone?: (payload: { message_id: string; title: string | null; user_message_id?: string; trace_url?: string }) => void;
   onError?: (detail: string) => void;
   onBudgetWarning?: (message: string) => void;
 }
