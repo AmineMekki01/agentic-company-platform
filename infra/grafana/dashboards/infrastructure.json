@@ -1,0 +1,127 @@
+{
+  "title": "Infrastructure",
+  "uid": "infrastructure",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Host CPU usage %",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)",
+          "legendFormat": "CPU used %"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Host memory usage %",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "percent", "max": 100, "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "memory used %"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Docker VM disk free",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "node_filesystem_avail_bytes{mountpoint=\"/var/lib/docker\"}",
+          "legendFormat": "free"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Total container CPU usage (all containers)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{id=~\"/docker/.+\"}[1m]))",
+          "legendFormat": "total container CPU (cores)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Total container memory usage (all containers)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{id=~\"/docker/.+\"})",
+          "legendFormat": "total container memory"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Top 8 containers by memory (by container ID - see note)",
+      "description": "cAdvisor cannot resolve friendly container names under Docker Desktop for Mac, so containers are shown by raw ID. Cross-reference with `docker ps --no-trunc` if needed. On a native Linux host this resolves to real service names automatically.",
+      "type": "bargauge",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "topk(8, container_memory_usage_bytes{id=~\"/docker/.+\"})",
+          "legendFormat": "{{id}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Postgres active connections by database",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "expr": "pg_stat_database_numbackends{datname!~\"template.*\"}",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Postgres transaction rate (commits/rollbacks)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_commit{datname!~\"template.*\"}[5m]))",
+          "legendFormat": "{{datname}} commits/s"
+        },
+        {
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_rollback{datname!~\"template.*\"}[5m]))",
+          "legendFormat": "{{datname}} rollbacks/s"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Redis memory used / connected clients",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        { "expr": "redis_memory_used_bytes", "legendFormat": "memory used (bytes)" },
+        { "expr": "redis_connected_clients", "legendFormat": "connected clients" }
+      ]
+    }
+  ]
+}
