@@ -28,7 +28,7 @@ _AGENT_SETTING_COLUMNS = """
 SELECT id, slug, name, description, llm_model, system_prompt, retrieval_top_k,
        retrieval_enabled, web_search_enabled, connected_sources, tools, is_orchestrator, is_router,
        routes_to, mode_profile, visibility, created_by, allow_uploads, allowed_users, beta_users,
-       agent_type, research_config,
+       agent_type, research_config, memory_enabled, emotions_enabled, episodes_enabled,
        created_at, updated_at, draft_config, is_published, published_at, published_version_id
 FROM agent_settings
 """
@@ -232,6 +232,11 @@ async def update_agent_setting(
     await db.commit()
     await db.refresh(row)
 
+    if not row.is_published and draft_data:
+        runtime = getattr(request.app.state, "runtime", None)
+        if runtime:
+            await runtime.refresh_graph()
+
     updated = await _fetch_agent_settings(db, slug=slug)
     if not updated:
         raise HTTPException(status_code=500, detail="Failed to load updated agent")
@@ -354,18 +359,16 @@ async def save_agent_draft(
     if "created_by" in data and data["created_by"] is not None:
         data["created_by"] = data["created_by"].strip().lower()
 
-    # Merge incoming data with existing draft
     existing_draft = dict(row.draft_config or {})
     existing_draft.update(data)
 
-    # Only keep fields that differ from live values (prevent phantom drafts)
     filtered_draft: dict[str, Any] = {}
     for key, value in existing_draft.items():
         if key in ("draft_config", "is_published", "published_at", "published_version_id"):
             continue
         if hasattr(row, key):
             live_value = getattr(row, key)
-            # Normalize for comparison (lists/None)
+
             if live_value is None and (value is None or value == []):
                 continue
             if live_value == value:
@@ -420,6 +423,9 @@ async def publish_agent(
         "allowed_users": row.allowed_users,
         "agent_type": row.agent_type,
         "research_config": row.research_config,
+        "memory_enabled": row.memory_enabled,
+        "emotions_enabled": row.emotions_enabled,
+        "episodes_enabled": row.episodes_enabled,
     }
 
     if row.is_published or row.published_version_id is not None:
@@ -522,6 +528,9 @@ async def restore_agent_version(
         "allowed_users": row.allowed_users,
         "agent_type": row.agent_type,
         "research_config": row.research_config,
+        "memory_enabled": row.memory_enabled,
+        "emotions_enabled": row.emotions_enabled,
+        "episodes_enabled": row.episodes_enabled,
     }
 
     version_num = await _next_version_number(db, str(row.id))

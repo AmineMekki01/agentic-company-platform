@@ -26,3 +26,13 @@ class AgentState(TypedDict):
     orchestrator_history: list[dict] | None
     user_id: str | None
     conversation_id: str | None
+    agent_message_id: str | None
+    memory_context: str | None
+    emotion_context: str | None
+    commitment_context: str | None
+    user_affect_context: str | None
+    episode_context: str | None
+    recall_context: str | None
+    conscience_enabled: bool | None
+    _needs_revision: bool | None
+    _conscience_revised: bool | None

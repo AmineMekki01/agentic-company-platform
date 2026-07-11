@@ -46,6 +46,9 @@ class AgentSettingOut(BaseModel):
     beta_users: list[str] | None
     agent_type: str = "standard"
     research_config: dict[str, Any] | None = None
+    memory_enabled: bool = False
+    emotions_enabled: bool = False
+    episodes_enabled: bool = False
     created_at: datetime
     updated_at: datetime
     draft_config: dict[str, Any] | None = None
@@ -87,6 +90,9 @@ class AgentSettingUpdate(BaseModel):
     beta_users: list[str] | None = None
     agent_type: str = "standard"
     research_config: dict[str, Any] | None = None
+    memory_enabled: bool = False
+    emotions_enabled: bool = False
+    episodes_enabled: bool = False
 
 
 class AgentSettingCreate(BaseModel):
@@ -119,6 +125,9 @@ class AgentSettingCreate(BaseModel):
     beta_users: list[str] | None = None
     agent_type: str = "standard"
     research_config: dict[str, Any] | None = None
+    memory_enabled: bool = False
+    emotions_enabled: bool = False
+    episodes_enabled: bool = False
 
 
 class AgentVersionOut(BaseModel):
@@ -168,6 +177,9 @@ class AgentDraftSave(BaseModel):
     beta_users: list[str] | None = None
     agent_type: str = "standard"
     research_config: dict[str, Any] | None = None
+    memory_enabled: bool = False
+    emotions_enabled: bool = False
+    episodes_enabled: bool = False
 
 
 class AgentTemplateOut(BaseModel):

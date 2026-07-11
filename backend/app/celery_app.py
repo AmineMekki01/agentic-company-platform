@@ -8,7 +8,7 @@ celery_app = Celery(
     "app",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.services.notion", "app.services.s3", "app.services.gdrive", "app.tasks.retention", "app.tasks.eval_tasks"],
+    include=["app.services.notion", "app.services.s3", "app.services.gdrive", "app.tasks.retention", "app.tasks.eval_tasks", "app.tasks.memory_maintenance"],
 )
 
 celery_app.conf.update(
@@ -24,6 +24,10 @@ celery_app.conf.update(
         "process-eval-schedules": {
             "task": "app.tasks.eval_tasks.process_eval_schedules",
             "schedule": 300.0,
+        },
+        "decay-stale-memories": {
+            "task": "app.tasks.memory_maintenance.decay_stale_memories",
+            "schedule": 604800.0,  # weekly
         },
     },
 )

@@ -116,6 +116,9 @@ def upgrade() -> None:
         sa.Column("published_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("published_version_id", sa.Uuid(), nullable=True),
         sa.Column("beta_users", sa.JSON(), nullable=True, server_default="[]"),
+        sa.Column("memory_enabled", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("emotions_enabled", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("episodes_enabled", sa.Boolean(), nullable=False, server_default="0"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
     )
@@ -683,8 +686,82 @@ def upgrade() -> None:
         ),
     )
 
+    # agent_emotion_states
+    op.create_table(
+        "agent_emotion_states",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("agent_slug", sa.String(length=50), nullable=False),
+        sa.Column("joy", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("trust", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("fear", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("surprise", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("sadness", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("disgust", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("anger", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("anticipation", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("joy_baseline", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("trust_baseline", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("fear_baseline", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("surprise_baseline", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("sadness_baseline", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("disgust_baseline", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("anger_baseline", sa.Float(), nullable=False, server_default="0.1"),
+        sa.Column("anticipation_baseline", sa.Float(), nullable=False, server_default="0.3"),
+        sa.Column("last_interaction_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.UniqueConstraint("user_id", "agent_slug", name="uq_emotion_user_agent"),
+    )
+
+    op.create_table(
+        "agent_episodes",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("agent_slug", sa.String(length=50), nullable=False),
+        sa.Column("conversation_id", sa.Uuid(), sa.ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("summary", sa.Text(), nullable=False),
+        sa.Column("emotion_snapshot", sa.JSON(), nullable=False),
+        sa.Column("significance_score", sa.Float(), nullable=False, server_default="0.5"),
+        sa.Column("trigger", sa.String(length=50), nullable=False, server_default="high_emotion"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    )
+    op.create_index("ix_agent_episodes_user_agent", "agent_episodes", ["user_id", "agent_slug"])
+
+    op.create_table(
+        "agent_memories",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("user_id", sa.Uuid(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("agent_slug", sa.String(length=50), nullable=False),
+        sa.Column("category", sa.String(length=50), nullable=False),
+        sa.Column("content", sa.Text(), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False, server_default="open"),
+        sa.Column("importance_score", sa.Float(), nullable=False, server_default="0.5"),
+        sa.Column("tags", sa.JSON(), nullable=True, server_default="[]"),
+        sa.Column("embedding", sa.JSON(), nullable=True),
+        sa.Column("qdrant_point_id", sa.String(length=255), nullable=True),
+        sa.Column("conversation_id", sa.Uuid(), sa.ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("source_message_id", sa.Uuid(), nullable=True),
+        sa.Column("last_accessed_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("access_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("decay_count", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    )
+    op.create_index("ix_agent_memories_user_agent", "agent_memories", ["user_id", "agent_slug"])
+    op.create_index("ix_agent_memories_user_category", "agent_memories", ["user_id", "category"])
+
 
 def downgrade() -> None:
+    op.drop_column("agent_settings", "episodes_enabled")
+    op.drop_column("agent_settings", "emotions_enabled")
+    op.drop_column("agent_settings", "memory_enabled")
+    op.drop_index("ix_agent_memories_user_category", table_name="agent_memories")
+    op.drop_index("ix_agent_memories_user_agent", table_name="agent_memories")
+    op.drop_table("agent_memories")
+    op.drop_index("ix_agent_episodes_user_agent", table_name="agent_episodes")
+    op.drop_table("agent_episodes")
+    op.drop_table("agent_emotion_states")
     op.drop_table("agent_skills")
     op.drop_table("skills")
     op.drop_table("llm_settings")

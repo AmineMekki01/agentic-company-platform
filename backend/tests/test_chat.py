@@ -66,6 +66,149 @@ async def chat_env(monkeypatch, session_factory):
     fastapi_app.state.runtime = None
 
 
+@pytest.fixture
+async def conscience_chat_env(monkeypatch, session_factory):
+    """Like chat_env, but the entry agent has conscience_enabled=True end to end.
+
+    Patches async_session_factory and get_chat_model everywhere the conscience
+    pre/check/post nodes resolve them at call time (they use local imports), not
+    just where chat.py itself resolves them, so background persistence hits the
+    in-memory test DB instead of the real one.
+    """
+    monkeypatch.setattr(chat_module, "async_session_factory", session_factory)
+    monkeypatch.setattr("app.db.session.async_session_factory", session_factory)
+
+    def fake_chat_model(model: str, temperature: float = 0.3):
+        return GenericFakeChatModel(messages=iter([AIMessage(content=FAKE_REPLY)]))
+
+    monkeypatch.setattr(graph_module, "get_chat_model", fake_chat_model)
+    monkeypatch.setattr(llm_module, "get_chat_model", fake_chat_model)
+    monkeypatch.setattr("app.services.memory.get_chat_model", fake_chat_model)
+    monkeypatch.setattr("app.services.emotion.get_chat_model", fake_chat_model)
+
+    from langchain_core.language_models.base import BaseLanguageModel
+    monkeypatch.setattr(BaseLanguageModel, "get_num_tokens", lambda self, text: len(text.split()))
+
+    def _bind_tools(self, tools, **kwargs):
+        return self
+    monkeypatch.setattr(GenericFakeChatModel, "bind_tools", _bind_tools)
+
+    async with session_factory() as session:
+        session.add(AgentSettings(
+            slug="chat",
+            name="Chat",
+            description="Conscience chat test agent",
+            system_prompt="You are Chat.",
+            tools=[],
+            is_published=True,
+            is_router=True,
+            is_orchestrator=True,
+            memory_enabled=True,
+            emotions_enabled=True,
+            episodes_enabled=True,
+        ))
+        await session.commit()
+
+    agent_registry = {
+        "chat": AgentSpec(
+            slug="chat",
+            name="Chat",
+            description="Chat test agent",
+            system_prompt="You are Chat.",
+            tools=[],
+            is_router=True,
+            is_orchestrator=True,
+        ),
+    }
+    agent_settings = {
+        "chat": {
+            "model": None, "system_prompt": None, "connected_sources": None,
+            "memory_enabled": True, "emotions_enabled": True, "episodes_enabled": True,
+        },
+    }
+
+    runtime = AgentRuntime()
+    runtime.agent_registry = agent_registry
+    runtime.graph = graph_module.build_graph(MemorySaver(), agent_registry=agent_registry, agent_settings=agent_settings)
+    fastapi_app.state.runtime = runtime
+    yield runtime
+    fastapi_app.state.runtime = None
+
+
+async def test_chat_stream_with_conscience_enabled_completes(client, auth_headers, conscience_chat_env):
+    """The conscience-enabled entry point should still stream a normal response -
+    the pre-node/check-node/post-node wiring shouldn't hang or break the SSE stream,
+    and post-processing (memory/emotion extraction) must not block "done"."""
+    convo = (await client.post("/api/conversations", headers=auth_headers)).json()
+
+    res = await client.post(
+        f"/api/chat/{convo['id']}/stream",
+        headers=auth_headers,
+        json={"content": "Hi, my name is Alex.", "agent": "chat"},
+    )
+    assert res.status_code == 200
+    body = res.text
+    assert "event: token" in body
+    assert "event: done" in body
+    assert FAKE_REPLY in body
+
+    detail = (
+        await client.get(f"/api/conversations/{convo['id']}", headers=auth_headers)
+    ).json()
+    roles = [m["role"] for m in detail["messages"]]
+    assert roles == ["user", "assistant"]
+
+
+async def test_chat_stream_threads_agent_message_id_into_conscience_post_processing(
+    client, auth_headers, conscience_chat_env, monkeypatch
+):
+    """chat.py generates the assistant message id upfront and later persists it as
+    the real Message row (see _make_stream_response). This confirms that exact id
+    is what reaches conscience post-processing as agent_message_id - the thing
+    memories use as provenance - rather than some other/no id.
+
+    _run_conscience_post_processing itself is stubbed out here: this test is about
+    the wiring (does the right id arrive), not about the extraction/persistence
+    logic, which is covered directly in test_conscience_memory.py and
+    test_conscience_graph.py.
+    """
+    import asyncio
+
+    from app.agents import graph as graph_module
+
+    captured: dict = {}
+
+    async def fake_post_processing(
+        agent_slug, user_id, conversation_id, last_user_msg, last_agent_msg, agent_message_id=None,
+        memory_enabled=True, emotions_enabled=True, episodes_enabled=True,
+    ):
+        captured["agent_message_id"] = agent_message_id
+        captured["conversation_id"] = conversation_id
+
+    monkeypatch.setattr(graph_module, "_run_conscience_post_processing", fake_post_processing)
+
+    convo = (await client.post("/api/conversations", headers=auth_headers)).json()
+
+    res = await client.post(
+        f"/api/chat/{convo['id']}/stream",
+        headers=auth_headers,
+        json={"content": "Hi, my name is Alex.", "agent": "chat"},
+    )
+    assert res.status_code == 200
+
+    pending = [t for t in graph_module._BACKGROUND_TASKS if not t.done()]
+    if pending:
+        await asyncio.gather(*pending)
+
+    detail = (
+        await client.get(f"/api/conversations/{convo['id']}", headers=auth_headers)
+    ).json()
+    assistant_message_id = next(m["id"] for m in detail["messages"] if m["role"] == "assistant")
+
+    assert captured["agent_message_id"] == assistant_message_id
+    assert captured["conversation_id"] == convo["id"]
+
+
 async def test_list_agents(client, auth_headers):
     res = await client.get("/api/agents", headers=auth_headers)
     assert res.status_code == 200

@@ -324,6 +324,55 @@ export default function CreateAgentPanel({
           </div>
         )}
 
+        {/* Conscience: memory / emotions / episodes */}
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agent.memory_enabled || false}
+            onChange={(e) => onChange({ ...agent, memory_enabled: e.target.checked })}
+            className="accent-brand"
+          />
+          <span className="text-sm text-secondary">
+            Enable Memory (facts, preferences, commitments, self-check)
+          </span>
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={agent.emotions_enabled || false}
+            onChange={(e) => {
+              const emotionsEnabled = e.target.checked;
+              onChange({
+                ...agent,
+                emotions_enabled: emotionsEnabled,
+                episodes_enabled: emotionsEnabled ? agent.episodes_enabled : false,
+              });
+            }}
+            className="accent-brand"
+          />
+          <span className="text-sm text-secondary">
+            Enable Emotions (persistent tone adaptation toward each user)
+          </span>
+        </label>
+
+        <label
+          className={`ml-6 flex items-center gap-2 ${
+            agent.emotions_enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={agent.episodes_enabled || false}
+            disabled={!agent.emotions_enabled}
+            onChange={(e) => onChange({ ...agent, episodes_enabled: e.target.checked })}
+            className="accent-brand"
+          />
+          <span className="text-sm text-secondary">
+            Remember significant moments (requires Emotions)
+          </span>
+        </label>
+
         <div className="flex justify-end gap-2 pt-3 border-t border-line">
           <button
             onClick={() => { onClose(); onClearError(); }}

@@ -101,6 +101,68 @@ export default function OverviewTab({ selected, setSelected, users, models }: Pr
         </select>
       </label>
 
+      <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-line bg-canvas px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={selected.memory_enabled || false}
+          onChange={(e) => setSelected({ ...selected, memory_enabled: e.target.checked })}
+          className="accent-brand"
+        />
+        <span>
+          <span className="block text-sm font-medium text-primary">Enable Memory</span>
+          <span className="block text-xs text-tertiary">
+            Remembers facts, preferences, and commitments across conversations, stays
+            consistent with what it's been told (self-checks its own drafts against
+            memory before sending), and can recall specific past exchanges.
+          </span>
+        </span>
+      </label>
+
+      <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-line bg-canvas px-3 py-2.5">
+        <input
+          type="checkbox"
+          checked={selected.emotions_enabled || false}
+          onChange={(e) => {
+            const emotionsEnabled = e.target.checked;
+            setSelected({
+              ...selected,
+              emotions_enabled: emotionsEnabled,
+              episodes_enabled: emotionsEnabled ? selected.episodes_enabled : false,
+            });
+          }}
+          className="accent-brand"
+        />
+        <span>
+          <span className="block text-sm font-medium text-primary">Enable Emotions</span>
+          <span className="block text-xs text-tertiary">
+            This agent develops a persistent feeling toward each user based on your
+            interactions, and reads the mood behind your current message - both
+            subtly shape its tone without ever being stated explicitly.
+          </span>
+        </span>
+      </label>
+
+      <label
+        className={`ml-6 flex items-center gap-2 rounded-lg border border-line bg-canvas px-3 py-2.5 ${
+          selected.emotions_enabled ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={selected.episodes_enabled || false}
+          disabled={!selected.emotions_enabled}
+          onChange={(e) => setSelected({ ...selected, episodes_enabled: e.target.checked })}
+          className="accent-brand"
+        />
+        <span>
+          <span className="block text-sm font-medium text-primary">Remember significant moments</span>
+          <span className="block text-xs text-tertiary">
+            Recalls specific past exchanges that were emotionally significant - a
+            genuine rupture, not just an enthusiastic one. Requires Emotions.
+          </span>
+        </span>
+      </label>
+
       {selected.agent_type === "deep_research" && selected.research_config && (
         <div className="rounded-lg border border-brand/20 bg-brand/10 p-4 space-y-4">
           <div className="flex items-center gap-2 text-sm font-medium text-brand">

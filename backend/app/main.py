@@ -15,6 +15,7 @@ from app.api.admin_status import router as admin_status_router
 from app.api.admin_upload_settings import router as admin_upload_settings_router
 from app.api.admin_usage import router as admin_usage_router
 from app.api.agent_eval import router as agent_eval_router
+from app.api.agent_memory import router as agent_memory_router
 from app.api.agent_workflows import router as agent_workflows_router
 from app.api.admin_users import router as admin_users_router
 from app.api.auth import router as auth_router
@@ -56,6 +57,13 @@ async def lifespan(app: FastAPI):
         logger.exception("RAG collection init failed")
     app.state.rag = rag
 
+    try:
+        from app.services.memory import ensure_memories_collection
+        await ensure_memories_collection()
+        logger.info("Memories Qdrant collection ready")
+    except Exception:
+        logger.exception("Memories collection init failed")
+
     yield
     await runtime.shutdown()
     await rag.close()
@@ -90,6 +98,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, prefix="/api")
     app.include_router(chat_upload_router, prefix="/api")
     app.include_router(chat_ws_router, prefix="/api")
+    app.include_router(agent_memory_router, prefix="/api")
     app.include_router(admin_agents_router, prefix="/api")
     app.include_router(admin_skills_router, prefix="/api")
     app.include_router(admin_agent_templates_router, prefix="/api")

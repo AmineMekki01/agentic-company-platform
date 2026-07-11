@@ -8,7 +8,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 from sqlalchemy import select
 
-from app.agents.graph import build_graph
+from app.agents.graph import build_graph, get_builtin_chat_spec, CHAT_AGENT_SLUG
 from app.agents.registry import AgentSpec
 from app.core.config import settings
 from app.db.session import async_session_factory
@@ -151,6 +151,12 @@ class AgentRuntime:
                 agent_type=row.agent_type if row.agent_type else "standard",
                 research_config=row.research_config,
             )
+
+        if CHAT_AGENT_SLUG not in registry:
+            chat_spec = get_builtin_chat_spec()
+            registry[CHAT_AGENT_SLUG] = chat_spec
+            logger.info("Injected built-in chat agent fallback (not found in DB)")
+
         return registry
 
     async def startup(self) -> None:
@@ -175,7 +181,7 @@ class AgentRuntime:
             checkpointer = AsyncPostgresSaver(self._pool)
             await checkpointer.setup()
         except Exception:
-            logger.exception("Checkpointer setup failed at startup — will retry on first request")
+            logger.exception("Checkpointer setup failed at startup - will retry on first request")
             return
 
         agent_registry: dict[str, AgentSpec] = {}
@@ -267,6 +273,9 @@ async def build_graph_config(
         retrieval_top_k = _val("retrieval_top_k", row.retrieval_top_k)
         agent_type = _val("agent_type", row.agent_type) if (draft and "agent_type" in draft) else (row.agent_type or "standard")
         research_config = _val("research_config", row.research_config) if (draft and "research_config" in draft) else row.research_config
+        memory_enabled = _val("memory_enabled", row.memory_enabled) if (draft and "memory_enabled" in draft) else (row.memory_enabled if row.memory_enabled is not None else False)
+        emotions_enabled = _val("emotions_enabled", row.emotions_enabled) if (draft and "emotions_enabled" in draft) else (row.emotions_enabled if row.emotions_enabled is not None else False)
+        episodes_enabled = _val("episodes_enabled", row.episodes_enabled) if (draft and "episodes_enabled" in draft) else (row.episodes_enabled if row.episodes_enabled is not None else False)
 
         registry[row.slug] = AgentSpec(
             slug=row.slug,
@@ -292,12 +301,32 @@ async def build_graph_config(
             "agent_type": agent_type,
             "research_config": research_config,
             "skills": skills_map.get(row.slug, []),
+            "memory_enabled": bool(memory_enabled),
+            "emotions_enabled": bool(emotions_enabled),
+            "episodes_enabled": bool(episodes_enabled),
         }
 
         if slug and row.slug == slug and draft:
             logger.info("build_graph_config: agent=%s using DRAFT config (draft keys=%s)", row.slug, list(draft.keys()))
         else:
             logger.debug("build_graph_config: agent=%s using published config", row.slug)
+
+    if CHAT_AGENT_SLUG not in registry:
+        chat_spec = get_builtin_chat_spec()
+        registry[CHAT_AGENT_SLUG] = chat_spec
+        settings_map[CHAT_AGENT_SLUG] = {
+            "model": chat_spec.default_model,
+            "system_prompt": chat_spec.system_prompt,
+            "retrieval_top_k": 5,
+            "connected_sources": [],
+            "agent_type": "standard",
+            "research_config": None,
+            "skills": [],
+            "memory_enabled": True,
+            "emotions_enabled": True,
+            "episodes_enabled": True,
+        }
+        logger.info("build_graph_config: injected built-in chat agent fallback")
 
     return registry, settings_map, workflows
 
@@ -314,7 +343,7 @@ async def get_runtime(request: Request) -> AgentRuntime:
             detail="Agent runtime is not ready",
         )
     if runtime.graph is None and runtime._pool is not None:
-        logger.warning("Runtime graph is None but pool is open — attempting lazy rebuild")
+        logger.warning("Runtime graph is None but pool is open - attempting lazy rebuild")
         try:
             await runtime.refresh_graph()
         except Exception:

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph
@@ -21,6 +22,21 @@ from app.services.token_tracker import record_usage as _record_token_usage
 
 logger = logging.getLogger(__name__)
 
+_TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket, "read_skill": read_skill}
+
+_FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
+
+CHAT_AGENT_SLUG = "chat"
+
+CHAT_SYSTEM_PROMPT = (
+    "You are Chat, the default conversational assistant for an internal company platform. "
+    "You are empathetic, warm, and adaptive. You have a persistent memory of details about each user "
+    "and let those memories naturally inform your responses. You have your own emotional state toward "
+    "each user based on your interactions - let it subtly influence your tone without explicitly "
+    "mentioning it. You can route to specialist agents when needed. Be genuine, thoughtful, and helpful."
+)
+
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
 
 def _extract_and_record_tokens(
     response,
@@ -53,9 +69,23 @@ def _extract_and_record_tokens(
     except Exception:
         logger.debug("Could not extract/record token usage", exc_info=True)
 
-_TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket, "read_skill": read_skill}
 
-_FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
+def get_builtin_chat_spec() -> AgentSpec:
+    """Return the hardcoded base AgentSpec for the built-in chat agent."""
+    return AgentSpec(
+        slug=CHAT_AGENT_SLUG,
+        name="Chat",
+        description=(
+            "Your default conversational assistant with memory and emotional intelligence. "
+            "Remembers your preferences and adapts over time."
+        ),
+        system_prompt=CHAT_SYSTEM_PROMPT,
+        default_model="gpt-5.4-nano",
+        tools=["retrieve", "web_search"],
+        is_orchestrator=True,
+        is_router=True,
+        routes_to=[],
+    )
 
 
 def _clean_citations(text: str) -> str:
@@ -353,6 +383,427 @@ async def _execute_workflow(
     return rendered
 
 
+def _spawn_background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+
+def _last_message_by(state: AgentState, predicate) -> str:
+    for m in reversed(state["messages"]):
+        if predicate(m):
+            return str(getattr(m, "content", ""))
+    return ""
+
+
+def _is_human(m) -> bool:
+    return getattr(m, "type", None) == "human" or getattr(m, "role", None) == "user"
+
+
+def _is_ai(m) -> bool:
+    return getattr(m, "type", None) in ("ai", "assistant")
+
+
+async def _reinforce_memory_access(agent_slug: str, memory_ids: list[str]) -> None:
+    """Bump access_count/last_accessed_at for memories that were retrieved and used.
+
+    Fire-and-forget - this is reinforcement bookkeeping, not needed for the response.
+    """
+    if not memory_ids:
+        return
+    from app.db.session import async_session_factory
+    from app.services.memory import update_memory_access
+
+    try:
+        async with async_session_factory() as session:
+            for memory_id in memory_ids:
+                await update_memory_access(session, memory_id)
+            await session.commit()
+    except Exception:
+        logger.debug("Memory access reinforcement failed for agent=%s", agent_slug, exc_info=True)
+
+
+def make_conscience_pre_node(agent_slug: str, memory_enabled: bool = True, emotions_enabled: bool = True, episodes_enabled: bool = True):
+    """Build a pre-agent node that retrieves memories, emotion state, open commitments,
+    and a theory of mind read of the user's current message, and injects them into state.
+    
+    Args:
+        agent_slug: The agent slug
+        memory_enabled: Whether memory retrieval is enabled
+        emotions_enabled: Whether emotion state retrieval is enabled
+        episodes_enabled: Whether significant episodes retrieval is enabled
+    
+    Returns:
+        A pre-agent node function that retrieves conscience context and injects it into state
+    """
+    async def node(state: AgentState) -> dict:
+        user_id = state.get("user_id")
+        if not user_id:
+            return {"conscience_enabled": True}
+
+        _started_at = time.perf_counter()
+
+        from app.db.session import async_session_factory
+        from app.services.emotion import (
+            detect_user_affect,
+            format_emotion_context,
+            format_episode_context,
+            format_user_affect_context,
+            get_emotion_state,
+            get_significant_episodes,
+        )
+        from app.services.memory import (
+            format_commitments_context,
+            format_memory_context,
+            format_recall_context,
+            get_recent_commitments,
+            hydrate_source_exchange,
+            retrieve_memories,
+        )
+
+        last_user_msg = _last_message_by(state, _is_human)
+
+        memory_context = ""
+        emotion_context = ""
+        commitment_context = ""
+        affect_context = ""
+        episode_context = ""
+        recall_context = ""
+        retrieved_memories: list = []
+        is_recall_query = False
+
+        async def _fetch_db_context() -> None:
+            nonlocal memory_context, emotion_context, commitment_context, episode_context, retrieved_memories
+            memories = []
+            async with async_session_factory() as session:
+                if memory_enabled:
+                    memories = await retrieve_memories(
+                        session, user_id, agent_slug, last_user_msg, limit=5
+                    )
+                    commitments = await get_recent_commitments(session, user_id, agent_slug, limit=3)
+
+                    commitment_ids = {c.id for c in commitments}
+                    memories = [m for m in memories if m.id not in commitment_ids]
+                    retrieved_memories = memories
+
+                    memory_context = format_memory_context(memories)
+                    commitment_context = format_commitments_context(commitments)
+
+                if emotions_enabled:
+                    emotion_state = await get_emotion_state(session, user_id, agent_slug)
+                    emotion_context = format_emotion_context(emotion_state)
+
+                    if episodes_enabled:
+                        episodes = await get_significant_episodes(session, user_id, agent_slug, limit=2)
+                        episode_context = format_episode_context(episodes)
+
+            if memories:
+                _spawn_background(
+                    _reinforce_memory_access(agent_slug, [str(m.id) for m in memories])
+                )
+
+        async def _fetch_affect() -> None:
+            nonlocal affect_context, is_recall_query
+            affect = await detect_user_affect(last_user_msg)
+            if emotions_enabled:
+                affect_context = format_user_affect_context(affect)
+            if memory_enabled:
+                is_recall_query = bool(affect.get("is_recall_query"))
+
+        try:
+            await asyncio.gather(_fetch_db_context(), _fetch_affect())
+
+            if memory_enabled and is_recall_query:
+                hydratable = [m for m in retrieved_memories if m.source_message_id][:2]
+                if hydratable:
+                    async with async_session_factory() as session:
+                        exchanges = []
+                        for memory in hydratable:
+                            exchange = await hydrate_source_exchange(session, memory)
+                            if exchange:
+                                exchanges.append(exchange)
+                        recall_context = format_recall_context(exchanges)
+        except Exception:
+            logger.warning("Conscience pre-node failed", exc_info=True)
+        finally:
+            logger.info(
+                "conscience_timing",
+                extra={"node": "pre", "agent": agent_slug, "ms": round((time.perf_counter() - _started_at) * 1000, 1)},
+            )
+
+        return {
+            "memory_context": memory_context,
+            "emotion_context": emotion_context,
+            "commitment_context": commitment_context,
+            "user_affect_context": affect_context,
+            "episode_context": episode_context,
+            "recall_context": recall_context,
+            "conscience_enabled": True,
+        }
+
+    node.__name__ = f"conscience_pre_{agent_slug}"
+    return node
+
+
+async def _run_conscience_post_processing(
+    agent_slug: str,
+    user_id: str,
+    conversation_id: str | None,
+    last_user_msg: str,
+    last_agent_msg: str,
+    agent_message_id: str | None = None,
+    memory_enabled: bool = True,
+    emotions_enabled: bool = True,
+    episodes_enabled: bool = True,
+) -> None:
+    """Extract emotions/memories from the exchange and persist them.
+
+    Args:
+        agent_slug: The agent slug
+        user_id: The user ID
+        conversation_id: The conversation ID
+        last_user_msg: The last user message
+        last_agent_msg: The last agent message
+        agent_message_id: The agent message ID
+        memory_enabled: Whether memory retrieval is enabled
+        emotions_enabled: Whether emotion state retrieval is enabled
+        episodes_enabled: Whether significant episodes retrieval is enabled
+    
+    Returns:
+        None
+    """
+    import uuid
+
+    from app.db.session import async_session_factory
+    from app.models.agent_memory import AgentMemory
+    from app.services.emotion import (
+        extract_emotions,
+        maybe_create_episode,
+        update_emotion_state,
+    )
+    from app.services.memory import (
+        consolidate_and_store_memory,
+        create_memory,
+        extract_memories,
+        get_memories,
+        get_recent_commitments,
+    )
+
+    _started_at = time.perf_counter()
+    try:
+        async with async_session_factory() as session:
+            emotions_task = (
+                asyncio.create_task(extract_emotions(last_user_msg, last_agent_msg))
+                if emotions_enabled else None
+            )
+
+            if memory_enabled:
+                existing = await get_memories(session, user_id, agent_slug, limit=20)
+                open_commitments = await get_recent_commitments(session, user_id, agent_slug, limit=10)
+                extraction = await extract_memories(last_user_msg, last_agent_msg, existing, open_commitments)
+
+                for mem in extraction["memories"]:
+                    supersedes_id = mem.get("supersedes_id")
+                    if supersedes_id:
+                        old = await session.get(AgentMemory, uuid.UUID(supersedes_id))
+                        if old and str(old.user_id) == str(user_id) and old.agent_slug == agent_slug:
+                            old.status = "superseded"
+                        await create_memory(
+                            session,
+                            user_id=user_id,
+                            agent_slug=agent_slug,
+                            category=mem["category"],
+                            content=mem["content"],
+                            importance=mem["importance"],
+                            tags=mem.get("tags", []),
+                            conversation_id=conversation_id,
+                            source_message_id=agent_message_id,
+                        )
+                    else:
+                        await consolidate_and_store_memory(
+                            session,
+                            user_id=user_id,
+                            agent_slug=agent_slug,
+                            category=mem["category"],
+                            content=mem["content"],
+                            importance=mem["importance"],
+                            tags=mem.get("tags", []),
+                            conversation_id=conversation_id,
+                            source_message_id=agent_message_id,
+                        )
+
+                for commitment_id in extraction["resolved_commitment_ids"]:
+                    commitment = await session.get(AgentMemory, uuid.UUID(commitment_id))
+                    if commitment:
+                        commitment.status = "resolved"
+
+            if emotions_enabled:
+                emotions = await emotions_task
+                emotion_state = await update_emotion_state(session, user_id, agent_slug, emotions)
+
+                if episodes_enabled and conversation_id and emotions is not None:
+                    await maybe_create_episode(
+                        session,
+                        user_id=user_id,
+                        agent_slug=agent_slug,
+                        conversation_id=conversation_id,
+                        emotion_state=emotion_state,
+                        extracted_emotions=emotions,
+                        user_message=last_user_msg,
+                        agent_response=last_agent_msg,
+                    )
+
+            await session.commit()
+    except Exception:
+        logger.warning("Conscience post-processing failed for agent=%s", agent_slug, exc_info=True)
+    finally:
+        logger.info(
+            "conscience_timing",
+            extra={"node": "post", "agent": agent_slug, "ms": round((time.perf_counter() - _started_at) * 1000, 1)},
+        )
+
+
+def make_conscience_post_node(agent_slug: str, memory_enabled: bool = True, emotions_enabled: bool = True, episodes_enabled: bool = True):
+    """Build a post-agent node that kicks off emotion/memory extraction in the background. The extraction runs in the background and doesn't block the response.
+
+    Args:
+        agent_slug: The agent slug
+        memory_enabled: Whether memory retrieval is enabled
+        emotions_enabled: Whether emotion state retrieval is enabled
+        episodes_enabled: Whether significant episodes retrieval is enabled
+    
+    Returns:
+        The post-agent node
+    """
+    async def node(state: AgentState) -> dict:
+        user_id = state.get("user_id")
+        conversation_id = state.get("conversation_id")
+        if not user_id or not (memory_enabled or emotions_enabled):
+            return {}
+
+        last_user_msg = _last_message_by(state, _is_human)
+        last_agent_msg = _last_message_by(state, _is_ai)
+
+        if not last_user_msg or not last_agent_msg:
+            return {}
+
+        agent_message_id = state.get("agent_message_id")
+        _spawn_background(
+            _run_conscience_post_processing(
+                agent_slug, user_id, conversation_id, last_user_msg, last_agent_msg, agent_message_id,
+                memory_enabled=memory_enabled, emotions_enabled=emotions_enabled, episodes_enabled=episodes_enabled,
+            )
+        )
+        return {}
+
+    node.__name__ = f"conscience_post_{agent_slug}"
+    return node
+
+
+async def _check_response_consistency(
+    user_msg: str, draft_response: str, memory_context: str, commitment_context: str
+) -> tuple[bool, str]:
+    """Self check: does the draft reply contradict what the agent already knows
+    about this user, or a commitment it already made? This is the actual "conscience" step:
+    a second pass that can catch the agent contradicting itself, distinct from memory/emotion
+    retrieval which just supplies context.
+
+    Args:
+        user_msg: The user's latest message
+        draft_response: The draft response to check
+        memory_context: The memory context
+        commitment_context: The commitment context
+    
+    Returns:
+        A tuple of (conflict, reason) where conflict is a boolean indicating if there's a contradiction
+        and reason is a string explaining the contradiction
+    """
+    known = "\n\n".join(c for c in (memory_context, commitment_context) if c)
+    if not known or not draft_response:
+        return False, ""
+
+    prompt = (
+        "You are a consistency checker for an AI assistant. Below is what the assistant "
+        "knows/remembers about this user, and a draft reply it is about to send.\n\n"
+        f"{known}\n\n"
+        f"User's latest message: {user_msg[:500]}\n"
+        f"Draft reply: {draft_response[:1000]}\n\n"
+        "Does the draft reply CLEARLY contradict a remembered fact/preference (wrong name, "
+        "ignoring a stated preference, contradicting something the user was told before), or "
+        "break a prior commitment? Only flag concrete, unambiguous contradictions - never "
+        "flag stylistic choices, missing details, or plausible interpretations.\n\n"
+        'Return ONLY JSON: {"conflict": true|false, "reason": "..."}'
+    )
+    try:
+        llm = get_chat_model("gpt-5.4-nano", temperature=0.0)
+        response = await llm.ainvoke([SystemMessage(content=prompt)])
+        text = str(getattr(response, "content", response)).strip()
+        parsed = json.loads(text)
+        return bool(parsed.get("conflict")), str(parsed.get("reason", ""))
+    except Exception:
+        logger.debug("Conscience consistency check failed", exc_info=True)
+        return False, ""
+
+
+def make_conscience_check_node(agent_slug: str, memory_enabled: bool = True):
+    """Build a pre-send self-check node: does the draft response conflict with what the
+    agent knows about this user or has already promised them? It runs inline (blocking)
+    because it can revise the response before it's sent.
+
+    Args:
+        agent_slug: The agent slug for logging
+        memory_enabled: Whether memory is enabled for this agent
+    
+    Returns:
+        A node function that can be added to the graph
+    """
+    async def node(state: AgentState) -> dict:
+        _started_at = time.perf_counter()
+        try:
+            if not memory_enabled:
+                return {"_needs_revision": False}
+
+            if state.get("_conscience_revised"):
+                return {"_needs_revision": False}
+
+            memory_context = state.get("memory_context") or ""
+            commitment_context = state.get("commitment_context") or ""
+            if not memory_context and not commitment_context:
+                return {"_needs_revision": False}
+
+            last_user_msg = _last_message_by(state, _is_human)
+            last_agent_msg = _last_message_by(state, _is_ai)
+            if not last_agent_msg:
+                return {"_needs_revision": False}
+
+            conflict, reason = await _check_response_consistency(
+                last_user_msg, last_agent_msg, memory_context, commitment_context
+            )
+            if not conflict:
+                return {"_needs_revision": False}
+
+            logger.info("Conscience check flagged agent=%s reason=%s", agent_slug, reason)
+            return {
+                "messages": [SystemMessage(
+                    content=(
+                        f"Self-check: your last draft may conflict with what you know about this user "
+                        f"({reason}). Revise your answer so it's consistent - correct yourself naturally, "
+                        "don't call attention to the fact that you're self-correcting."
+                    )
+                )],
+                "_needs_revision": True,
+                "_conscience_revised": True,
+            }
+        finally:
+            logger.info(
+                "conscience_timing",
+                extra={"node": "check", "agent": agent_slug, "ms": round((time.perf_counter() - _started_at) * 1000, 1)},
+            )
+
+    node.__name__ = f"conscience_check_{agent_slug}"
+    return node
+
+
 def make_agent_node(
     spec: AgentSpec,
     source_ids: list[str] | None = None,
@@ -565,6 +1016,12 @@ def make_agent_node(
             logger.warning("Agent[%s] synthesizing with %d child outputs", spec.slug, len(history))
 
         logger.info("Agent[%s] final system prompt length: %d", spec.slug, len(dynamic_prompt))
+
+        if state.get("conscience_enabled"):
+            for key in ("memory_context", "commitment_context", "episode_context", "recall_context", "emotion_context", "user_affect_context"):
+                ctx = state.get(key)
+                if ctx:
+                    dynamic_prompt += "\n\n" + ctx
 
         system_msg = SystemMessage(content=dynamic_prompt)
         system_tokens = llm.get_num_tokens(system_msg.content or "")
@@ -784,8 +1241,8 @@ def make_router_node(
         if orchestrator not in orchestrator_slugs:
             return {"current_agent": current_agent}
 
-        if orchestrator == "general":
-            allowed_slugs = [slug for slug in registry if slug != "general"]
+        if orchestrator in ("general", CHAT_AGENT_SLUG):
+            allowed_slugs = [slug for slug in registry if slug != orchestrator]
         else:
             allowed_slugs = routes_map.get(orchestrator, [])
         allowed_registry = {slug: registry[slug] for slug in allowed_slugs if slug in registry}
@@ -1055,6 +1512,7 @@ def build_graph(
     builder.add_node("tools", make_tools_node(settings_map))
     builder.add_node("reflect", make_reflect_node())
 
+    conscience_agents: set[str] = set()
     for slug, spec in registry.items():
         cfg = settings_map.get(slug, {})
         source_ids = cfg.get("connected_sources")
@@ -1089,27 +1547,61 @@ def build_graph(
             ),
         )
 
-        builder.add_conditional_edges(
-            slug,
-            _route_from_agent,
-            {"tools": "tools", "reflect": "reflect", "router": "router", END: END}
-        )
+        memory_enabled = cfg.get("memory_enabled", False)
+        emotions_enabled = cfg.get("emotions_enabled", False)
+        episodes_enabled = cfg.get("episodes_enabled", False) and emotions_enabled
+        conscience_enabled = memory_enabled or emotions_enabled
+        if conscience_enabled:
+            conscience_agents.add(slug)
+            pre_name = f"conscience_pre_{slug}"
+            check_name = f"conscience_check_{slug}"
+            post_name = f"conscience_post_{slug}"
+            builder.add_node(pre_name, make_conscience_pre_node(slug, memory_enabled, emotions_enabled, episodes_enabled))
+            builder.add_node(check_name, make_conscience_check_node(slug, memory_enabled))
+            builder.add_node(post_name, make_conscience_post_node(slug, memory_enabled, emotions_enabled, episodes_enabled))
+            builder.add_edge(pre_name, slug)
+            builder.add_conditional_edges(
+                slug,
+                _route_from_agent,
+                {"tools": "tools", "reflect": "reflect", "router": "router", END: check_name}
+            )
+            builder.add_conditional_edges(
+                check_name,
+                lambda state: "revise" if state.get("_needs_revision") else "continue",
+                {"revise": slug, "continue": post_name},
+            )
+            builder.add_edge(post_name, END)
+        else:
+            builder.add_conditional_edges(
+                slug,
+                _route_from_agent,
+                {"tools": "tools", "reflect": "reflect", "router": "router", END: END}
+            )
+
+    plain_targets: dict[str, str] = {slug: slug for slug in registry}
+
+    router_targets: dict[str, str] = {}
+    for slug in registry:
+        if slug in conscience_agents:
+            router_targets[slug] = f"conscience_pre_{slug}"
+        else:
+            router_targets[slug] = slug
 
     builder.add_conditional_edges(
         "tools",
         lambda state: state.get("current_agent", default_agent),
-        {slug: slug for slug in registry}
+        plain_targets
     )
 
     builder.add_conditional_edges(
         "reflect",
         lambda state: state.get("current_agent", default_agent) if state.get("_needs_rethink") else END,
-        {**{slug: slug for slug in registry}, END: END}
+        {**plain_targets, END: END}
     )
 
     builder.add_conditional_edges(
         "router",
         lambda state: state.get("current_agent", default_agent),
-        {slug: slug for slug in registry},
+        router_targets,
     )
     return builder.compile(checkpointer=checkpointer)

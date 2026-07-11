@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Sparkles, AlertTriangle } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, Brain } from "lucide-react";
 
 import AgentSwitcher from "@/components/chat/AgentSwitcher";
 import Composer from "@/components/chat/Composer";
 import JiraTicketButton from "@/components/chat/JiraTicketButton";
+import MemoryPanel from "@/components/chat/MemoryPanel";
 import MessageList, { type DisplayMessage } from "@/components/chat/MessageList";
 import ModeSelector, { type Mode } from "@/components/chat/ModeSelector";
 import Sidebar from "@/components/chat/Sidebar";
@@ -28,6 +29,7 @@ export default function ChatPage() {
   const [testDraft, setTestDraft] = useState(false);
   const [feedbackMap, setFeedbackMap] = useState<Record<string, { thumbs_up: boolean }>>({});
   const [budgetWarning, setBudgetWarning] = useState<string | null>(null);
+  const [showMemoryPanel, setShowMemoryPanel] = useState(false);
   const { send, stop, streaming, regenerate, editMessage } = useChatStream();
   const dr = useDeepResearchChat();
   const { isAdmin } = useAuth();
@@ -57,8 +59,9 @@ export default function ChatPage() {
       .then((loaded) => {
         setAgents(loaded);
         if (loaded.length && !selectedAgent) {
+          const chat = loaded.find((a) => a.slug === "chat");
           const router = loaded.find((a) => a.slug.includes("general") || a.name?.toLowerCase().includes("router"));
-          const entry = router ? router.slug : loaded[0].slug;
+          const entry = chat ? chat.slug : (router ? router.slug : loaded[0].slug);
           setSelectedAgent(entry);
         }
       })
@@ -106,7 +109,8 @@ export default function ChatPage() {
         } else if (lastAgentMsg?.agent_id && agents.some((a) => a.slug === lastAgentMsg.agent_id)) {
           setSelectedAgent(lastAgentMsg.agent_id);
         } else if (agents.length) {
-          setSelectedAgent(agents[0].slug);
+          const chat = agents.find((a) => a.slug === "chat");
+          setSelectedAgent(chat ? chat.slug : agents[0].slug);
         }
       }
       return current;
@@ -629,6 +633,16 @@ export default function ChatPage() {
                 />
                 <div className="h-4 w-px bg-line" />
                 <ModeSelector selected={mode} onSelect={setMode} />
+                {agents.find((a) => a.slug === selectedAgent)?.memory_enabled && (
+                  <button
+                    onClick={() => setShowMemoryPanel(true)}
+                    title="What this agent remembers about you"
+                    className="flex items-center gap-1.5 rounded-xl border border-line/80 bg-card px-2.5 py-1.5 text-xs text-secondary transition hover:bg-hover hover:border-line hover:text-primary shrink-0"
+                  >
+                    <Brain className="h-3.5 w-3.5 text-brand" />
+                    <span className="hidden sm:inline">Memory</span>
+                  </button>
+                )}
               </div>
 
               {/* Center: Conversation title */}
@@ -755,6 +769,14 @@ export default function ChatPage() {
           </>
         )}
       </main>
+
+      {showMemoryPanel && (
+        <MemoryPanel
+          agentSlug={selectedAgent}
+          agentName={agents.find((a) => a.slug === selectedAgent)?.name ?? selectedAgent}
+          onClose={() => setShowMemoryPanel(false)}
+        />
+      )}
     </div>
   );
 }
