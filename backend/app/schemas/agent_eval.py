@@ -89,6 +89,7 @@ class AgentEvalResultOut(BaseModel):
     score: float | None = None
     passed: bool | None = None
     duration_ms: int | None = None
+    trace_url: str | None = None
     created_at: datetime
 
 

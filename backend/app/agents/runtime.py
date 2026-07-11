@@ -16,6 +16,8 @@ from app.models import AgentSettings, AgentSkill, AgentWorkflow, KnowledgeSource
 
 logger = logging.getLogger(__name__)
 
+_REGISTRY_VERSION_KEY = "agent_runtime:registry_version"
+
 
 class AgentRuntime:
     """Holds the compiled LangGraph and its checkpointer resources."""
@@ -25,6 +27,15 @@ class AgentRuntime:
         self.agent_registry: dict[str, AgentSpec] = {}
         self._pool: AsyncConnectionPool | None = None
         self._checkpointer = None
+        self._registry_version = 0
+        self._redis = None
+
+    def _get_redis(self):
+        if self._redis is None:
+            import redis.asyncio as aioredis
+
+            self._redis = aioredis.from_url(settings.redis_url)
+        return self._redis
 
     @property
     def checkpointer(self):
@@ -196,8 +207,14 @@ class AgentRuntime:
         self.agent_registry = agent_registry
         self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings, workflows=workflows)
 
-    async def refresh_graph(self) -> None:
-        """Rebuild the graph with the latest agent settings from the DB."""
+        try:
+            raw = await self._get_redis().get(_REGISTRY_VERSION_KEY)
+            self._registry_version = int(raw) if raw else 0
+        except Exception:
+            logger.warning("Could not read agent registry version from redis at startup", exc_info=True)
+
+    async def _rebuild(self) -> None:
+        """Rebuild this process's local registry/graph from the DB."""
         agent_registry: dict[str, AgentSpec] = {}
         agent_settings: dict[str, dict] = {}
         workflows: dict[str, dict] = {}
@@ -212,6 +229,36 @@ class AgentRuntime:
         await checkpointer.setup()
         self.graph = build_graph(checkpointer, agent_registry=agent_registry, agent_settings=agent_settings, workflows=workflows)
         logger.info("Agent graph refreshed with settings for %d agents", len(agent_registry))
+
+    async def refresh_graph(self) -> None:
+        """
+        Rebuild the graph with the latest agent settings from the DB, and bump the
+        shared version so every other worker process notices and rebuilds too on
+        its next request (see refresh_if_stale).
+        """
+        await self._rebuild()
+        try:
+            self._registry_version = await self._get_redis().incr(_REGISTRY_VERSION_KEY)
+        except Exception:
+            logger.exception("Failed to bump agent registry version in redis")
+
+    async def refresh_if_stale(self) -> None:
+        """
+        Cheap per-request check: if another worker process bumped the shared
+        registry version (via refresh_graph), rebuild this process's local
+        registry/graph to match. This is what makes agent create/publish/deploy
+        visible across all uvicorn workers, not just the one that handled the
+        mutating request.
+        """
+        try:
+            raw = await self._get_redis().get(_REGISTRY_VERSION_KEY)
+        except Exception:
+            logger.warning("Could not check agent registry version in redis", exc_info=True)
+            return
+        remote_version = int(raw) if raw else 0
+        if remote_version != self._registry_version:
+            await self._rebuild()
+            self._registry_version = remote_version
 
     async def shutdown(self) -> None:
         """Close the database connection pool."""
@@ -342,6 +389,8 @@ async def get_runtime(request: Request) -> AgentRuntime:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Agent runtime is not ready",
         )
+    if runtime.graph is not None and runtime._pool is not None:
+        await runtime.refresh_if_stale()
     if runtime.graph is None and runtime._pool is not None:
         logger.warning("Runtime graph is None but pool is open - attempting lazy rebuild")
         try:

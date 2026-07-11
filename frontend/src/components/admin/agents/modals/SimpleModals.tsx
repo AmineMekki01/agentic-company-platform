@@ -1,4 +1,4 @@
-import { Loader2, Rocket, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Rocket, Trash2 } from "lucide-react";
 
 interface DeleteConfirmProps {
   slug: string;
@@ -103,12 +103,13 @@ interface TestDraftModalProps {
   testDraftMessage: string;
   setTestDraftMessage: (v: string) => void;
   testDraftResponse: string;
+  testDraftTraceUrl?: string | null;
   testingDraft: boolean;
   onCancel: () => void;
   onSend: () => void;
 }
 
-export function TestDraftModal({ testDraftMessage, setTestDraftMessage, testDraftResponse, testingDraft, onCancel, onSend }: TestDraftModalProps) {
+export function TestDraftModal({ testDraftMessage, setTestDraftMessage, testDraftResponse, testDraftTraceUrl, testingDraft, onCancel, onSend }: TestDraftModalProps) {
   return (
     <div className="animate-fade-in fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-canvas border border-line rounded-2xl p-6 w-full max-w-lg space-y-4 shadow-2xl flex flex-col max-h-[80vh]">
@@ -147,7 +148,21 @@ export function TestDraftModal({ testDraftMessage, setTestDraftMessage, testDraf
 
           {testDraftResponse && (
             <div className="mt-3">
-              <span className="text-xs font-medium text-secondary">Response</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-secondary">Response</span>
+                {testDraftTraceUrl && (
+                  <a
+                    href={testDraftTraceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-brand hover:underline"
+                    title="View full trace in Langfuse"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Trace
+                  </a>
+                )}
+              </div>
               <div className="mt-1 bg-card border border-line/60 rounded-xl px-3 py-2 text-sm text-secondary whitespace-pre-wrap max-h-64 overflow-y-auto">
                 {testDraftResponse}
               </div>

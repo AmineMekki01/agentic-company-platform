@@ -118,6 +118,7 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
                         "metrics": {},
                         "score": 0.0,
                         "duration_ms": 0,
+                        "trace_url": None,
                     }
 
                 thresholds = run.thresholds or {}
@@ -143,6 +144,7 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
                     score=eval_result["score"],
                     passed=passed,
                     duration_ms=eval_result["duration_ms"],
+                    trace_url=eval_result.get("trace_url"),
                 )
                 db.add(res)
 

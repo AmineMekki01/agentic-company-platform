@@ -11,6 +11,7 @@ from sqlalchemy import func, select, text
 from app.agents.context import MODEL_CONTEXT_WINDOWS
 from app.api.deps import AdminUser, DbSession
 from app.core.config import settings
+from app.core.tracing import new_langfuse_handler, trace_config, trace_url_for
 from app.models import AgentSettings, AgentSkill, AgentVersion, Connector, LLMSettings, Skill, UploadSettings
 from app.schemas.agent_settings import (
     AgentDraftSave,
@@ -637,6 +638,7 @@ class _TestDraftRequest(BaseModel):
 
 class _TestDraftResponse(BaseModel):
     response: str
+    trace_url: str | None = None
 
 
 @router.post("/{slug}/test-draft", response_model=_TestDraftResponse)
@@ -677,6 +679,8 @@ async def test_agent_draft(
         "user_allowed_slugs": list(registry.keys()),
     }
 
-    result = await graph.ainvoke(input_state)
+    handler = new_langfuse_handler()
+    config = trace_config({}, user_id=str(user.id), agent_slug=slug, tags=["draft-test"], handler=handler)
+    result = await graph.ainvoke(input_state, config)
     response_text = result.get("response_text", "") if isinstance(result, dict) else ""
-    return _TestDraftResponse(response=response_text)
+    return _TestDraftResponse(response=response_text, trace_url=trace_url_for(handler))

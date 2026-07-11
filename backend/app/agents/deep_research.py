@@ -38,6 +38,7 @@ from app.agents.deep_research_prompts import (
 )
 from app.agents.llm import get_chat_model
 from app.agents.tools import retrieve, web_search
+from app.core.tracing import trace_config
 from app.services.token_tracker import record_usage as _record_token_usage
 
 logger = logging.getLogger(__name__)
@@ -382,12 +383,19 @@ async def supervisor_tools(state: SupervisorState, dr_config: DeepResearchConfig
         researcher_builder = _build_researcher_subgraph(dr_config)
         researcher_subgraph = researcher_builder.compile()
 
+        researcher_config = trace_config(
+            {},
+            conversation_id=dr_config.conversation_id,
+            user_id=dr_config.user_id,
+            agent_slug="deep_research",
+            tags=["researcher"],
+        )
         research_tasks = [
             researcher_subgraph.ainvoke({
                 "researcher_messages": [HumanMessage(content=tc["args"]["research_topic"])],
                 "research_topic": tc["args"]["research_topic"],
                 "tool_call_iterations": 0,
-            })
+            }, researcher_config)
             for tc in allowed
         ]
         results = await asyncio.gather(*research_tasks, return_exceptions=True)
@@ -515,7 +523,7 @@ async def researcher_tools(state: ResearcherState, dr_config: DeepResearchConfig
         try:
             result = await tool_fn.ainvoke(tc["args"])
             result_str = str(result)
-            # Try to parse structured JSON to extract sources
+
             try:
                 import json as _json
                 parsed = _json.loads(result_str)
@@ -727,6 +735,12 @@ async def run_deep_research(
     """
     graph = build_deep_research_graph(config, checkpointer=checkpointer)
     graph_config = {"configurable": {"thread_id": thread_id}}
+    graph_config = trace_config(
+        graph_config,
+        conversation_id=config.conversation_id,
+        user_id=config.user_id,
+        agent_slug="deep_research",
+    )
 
     try:
         if resume_answer:

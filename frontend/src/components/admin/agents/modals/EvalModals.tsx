@@ -1,4 +1,4 @@
-import { X, Rocket } from "lucide-react";
+import { X, Rocket, ExternalLink } from "lucide-react";
 import type { AgentEvalTestSetDetail, AgentEvalRunDetail } from "@/lib/api";
 
 interface LaunchRunModalProps {
@@ -135,6 +135,18 @@ export function RunDetailModal({ run, onClose, onContextClick }: RunDetailModalP
                       </span>
                     )}
                     <span className="text-xs text-tertiary font-mono">{res.duration_ms}ms</span>
+                    {res.trace_url && (
+                      <a
+                        href={res.trace_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px] text-brand hover:underline"
+                        title="View full trace in Langfuse"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Trace
+                      </a>
+                    )}
                   </div>
                 </div>
                 {res.metrics && (

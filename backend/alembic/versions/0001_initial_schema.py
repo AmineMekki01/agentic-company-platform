@@ -78,6 +78,7 @@ def upgrade() -> None:
         sa.Column("agent_id", sa.String(length=50), nullable=True),
         sa.Column("citations", sa.JSON(), nullable=True),
         sa.Column("tool_calls_log", sa.JSON(), nullable=True),
+        sa.Column("trace_url", sa.String(length=500), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -548,6 +549,7 @@ def upgrade() -> None:
         sa.Column("score", sa.Float(), nullable=True),
         sa.Column("passed", sa.Boolean(), nullable=True),
         sa.Column("duration_ms", sa.Integer(), nullable=True),
+        sa.Column("trace_url", sa.String(length=500), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

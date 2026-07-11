@@ -22,6 +22,10 @@ class Settings(BaseSettings):
         jira_project_key: Jira project key
         jwt_secret: JWT secret key
         fernet_key: Fernet encryption key
+        langfuse_public_key: Langfuse project public key (tracing disabled if unset)
+        langfuse_secret_key: Langfuse project secret key
+        langfuse_host: Langfuse server URL the SDK connects to (internal, e.g. docker network address)
+        langfuse_public_host: Browser-reachable Langfuse URL, used to build trace links shown in the UI
     """
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -65,5 +69,10 @@ class Settings(BaseSettings):
 
     jwt_secret: str = "dev-only-insecure-secret-change-me-in-production!"
     fernet_key: str = ""
+
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = ""
+    langfuse_public_host: str = ""
 
 settings = Settings()

@@ -16,6 +16,7 @@ from langchain_core.messages import HumanMessage
 
 from app.agents.llm import get_chat_model
 from app.core.config import settings
+from app.core.tracing import new_langfuse_handler, trace_url_for
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,17 @@ async def run_single_test(
     - metrics: dict[str, float]
     - score: float (mean of metrics)
     - duration_ms: int
+    - trace_url: str | None (link to the full Langfuse trace, if tracing is enabled)
     """
     start_ms = int(time.time() * 1000)
 
     thread_id = f"eval-{uuid.uuid4()}"
     config = {"configurable": {"thread_id": thread_id}}
+
+    handler = new_langfuse_handler()
+    if handler is not None:
+        config["callbacks"] = [handler]
+        config["metadata"] = {"langfuse_tags": ["eval", agent_slug]}
 
     initial_state = {"messages": [HumanMessage(content=question)], "forced_agent": agent_slug}
     final_state = await graph.ainvoke(initial_state, config)
@@ -150,4 +157,5 @@ async def run_single_test(
         "metrics": metrics,
         "score": score,
         "duration_ms": duration_ms,
+        "trace_url": trace_url_for(handler),
     }
