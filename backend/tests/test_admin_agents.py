@@ -1,11 +1,24 @@
 """Tests for admin agent settings API."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from sqlalchemy import select
 
+from app.main import app as fastapi_app
 from app.models import AgentSettings, AgentVersion, Connector, UploadSettings
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture
+def mock_runtime():
+    """Attach a mock runtime to app.state so refresh_graph calls are observable,
+    mirroring how the real AgentRuntime lives on app.state in production."""
+    runtime = AsyncMock()
+    fastapi_app.state.runtime = runtime
+    yield runtime
+    fastapi_app.state.runtime = None
 
 
 async def _seed_agent(session_factory, slug="hr", **kwargs):
@@ -125,6 +138,34 @@ async def test_update_nonexistent_agent(client, admin_headers):
         json={"name": "Test"},
     )
     assert res.status_code == 404
+
+
+async def test_update_unpublished_agent_refreshes_runtime(client, admin_headers, session_factory, mock_runtime):
+    """Regression test: editing an unpublished agent writes straight to its live
+    fields (there's no draft/live split until publish), so the runtime's cached
+    graph must be refreshed or the change is silently invisible until restart."""
+    await _seed_agent(session_factory, slug="hr", name="HR")
+    res = await client.put(
+        "/api/admin/agents/hr",
+        headers=admin_headers,
+        json={"system_prompt": "Updated prompt"},
+    )
+    assert res.status_code == 200
+    mock_runtime.refresh_graph.assert_awaited_once()
+
+
+async def test_update_published_agent_does_not_refresh_runtime(client, admin_headers, session_factory, mock_runtime):
+    """A published agent's edits go to draft_config only, with no live effect
+    until publish (which already refreshes) - refreshing here would be
+    unnecessary and misleading (the live graph didn't actually change)."""
+    await _seed_agent(session_factory, slug="hr-published", name="HR", is_published=True)
+    res = await client.put(
+        "/api/admin/agents/hr-published",
+        headers=admin_headers,
+        json={"system_prompt": "Draft-only prompt"},
+    )
+    assert res.status_code == 200
+    mock_runtime.refresh_graph.assert_not_awaited()
 
 
 async def test_delete_agent_setting(client, admin_headers, session_factory):

@@ -2,7 +2,7 @@
 
 import json
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select, text
 
 from app.api.deps import AdminUser, DbSession
@@ -54,6 +54,7 @@ async def deploy_agent_template(
     template_id: str,
     user: AdminUser,
     db: DbSession,
+    request: Request,
     body: AgentTemplateDeployRequest,
 ) -> AgentSettingOut:
     """Create an unpublished agent from a template so the admin can review and publish it later."""
@@ -104,6 +105,11 @@ async def deploy_agent_template(
 
     await db.commit()
     await db.refresh(agent_row)
+
+
+    runtime = getattr(request.app.state, "runtime", None)
+    if runtime:
+        await runtime.refresh_graph()
 
     result = await db.execute(
         text("""

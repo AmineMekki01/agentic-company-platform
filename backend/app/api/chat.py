@@ -34,7 +34,6 @@ def _agent_visible(row: AgentSettings, user) -> bool:
     if not row.is_published:
         return False
 
-    # beta/staging: if beta_users is set, only beta users + admins can see it
     beta = row.beta_users or []
     if beta:
         return user.email in beta
@@ -73,6 +72,9 @@ async def list_agents(user: CurrentUser, db: DbSession) -> list[AgentOut]:
             agent_type=r.agent_type if r.agent_type else "standard",
             is_router=bool(r.is_router),
             is_orchestrator=bool(r.is_orchestrator),
+            memory_enabled=bool(r.memory_enabled),
+            emotions_enabled=bool(r.emotions_enabled),
+            episodes_enabled=bool(r.episodes_enabled),
         )
         for r in rows
         if _agent_visible(r, user)
@@ -157,6 +159,8 @@ def _make_stream_response(
                 except Exception:
                     logger.warning("Failed to reset checkpoint for conv=%s", conversation_id)
 
+            message_id = str(uuid.uuid4())
+
             input_state = {
                 "messages": input_messages if input_messages is not None else [HumanMessage(content=llm_content)],
                 "current_agent": agent,
@@ -166,11 +170,14 @@ def _make_stream_response(
                 "step_count": 0,
                 "reflection_done": False,
                 "_needs_rethink": False,
+                "_needs_revision": False,
+                "_conscience_revised": False,
                 "sources": all_sources,
                 "source_offset": len(all_sources),
                 "user_allowed_slugs": user_allowed_slugs,
                 "user_id": str(user_id),
                 "conversation_id": str(conversation_id),
+                "agent_message_id": message_id,
             }
             if force_agent:
                 forced = forced_agent_slug or default_agent
@@ -191,7 +198,6 @@ def _make_stream_response(
             assistant_text = ""
             routed_agent = agent
             sources: list[dict] = []
-            message_id = str(uuid.uuid4())
             title: str | None = None
             agent_slugs = set(draft_registry.keys())
             tool_calls_log: list[dict] = []

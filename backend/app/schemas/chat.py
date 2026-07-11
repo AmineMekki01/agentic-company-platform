@@ -109,6 +109,22 @@ class AgentOut(BaseModel):
     agent_type: str = "standard"
     is_router: bool = False
     is_orchestrator: bool = False
+    memory_enabled: bool = False
+    emotions_enabled: bool = False
+    episodes_enabled: bool = False
+
+
+class AgentMemoryOut(BaseModel):
+    """A single memory an agent has formed about the requesting user."""
+    id: uuid.UUID
+    category: str
+    content: str
+    status: str = "open"
+    importance_score: float
+    tags: list[str] | None = None
+    access_count: int
+    created_at: datetime
+    updated_at: datetime
 
 
 class ChatAttachmentOut(BaseModel):

@@ -1,10 +1,23 @@
 """Tests for admin agent templates API."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 
+from app.main import app as fastapi_app
 from app.models import AgentSettings
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture
+def mock_runtime():
+    """Attach a mock runtime to app.state so refresh_graph calls are observable,
+    mirroring how the real AgentRuntime lives on app.state in production."""
+    runtime = AsyncMock()
+    fastapi_app.state.runtime = runtime
+    yield runtime
+    fastapi_app.state.runtime = None
 
 
 async def test_list_templates_admin_only(client, auth_headers):
@@ -49,6 +62,25 @@ async def test_deploy_template(client, admin_headers, monkeypatch):
     )
     assert res.status_code == 201
     assert res.json()["slug"] == "deployed-test"
+
+
+async def test_deploy_template_refreshes_runtime(client, admin_headers, monkeypatch, mock_runtime):
+    """Regression test: a newly deployed agent must be usable immediately, not
+    only after a process restart - the runtime's in-memory registry is a cached
+    snapshot that only updates when something explicitly calls refresh_graph()."""
+    monkeypatch.setattr("app.api.admin_agent_templates.load_template", lambda tid: {
+        "id": tid,
+        "name": "Test Template",
+        "agent_config": {"slug": "test", "name": "Test", "tools": []},
+        "workflows": [],
+    })
+    res = await client.post(
+        "/api/admin/agent-templates/test/deploy",
+        headers=admin_headers,
+        json={"slug": "refresh-check"},
+    )
+    assert res.status_code == 201
+    mock_runtime.refresh_graph.assert_awaited_once()
 
 
 async def test_deploy_duplicate_slug(client, admin_headers, session_factory):

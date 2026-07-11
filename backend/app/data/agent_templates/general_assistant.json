@@ -17,7 +17,7 @@
     "is_router": true,
     "routes_to": [],
     "visibility": "restricted",
-    "allow_uploads": true,
+    "allow_uploads": false,
     "allowed_users": [],
     "beta_users": []
   },

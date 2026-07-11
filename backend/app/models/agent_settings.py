@@ -65,6 +65,9 @@ class AgentSettings(Base):
     )
     research_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
     draft_config: Mapped[dict[str, Any] | None] = mapped_column(JSON(), nullable=True)
+    memory_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
+    emotions_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
+    episodes_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
     is_published: Mapped[bool] = mapped_column(Boolean(), nullable=False, server_default="0")
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     published_version_id: Mapped[uuid.UUID | None] = mapped_column(

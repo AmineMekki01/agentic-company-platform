@@ -33,12 +33,15 @@ export const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   created_by: "",
   allow_uploads: true,
   allowed_users: [],
+  memory_enabled: false,
+  emotions_enabled: false,
+  episodes_enabled: false,
 };
 
 export const formatUserLabel = (u: DbUser) => [u.first_name, u.last_name].filter(Boolean).join(" ") || u.email;
 
 export const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
@@ -81,7 +84,7 @@ export function diffWords(oldText: string, newText: string): { type: "same" | "d
 }
 
 export function resolveSourceNames(ids: string[] | null | undefined, sourceList: KnowledgeSource[]): string {
-  if (!ids || ids.length === 0) return "—";
+  if (!ids || ids.length === 0) return "-";
   return ids.map((id) => sourceList.find((s) => s.id === id)?.name || id).join(", ");
 }
 
@@ -106,6 +109,9 @@ export function mergeAgentDraft(agent: AgentSetting): AgentSetting {
   if ("mode_profile" in draft) merged.mode_profile = draft.mode_profile as Record<string, unknown> | null;
   if ("agent_type" in draft) merged.agent_type = draft.agent_type as string;
   if ("research_config" in draft) merged.research_config = draft.research_config as AgentSetting["research_config"];
+  if ("memory_enabled" in draft) merged.memory_enabled = draft.memory_enabled as boolean;
+  if ("emotions_enabled" in draft) merged.emotions_enabled = draft.emotions_enabled as boolean;
+  if ("episodes_enabled" in draft) merged.episodes_enabled = draft.episodes_enabled as boolean;
   return merged;
 }
 

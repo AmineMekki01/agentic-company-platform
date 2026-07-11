@@ -16,9 +16,6 @@ from app.core.security import (
 )
 
 
-# ─── security.py ───
-
-
 def test_hash_and_verify_password():
     hashed = hash_password("mysecret")
     assert verify_password("mysecret", hashed) is True
@@ -60,9 +57,6 @@ def test_decode_invalid_token():
         decode_access_token("garbage.token.here")
 
 
-# ─── encryption.py ───
-
-
 def test_encrypt_decrypt_roundtrip(monkeypatch):
     key = Fernet.generate_key().decode()
     monkeypatch.setattr(settings, "fernet_key", key)
@@ -99,9 +93,6 @@ def test_no_fernet_key_raises(monkeypatch):
         EncryptionService()
 
 
-# ─── pricing.py ───
-
-
 def test_estimate_cost_known_model():
     cost = estimate_cost("gpt-5.4", input_tokens=1000, output_tokens=1000)
     assert cost == round(1000 / 1000 * 0.0025 + 1000 / 1000 * 0.015, 6)
@@ -129,9 +120,6 @@ def test_estimate_cost_calculation():
     assert cost == expected
 
 
-# ─── config.py ───
-
-
 def test_settings_has_required_fields():
     assert settings.app_name
     assert settings.jwt_secret
@@ -147,9 +135,6 @@ def test_settings_defaults():
     assert "http://localhost:5173" in s.cors_origins
 
 
-# ─── logging.py ───
-
-
 def test_configure_logging():
     configure_logging()
 
@@ -157,3 +142,127 @@ def test_configure_logging():
 def test_get_logger():
     logger = get_logger("test_module")
     assert logger.name == "test_module"
+
+
+def test_json_formatter_basic():
+    import json as _json
+    import logging as _logging
+
+    from app.core.logging import JsonFormatter
+
+    formatter = JsonFormatter()
+    record = _logging.LogRecord(
+        name="test.module",
+        level=_logging.WARNING,
+        pathname="test.py",
+        lineno=1,
+        msg="agent_response",
+        args=(),
+        exc_info=None,
+    )
+    output = formatter.format(record)
+    parsed = _json.loads(output)
+    assert parsed["level"] == "warning"
+    assert parsed["event"] == "agent_response"
+    assert parsed["logger"] == "test.module"
+    assert "timestamp" in parsed
+
+
+def test_json_formatter_extra_fields():
+    import json as _json
+    import logging as _logging
+
+    from app.core.logging import JsonFormatter
+
+    formatter = JsonFormatter()
+    record = _logging.LogRecord(
+        name="app.agents.graph",
+        level=_logging.WARNING,
+        pathname="graph.py",
+        lineno=100,
+        msg="agent_response",
+        args=(),
+        exc_info=None,
+    )
+    record.agent = "it_agent"
+    record.len = 1234
+    record.conv = "abc-123"
+    output = formatter.format(record)
+    parsed = _json.loads(output)
+    assert parsed["agent"] == "it_agent"
+    assert parsed["len"] == 1234
+    assert parsed["conv"] == "abc-123"
+
+
+def test_json_formatter_exception():
+    import json as _json
+    import logging as _logging
+
+    from app.core.logging import JsonFormatter
+
+    formatter = JsonFormatter()
+    try:
+        raise ValueError("test error")
+    except ValueError:
+        import sys
+        exc_info = sys.exc_info()
+    record = _logging.LogRecord(
+        name="test.module",
+        level=_logging.ERROR,
+        pathname="test.py",
+        lineno=1,
+        msg="something failed",
+        args=(),
+        exc_info=exc_info,
+    )
+    output = formatter.format(record)
+    parsed = _json.loads(output)
+    assert "exception" in parsed
+    assert "ValueError" in parsed["exception"]
+
+
+def test_configure_logging_production_json(monkeypatch):
+    import io
+    import json as _json
+    import logging as _logging
+
+    from app.core.config import settings
+    from app.core.logging import JsonFormatter, configure_logging
+
+    monkeypatch.setattr(settings, "environment", "production")
+    configure_logging()
+
+    root = _logging.getLogger()
+    handler = root.handlers[0]
+    assert isinstance(handler.formatter, JsonFormatter)
+
+    stream = io.StringIO()
+    handler.stream = stream
+
+    logger = _logging.getLogger("test.production")
+    logger.warning("agent_response", extra={"agent": "it_agent", "len": 1234, "conv": "abc-123"})
+
+    parsed = _json.loads(stream.getvalue().strip())
+    assert parsed["level"] == "warning"
+    assert parsed["event"] == "agent_response"
+    assert parsed["agent"] == "it_agent"
+    assert parsed["len"] == 1234
+    assert parsed["conv"] == "abc-123"
+
+    monkeypatch.setattr(settings, "environment", "development")
+    configure_logging()
+
+
+def test_configure_logging_development_text(monkeypatch):
+    import logging as _logging
+
+    from app.core.config import settings
+    from app.core.logging import JsonFormatter, configure_logging
+
+    monkeypatch.setattr(settings, "environment", "development")
+    configure_logging()
+
+    root = _logging.getLogger()
+    handler = root.handlers[0]
+    assert isinstance(handler.formatter, _logging.Formatter)
+    assert not isinstance(handler.formatter, JsonFormatter)
