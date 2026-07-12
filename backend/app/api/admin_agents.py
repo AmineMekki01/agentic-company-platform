@@ -27,7 +27,8 @@ router = APIRouter(prefix="/admin/agents", tags=["admin"])
 
 _AGENT_SETTING_COLUMNS = """
 SELECT id, slug, name, description, llm_model, system_prompt, retrieval_top_k,
-       retrieval_enabled, web_search_enabled, connected_sources, tools, is_orchestrator, is_router,
+       retrieval_enabled, web_search_enabled, web_search_max_results, jira_tickets_limit,
+       connected_sources, tools, is_orchestrator, is_router,
        routes_to, mode_profile, visibility, created_by, allow_uploads, allowed_users, beta_users,
        agent_type, research_config, memory_enabled, emotions_enabled, episodes_enabled,
        created_at, updated_at, draft_config, is_published, published_at, published_version_id
@@ -413,6 +414,8 @@ async def publish_agent(
         "retrieval_top_k": row.retrieval_top_k,
         "retrieval_enabled": row.retrieval_enabled,
         "web_search_enabled": row.web_search_enabled,
+        "web_search_max_results": row.web_search_max_results,
+        "jira_tickets_limit": row.jira_tickets_limit,
         "connected_sources": row.connected_sources,
         "tools": row.tools,
         "is_orchestrator": row.is_orchestrator,
@@ -518,6 +521,8 @@ async def restore_agent_version(
         "retrieval_top_k": row.retrieval_top_k,
         "retrieval_enabled": row.retrieval_enabled,
         "web_search_enabled": row.web_search_enabled,
+        "web_search_max_results": row.web_search_max_results,
+        "jira_tickets_limit": row.jira_tickets_limit,
         "connected_sources": row.connected_sources,
         "tools": row.tools,
         "is_orchestrator": row.is_orchestrator,

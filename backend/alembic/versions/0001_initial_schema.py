@@ -100,6 +100,8 @@ def upgrade() -> None:
         sa.Column("retrieval_top_k", sa.Integer(), nullable=False, server_default="5"),
         sa.Column("retrieval_enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("web_search_enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.Column("web_search_max_results", sa.Integer(), nullable=False, server_default="5"),
+        sa.Column("jira_tickets_limit", sa.Integer(), nullable=False, server_default="20"),
         sa.Column("connected_sources", sa.JSON(), nullable=True, server_default="[]"),
         sa.Column("tools", sa.JSON(), nullable=True, server_default="[]"),
         sa.Column("mode_profile", sa.JSON(), nullable=True),

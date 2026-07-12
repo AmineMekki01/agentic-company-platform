@@ -1,5 +1,5 @@
 import type { AgentSetting, AgentSettingCreate, DbUser, KnowledgeSource } from "@/lib/api";
-import { Settings, Wrench, BookOpen, Workflow, Globe, History, ThumbsUp, Activity, Sparkles } from "lucide-react";
+import { Settings, Wrench, BookOpen, Workflow, Globe, History, ThumbsUp, Activity, Sparkles, TicketPlus, ListChecks, FileSearch2 } from "lucide-react";
 
 export type TabKey = "overview" | "tools" | "skills" | "knowledge" | "agent-to-agent" | "deploy" | "versions" | "feedback" | "evaluation";
 
@@ -15,7 +15,54 @@ export const ALL_TABS: { key: TabKey; label: string; icon: typeof Settings }[] =
   { key: "evaluation", label: "Evaluation", icon: Activity },
 ];
 
-export const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
+export const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket", "get_my_jira_tickets", "get_jira_ticket"];
+
+export interface ToolConfigField {
+  key: "web_search_max_results" | "jira_tickets_limit";
+  label: string;
+  min: number;
+  max: number;
+  default: number;
+}
+
+export interface ToolInfo {
+  label: string;
+  description: string;
+  icon: typeof Settings;
+  group: "General" | "Jira";
+  config?: ToolConfigField;
+}
+
+export const TOOL_INFO: Record<string, ToolInfo> = {
+  web_search: {
+    label: "Web Search",
+    description: "Searches the web for current information beyond this agent's knowledge sources.",
+    icon: Globe,
+    group: "General",
+    config: { key: "web_search_max_results", label: "Results returned", min: 1, max: 20, default: 5 },
+  },
+  create_jira_ticket: {
+    label: "Create Jira Ticket",
+    description: "Files a new Jira ticket for the user, attributed to them as reporter.",
+    icon: TicketPlus,
+    group: "Jira",
+  },
+  get_my_jira_tickets: {
+    label: "List My Tickets",
+    description: "Lists the requesting user's own Jira tickets — never anyone else's.",
+    icon: ListChecks,
+    group: "Jira",
+    config: { key: "jira_tickets_limit", label: "Ticket limit", min: 1, max: 50, default: 20 },
+  },
+  get_jira_ticket: {
+    label: "Look Up a Ticket",
+    description: "Looks up one ticket by number: status, description, and recent comments.",
+    icon: FileSearch2,
+    group: "Jira",
+  },
+};
+
+export const TOOL_GROUPS: ToolInfo["group"][] = ["General", "Jira"];
 
 export const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   slug: "",
@@ -24,6 +71,8 @@ export const DEFAULT_NEW_AGENT: AgentSettingCreate = {
   llm_model: "gpt-5.4-nano",
   system_prompt: "",
   retrieval_top_k: 5,
+  web_search_max_results: 5,
+  jira_tickets_limit: 20,
   connected_sources: [],
   tools: [],
   is_orchestrator: false,
@@ -99,6 +148,8 @@ export function mergeAgentDraft(agent: AgentSetting): AgentSetting {
   if ("retrieval_top_k" in draft) merged.retrieval_top_k = draft.retrieval_top_k as number;
   if ("connected_sources" in draft) merged.connected_sources = draft.connected_sources as string[] | null;
   if ("tools" in draft) merged.tools = draft.tools as string[] | null;
+  if ("web_search_max_results" in draft) merged.web_search_max_results = draft.web_search_max_results as number;
+  if ("jira_tickets_limit" in draft) merged.jira_tickets_limit = draft.jira_tickets_limit as number;
   if ("is_orchestrator" in draft) merged.is_orchestrator = draft.is_orchestrator as boolean;
   if ("routes_to" in draft) merged.routes_to = draft.routes_to as string[] | null;
   if ("visibility" in draft) merged.visibility = draft.visibility as string;

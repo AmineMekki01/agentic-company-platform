@@ -25,6 +25,7 @@ class AgentState(TypedDict):
     response_text: str | None
     orchestrator_history: list[dict] | None
     user_id: str | None
+    user_email: str | None
     conversation_id: str | None
     agent_message_id: str | None
     memory_context: str | None

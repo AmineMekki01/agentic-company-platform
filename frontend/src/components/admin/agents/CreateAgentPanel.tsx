@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { Bot, Loader2, Plus } from "lucide-react";
 import type { AgentSetting, AgentSettingCreate, DbUser, UploadSettings, ModelOption } from "@/lib/api";
-
-const AVAILABLE_TOOLS = ["web_search", "create_jira_ticket"];
+import ToolsGrid from "./ToolsGrid";
 
 interface CreateAgentPanelProps {
   open: boolean;
@@ -166,18 +165,13 @@ export default function CreateAgentPanel({
 
         <div className="block">
           <span className="text-xs font-medium text-secondary">Tools</span>
-          <div className="mt-2 flex flex-wrap gap-3">
-            {AVAILABLE_TOOLS.map((tool) => (
-              <label key={tool} className="flex items-center gap-1.5 text-sm text-secondary cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={(agent.tools || []).includes(tool)}
-                  onChange={() => onChange(toggleTool(agent, tool))}
-                  className="accent-brand"
-                />
-                <span className="capitalize">{tool.replace(/_/g, " ")}</span>
-              </label>
-            ))}
+          <div className="mt-2">
+            <ToolsGrid
+              selectedTools={agent.tools || []}
+              values={{ web_search_max_results: agent.web_search_max_results, jira_tickets_limit: agent.jira_tickets_limit }}
+              onToggle={(tool) => onChange(toggleTool(agent, tool))}
+              onValueChange={(key, value) => onChange({ ...agent, [key]: value })}
+            />
           </div>
         </div>
 

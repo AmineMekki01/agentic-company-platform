@@ -1,5 +1,5 @@
 import type { AgentSetting, AgentSettingCreate } from "@/lib/api";
-import { AVAILABLE_TOOLS } from "../agentUtils";
+import ToolsGrid from "../ToolsGrid";
 
 interface Props {
   selected: AgentSetting;
@@ -7,25 +7,19 @@ interface Props {
   toggleTool: (agent: AgentSetting | AgentSettingCreate, tool: string) => void;
 }
 
-export default function ToolsTab({ selected, toggleTool }: Props) {
+export default function ToolsTab({ selected, setSelected, toggleTool }: Props) {
   return (
     <div className="space-y-4">
-      <div className="block">
+      <div>
         <span className="text-xs font-medium text-secondary">Enabled Tools</span>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {AVAILABLE_TOOLS.map((tool) => (
-            <label key={tool} className="flex items-center gap-1.5 text-sm text-secondary cursor-pointer">
-              <input
-                type="checkbox"
-                checked={(selected.tools || []).includes(tool)}
-                onChange={() => toggleTool(selected, tool)}
-                className="accent-brand"
-              />
-              <span className="capitalize">{tool.replace(/_/g, " ")}</span>
-            </label>
-          ))}
-        </div>
+        <p className="text-xs text-tertiary mt-0.5">Choose what this agent can do beyond answering from its knowledge sources.</p>
       </div>
+      <ToolsGrid
+        selectedTools={selected.tools || []}
+        values={{ web_search_max_results: selected.web_search_max_results, jira_tickets_limit: selected.jira_tickets_limit }}
+        onToggle={(tool) => toggleTool(selected, tool)}
+        onValueChange={(key, value) => setSelected({ ...selected, [key]: value })}
+      />
     </div>
   );
 }

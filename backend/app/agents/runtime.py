@@ -318,6 +318,8 @@ async def build_graph_config(
         routes_to = _val("routes_to", row.routes_to) if (draft and "routes_to" in draft) else row.routes_to
         connected_sources = _val("connected_sources", row.connected_sources) if (draft and "connected_sources" in draft) else row.connected_sources
         retrieval_top_k = _val("retrieval_top_k", row.retrieval_top_k)
+        web_search_max_results = _val("web_search_max_results", row.web_search_max_results)
+        jira_tickets_limit = _val("jira_tickets_limit", row.jira_tickets_limit)
         agent_type = _val("agent_type", row.agent_type) if (draft and "agent_type" in draft) else (row.agent_type or "standard")
         research_config = _val("research_config", row.research_config) if (draft and "research_config" in draft) else row.research_config
         memory_enabled = _val("memory_enabled", row.memory_enabled) if (draft and "memory_enabled" in draft) else (row.memory_enabled if row.memory_enabled is not None else False)
@@ -344,6 +346,8 @@ async def build_graph_config(
             "model": model_name,
             "system_prompt": system_prompt,
             "retrieval_top_k": retrieval_top_k or 5,
+            "web_search_max_results": web_search_max_results or 5,
+            "jira_tickets_limit": jira_tickets_limit or 20,
             "connected_sources": sources,
             "agent_type": agent_type,
             "research_config": research_config,
@@ -365,6 +369,8 @@ async def build_graph_config(
             "model": chat_spec.default_model,
             "system_prompt": chat_spec.system_prompt,
             "retrieval_top_k": 5,
+            "web_search_max_results": 5,
+            "jira_tickets_limit": 20,
             "connected_sources": [],
             "agent_type": "standard",
             "research_config": None,

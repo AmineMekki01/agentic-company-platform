@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Annotated
 
-from langchain_core.tools import tool
+from langchain_core.tools import InjectedToolArg, tool
 
 from app.services.rag import RetrievedChunk, get_rag_service
 
@@ -66,16 +66,19 @@ async def retrieve(
 
 
 @tool
-async def web_search(query: Annotated[str, "The web search query"]) -> str:
+async def web_search(
+    query: Annotated[str, "The web search query"],
+    max_results: Annotated[int, InjectedToolArg] = 5,
+) -> str:
     """
     Search the public web for real-time information.
-    
+
     Use this for current events, external facts, market data, or anything not
     covered by the internal knowledge base. Returns a summary of top results.
-    
+
     Args:
         query: The web search query
-        
+
     Returns:
         Summary of top web search results
     """
@@ -84,11 +87,13 @@ async def web_search(query: Annotated[str, "The web search query"]) -> str:
     if not settings.tavily_api_key:
         return json.dumps({"text": "Web search is not configured (missing TAVILY_API_KEY).", "sources": []})
 
+    max_results = max(1, min(max_results or 5, 20))
+
     try:
         from tavily import AsyncTavilyClient
 
         client = AsyncTavilyClient(api_key=settings.tavily_api_key)
-        resp = await client.search(query, max_results=5, search_depth="basic")
+        resp = await client.search(query, max_results=max_results, search_depth="basic")
         results = resp.get("results", [])
         if not results:
             return json.dumps({"text": "No results found on the web.", "sources": []})

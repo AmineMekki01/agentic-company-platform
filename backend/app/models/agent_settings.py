@@ -34,6 +34,8 @@ class AgentSettings(Base):
     retrieval_top_k: Mapped[int] = mapped_column(nullable=False, server_default="5")
     retrieval_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="1")
     web_search_enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
+    web_search_max_results: Mapped[int] = mapped_column(nullable=False, server_default="5")
+    jira_tickets_limit: Mapped[int] = mapped_column(nullable=False, server_default="20")
     connected_sources: Mapped[list[Any] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
     tools: Mapped[list[str] | None] = mapped_column(JSON(), nullable=True, server_default="[]")
     is_orchestrator: Mapped[bool] = mapped_column(nullable=False, server_default="0")

@@ -33,6 +33,8 @@ class AgentSettingOut(BaseModel):
     retrieval_top_k: int
     retrieval_enabled: bool
     web_search_enabled: bool
+    web_search_max_results: int = 5
+    jira_tickets_limit: int = 20
     connected_sources: list[Any] | None
     tools: list[str] | None
     is_orchestrator: bool
@@ -77,6 +79,8 @@ class AgentSettingUpdate(BaseModel):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     retrieval_enabled: bool = True
     web_search_enabled: bool = False
+    web_search_max_results: int = Field(default=5, ge=1, le=20)
+    jira_tickets_limit: int = Field(default=20, ge=1, le=50)
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False
@@ -112,6 +116,8 @@ class AgentSettingCreate(BaseModel):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     retrieval_enabled: bool = True
     web_search_enabled: bool = False
+    web_search_max_results: int = Field(default=5, ge=1, le=20)
+    jira_tickets_limit: int = Field(default=20, ge=1, le=50)
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False
@@ -164,6 +170,8 @@ class AgentDraftSave(BaseModel):
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     retrieval_enabled: bool = True
     web_search_enabled: bool = False
+    web_search_max_results: int = Field(default=5, ge=1, le=20)
+    jira_tickets_limit: int = Field(default=20, ge=1, le=50)
     connected_sources: list[str] | None = None
     tools: list[str] | None = None
     is_orchestrator: bool = False

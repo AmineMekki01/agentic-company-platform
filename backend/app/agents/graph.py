@@ -17,12 +17,19 @@ from app.agents.llm import get_chat_model
 from app.agents.registry import AgentSpec
 from app.agents.state import AgentState
 from app.agents.tools import read_skill, retrieve, web_search
-from app.agents.tools_jira import create_jira_ticket
+from app.agents.tools_jira import create_jira_ticket, get_jira_ticket, get_my_jira_tickets
 from app.services.token_tracker import record_usage as _record_token_usage
 
 logger = logging.getLogger(__name__)
 
-_TOOL_REGISTRY = {"retrieve": retrieve, "web_search": web_search, "create_jira_ticket": create_jira_ticket, "read_skill": read_skill}
+_TOOL_REGISTRY = {
+    "retrieve": retrieve,
+    "web_search": web_search,
+    "create_jira_ticket": create_jira_ticket,
+    "get_my_jira_tickets": get_my_jira_tickets,
+    "get_jira_ticket": get_jira_ticket,
+    "read_skill": read_skill,
+}
 
 _FALLBACK_PROMPT = "You are a helpful assistant for an internal company platform."
 
@@ -1341,7 +1348,10 @@ def make_tools_node(agent_settings: dict[str, dict]):
                     
             elif name == "web_search":
                 tool_fn = _TOOL_REGISTRY.get("web_search")
-                result = await tool_fn.ainvoke({"query": args.get("query", "")})
+                result = await tool_fn.ainvoke({
+                    "query": args.get("query", ""),
+                    "max_results": cfg.get("web_search_max_results", 5),
+                })
                 logger.info("Web search result: %s", result)
                 results.append(str(result))
 
@@ -1351,8 +1361,25 @@ def make_tools_node(agent_settings: dict[str, dict]):
                     "summary": args.get("summary", ""),
                     "description": args.get("description", ""),
                     "issue_type": args.get("issue_type", "Task"),
+                    "user_email": state.get("user_email"),
                 })
                 logger.info("Jira ticket result: %s", result)
+                results.append(str(result))
+
+            elif name == "get_my_jira_tickets":
+                tool_fn = _TOOL_REGISTRY.get("get_my_jira_tickets")
+                result = await tool_fn.ainvoke({
+                    "user_email": state.get("user_email"),
+                    "max_results": cfg.get("jira_tickets_limit", 20),
+                })
+                results.append(str(result))
+
+            elif name == "get_jira_ticket":
+                tool_fn = _TOOL_REGISTRY.get("get_jira_ticket")
+                result = await tool_fn.ainvoke({
+                    "ticket_key": args.get("ticket_key", ""),
+                    "user_email": state.get("user_email"),
+                })
                 results.append(str(result))
 
             elif name == "read_skill":

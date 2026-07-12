@@ -125,7 +125,11 @@ class JiraService:
             }
         }
         if reporter_email:
-            payload["fields"]["reporter"] = {"emailAddress": reporter_email}
+            account_id = await self.find_account_id(reporter_email)
+            if account_id:
+                payload["fields"]["reporter"] = {"id": account_id}
+            else:
+                logger.warning("No Jira account found for reporter email %s; issue will be unattributed", reporter_email)
 
         logger.warning("Jira create payload: %s", json.dumps(payload))
         data = await self._request("POST", "/issue", json=payload)
@@ -135,6 +139,52 @@ class JiraService:
     async def get_issue(self, issue_key: str) -> dict[str, Any]:
         """Fetch an existing Jira issue."""
         return await self._request("GET", f"/issue/{issue_key}")
+
+    async def search_issues(self, jql: str, max_results: int = 20) -> list[dict[str, Any]]:
+        """Search issues via JQL, returning the raw issue list.
+
+        Uses /search/jql — Atlassian removed the old /search endpoint (410 Gone).
+        """
+        data = await self._request(
+            "POST",
+            "/search/jql",
+            json={"jql": jql, "maxResults": max_results, "fields": ["summary", "status", "updated"]},
+        )
+        logger.info("Jira search_issues jql=%r raw_response_keys=%s", jql, list(data.keys()))
+        return data.get("issues", [])
+
+    async def get_comments(self, issue_key: str) -> list[dict[str, Any]]:
+        """Fetch comments for an issue, oldest first."""
+        data = await self._request("GET", f"/issue/{issue_key}/comment")
+        return data.get("comments", [])
+
+    async def find_account_id(self, email: str) -> str | None:
+        """Resolve a Jira accountId from an email address.
+
+        JQL `reporter = "<email>"` silently matches nothing on most Jira Cloud
+        sites because of privacy settings, even when the email is correct —
+        searching must go through accountId instead.
+        """
+        users = await self._request("GET", "/user/search", params={"query": email})
+        if not isinstance(users, list) or not users:
+            return None
+        for user in users:
+            if (user.get("emailAddress") or "").lower() == email.lower():
+                return user.get("accountId")
+        return users[0].get("accountId")
+
+
+def adf_to_text(node: dict[str, Any] | None) -> str:
+    """Flatten an Atlassian Document Format node into plain text."""
+    if not node:
+        return ""
+    if node.get("type") == "text":
+        return node.get("text", "")
+    parts = [adf_to_text(child) for child in node.get("content", [])]
+    text = " ".join(p for p in parts if p)
+    if node.get("type") in ("paragraph", "heading"):
+        text += "\n"
+    return text
 
 
 async def get_jira_service_from_connector(connector: Connector) -> JiraService:

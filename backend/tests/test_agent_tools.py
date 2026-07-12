@@ -81,6 +81,40 @@ async def test_web_search_success(monkeypatch):
     assert data["sources"][0]["title"] == "Result 1"
 
 
+async def test_web_search_uses_configured_max_results(monkeypatch):
+    from app.agents import tools
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "tavily_api_key", "fake-key")
+    captured = {}
+
+    class FakeTavilyClient:
+        async def search(self, query, max_results=5, search_depth="basic"):
+            captured["max_results"] = max_results
+            return {"results": []}
+
+    monkeypatch.setattr("tavily.AsyncTavilyClient", lambda api_key: FakeTavilyClient())
+    await tools.web_search.ainvoke({"query": "test", "max_results": 3})
+    assert captured["max_results"] == 3
+
+
+async def test_web_search_clamps_max_results(monkeypatch):
+    from app.agents import tools
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "tavily_api_key", "fake-key")
+    captured = {}
+
+    class FakeTavilyClient:
+        async def search(self, query, max_results=5, search_depth="basic"):
+            captured["max_results"] = max_results
+            return {"results": []}
+
+    monkeypatch.setattr("tavily.AsyncTavilyClient", lambda api_key: FakeTavilyClient())
+    await tools.web_search.ainvoke({"query": "test", "max_results": 100})
+    assert captured["max_results"] == 20
+
+
 async def test_web_search_no_results(monkeypatch):
     from app.agents import tools
     from app.core.config import settings
