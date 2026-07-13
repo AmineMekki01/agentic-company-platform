@@ -8,24 +8,29 @@ from pydantic import BaseModel, ConfigDict
 class ConnectorCreate(BaseModel):
     """
     Connector create schema.
-    
-    This schema represents the connector create data that can be sent
-    by clients, including:
-    - Connector slug
-    - Connector name
-    - Connector type
-    - Connector credentials
+
+    Connectors reference a Secret for credentials rather than storing their
+    own - `secret_id` must point to a Secret whose secret_type matches
+    connector_type.
     """
     slug: str
     name: str
     connector_type: str
-    credentials: dict[str, Any]
+    secret_id: UUID
+    config: dict[str, Any] | None = None
+
+
+class ConnectorUpdate(BaseModel):
+    """Partial update - rename, re-point to a different secret, or change config."""
+    name: str | None = None
+    secret_id: UUID | None = None
+    config: dict[str, Any] | None = None
 
 
 class ConnectorOut(BaseModel):
     """
     Connector output schema.
-    
+
     This schema represents the connector data that can be returned to clients,
     including:
     - Connector ID
@@ -38,6 +43,9 @@ class ConnectorOut(BaseModel):
     slug: str
     name: str
     connector_type: str
+    secret_id: UUID | None
+    secret_name: str | None = None
+    config: dict[str, Any] | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

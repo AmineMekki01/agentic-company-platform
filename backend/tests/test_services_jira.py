@@ -286,21 +286,25 @@ def test_adf_to_text_empty():
 async def test_get_jira_service_from_connector():
     from cryptography.fernet import Fernet
     from app.core.config import settings
-    from app.core.encryption import EncryptionService
-    from app.models import Connector
+    from app.models import Connector, Secret
+    from app.services.secrets import encrypt_credentials
 
     old_key = settings.fernet_key
     settings.fernet_key = Fernet.generate_key().decode()
     try:
-        crypto = EncryptionService()
-        creds = {"base_url": "https://test.atlassian.net", "email": "u@t.com", "api_token": "tok", "project_key": "PROJ"}
-        encrypted = crypto.encrypt(json.dumps(creds))
-
+        creds = {"base_url": "https://test.atlassian.net", "email": "u@t.com", "api_token": "tok"}
+        secret = Secret(
+            slug="jira-secret",
+            name="Jira Secret",
+            secret_type="jira",
+            credentials_encrypted=encrypt_credentials(creds),
+        )
         connector = Connector(
             slug="jira-conn",
             name="Jira",
             connector_type="jira",
-            credentials_encrypted=encrypted,
+            secret=secret,
+            config={"project_key": "PROJ"},
         )
 
         svc = await get_jira_service_from_connector(connector)

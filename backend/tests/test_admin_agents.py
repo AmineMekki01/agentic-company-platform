@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from app.main import app as fastapi_app
-from app.models import AgentSettings, AgentVersion, Connector, UploadSettings
+from app.models import AgentSettings, AgentVersion, Connector, Secret, UploadSettings
 
 pytestmark = pytest.mark.asyncio
 
@@ -36,7 +36,10 @@ async def _seed_upload_settings(session_factory, monkeypatch=None):
     if monkeypatch:
         monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
     async with session_factory() as session:
-        conn = Connector(slug="s3-uploads", name="S3", connector_type="s3", credentials_encrypted="enc")
+        secret = Secret(slug="s3-uploads-secret", name="S3 Secret", secret_type="s3", credentials_encrypted="enc")
+        session.add(secret)
+        await session.flush()
+        conn = Connector(slug="s3-uploads", name="S3", connector_type="s3", secret_id=secret.id)
         session.add(conn)
         await session.commit()
         await session.refresh(conn)

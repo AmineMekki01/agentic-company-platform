@@ -279,11 +279,16 @@ async def test_upload_screenshot_success(client, admin_headers, session_factory,
             settings.s3_bucket = "test-bucket"
         await session.commit()
 
-    # Create an S3 connector
+    # Create an S3 secret, then a connector referencing it
+    secret_res = await client.post(
+        "/api/admin/secrets",
+        headers=admin_headers,
+        json={"slug": "s3-test-secret", "name": "S3 Test Secret", "secret_type": "s3", "credentials": {"access_key": "ak", "secret_key": "sk"}},
+    )
     await client.post(
         "/api/admin/connectors",
         headers=admin_headers,
-        json={"slug": "s3-test", "name": "S3 Test", "connector_type": "s3", "credentials": {"access_key": "ak", "secret_key": "sk"}},
+        json={"slug": "s3-test", "name": "S3 Test", "connector_type": "s3", "secret_id": secret_res.json()["id"]},
     )
 
     # Mock boto3 S3 client
@@ -321,10 +326,15 @@ async def test_feedback_with_screenshot_attachment(client, auth_headers, admin_h
             settings.s3_bucket = "test-bucket"
         await session.commit()
 
+    secret_res = await client.post(
+        "/api/admin/secrets",
+        headers=admin_headers,
+        json={"slug": "s3-test2-secret", "name": "S3 Test2 Secret", "secret_type": "s3", "credentials": {"access_key": "ak", "secret_key": "sk"}},
+    )
     await client.post(
         "/api/admin/connectors",
         headers=admin_headers,
-        json={"slug": "s3-test2", "name": "S3 Test2", "connector_type": "s3", "credentials": {"access_key": "ak", "secret_key": "sk"}},
+        json={"slug": "s3-test2", "name": "S3 Test2", "connector_type": "s3", "secret_id": secret_res.json()["id"]},
     )
 
     mock_s3 = MagicMock()

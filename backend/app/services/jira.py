@@ -7,9 +7,9 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.core.encryption import EncryptionService
 from app.db.session import async_session_factory
 from app.models import Connector
+from app.services.secrets import get_connector_credentials
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
@@ -190,21 +190,20 @@ def adf_to_text(node: dict[str, Any] | None) -> str:
 async def get_jira_service_from_connector(connector: Connector) -> JiraService:
     """
     Build a JiraService from a stored Connector row.
-    
+
     Args:
         connector: Connector row from the database
-        
+
     Returns:
         JiraService instance
     """
-    crypto = EncryptionService()
-    creds_str = crypto.decrypt(connector.credentials_encrypted)
-    creds = json.loads(creds_str.replace("'", '"'))
+    creds = get_connector_credentials(connector)
+    config = connector.config or {}
     return JiraService(
         base_url=creds["base_url"],
         email=creds["email"],
         api_token=creds["api_token"],
-        project_key=creds.get("project_key"),
+        project_key=config.get("project_key"),
     )
 
 

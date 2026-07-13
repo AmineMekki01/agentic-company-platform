@@ -10,10 +10,10 @@ from sqlalchemy import select
 
 from app.api.conversations import get_owned_conversation
 from app.api.deps import CurrentUser, DbSession
-from app.core.encryption import EncryptionService
 from app.models import ChatAttachment, Connector, UploadSettings
 from app.schemas.chat import ChatAttachmentOut
 from app.services.parsers import parse_upload
+from app.services.secrets import get_connector_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -92,16 +92,7 @@ async def upload_chat_file(
             detail="No S3 connector available for uploads",
         )
 
-    crypto = EncryptionService()
-    creds_str = crypto.decrypt(connector.credentials_encrypted)
-    try:
-        import json
-
-        credentials = json.loads(creds_str)
-    except Exception:
-        import ast
-
-        credentials = ast.literal_eval(creds_str)
+    credentials = get_connector_credentials(connector)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     safe_name = _sanitize_filename(file.filename or "upload")

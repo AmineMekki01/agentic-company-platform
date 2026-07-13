@@ -19,6 +19,7 @@ from app.models.knowledge_source import KnowledgeSource
 from app.models.llm_settings import LLMSettings
 from app.models.message import Message
 from app.models.message_feedback import MessageFeedback
+from app.models.secret import Secret
 from app.models.skill import Skill
 from app.models.token_budget import TokenBudget
 from app.models.token_usage import TokenUsage
@@ -47,6 +48,7 @@ __all__ = [
     "LLMSettings",
     "Message",
     "MessageFeedback",
+    "Secret",
     "Skill",
     "TokenBudget",
     "TokenUsage",

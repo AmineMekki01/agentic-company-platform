@@ -899,11 +899,7 @@ async def generate_jira_ticket_draft(
     connector = await get_first_jira_connector()
     project_key = None
     if connector:
-        from app.core.encryption import EncryptionService
-        crypto = EncryptionService()
-        creds_str = crypto.decrypt(connector.credentials_encrypted)
-        creds = json.loads(creds_str.replace("'", '"'))
-        project_key = creds.get("project_key")
+        project_key = (connector.config or {}).get("project_key")
 
     return JiraTicketDraft(
         summary=draft.get("summary", "Support request")[:255],
@@ -948,11 +944,7 @@ async def create_jira_ticket(
 
     pk = body.project_key
     if not pk:
-        from app.core.encryption import EncryptionService
-        crypto = EncryptionService()
-        creds_str = crypto.decrypt(connector.credentials_encrypted)
-        creds = json.loads(creds_str.replace("'", '"'))
-        pk = creds.get("project_key")
+        pk = (connector.config or {}).get("project_key")
 
     if not pk:
         raise HTTPException(

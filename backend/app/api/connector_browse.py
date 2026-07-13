@@ -1,6 +1,5 @@
 """Browse Notion content (databases, pages) and S3 buckets from a connector credential."""
 
-import json
 import logging
 from typing import Any
 
@@ -10,10 +9,10 @@ from notion_client.errors import APIResponseError
 from sqlalchemy import select
 
 from app.api.deps import AdminUser, DbSession
-from app.core.encryption import EncryptionService
 from app.models import Connector
 from app.schemas.connector import GDriveResource, NotionResource, S3Bucket
-from app.services.s3 import _decrypt_credentials, _get_s3_client
+from app.services.s3 import _get_s3_client
+from app.services.secrets import get_connector_credentials, get_connector_credentials_encrypted
 
 router = APIRouter(prefix="/admin/connectors/{slug}/browse", tags=["admin"])
 
@@ -21,19 +20,17 @@ router = APIRouter(prefix="/admin/connectors/{slug}/browse", tags=["admin"])
 def _get_notion_client(connector: Connector) -> Any:
     """
     Get a Notion client from the connector.
-    
+
     Args:
         connector: The connector to get the client from
-        
+
     Returns:
         Notion client
-        
+
     Raises:
         HTTPException: If no Notion token is found in the connector credentials
     """
-    crypto = EncryptionService()
-    creds_str = crypto.decrypt(connector.credentials_encrypted)
-    creds = json.loads(creds_str.replace("'", '"'))
+    creds = get_connector_credentials(connector)
     token = creds.get("token") or creds.get("api_key") or creds.get("integration_token")
     if not token:
         raise HTTPException(status_code=400, detail="No Notion token found in connector credentials")
@@ -391,7 +388,7 @@ async def list_s3_buckets(
         raise HTTPException(status_code=400, detail="Connector is not an S3 connector")
 
     try:
-        creds = _decrypt_credentials(conn.credentials_encrypted)
+        creds = get_connector_credentials(conn)
         client = _get_s3_client(creds)
         resp = client.list_buckets()
         buckets = resp.get("Buckets", [])
@@ -415,7 +412,7 @@ async def list_s3_buckets(
 def _get_gdrive_service(connector: Connector):
     """Build a Google Drive service from a stored connector row."""
     from app.services.gdrive import _get_drive_service
-    return _get_drive_service(connector.credentials_encrypted)
+    return _get_drive_service(get_connector_credentials_encrypted(connector))
 
 
 async def _get_gdrive_connector_or_404(slug: str, db: DbSession) -> Connector:

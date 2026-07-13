@@ -10,6 +10,7 @@ import AdminConnectors from "@/pages/AdminConnectors";
 import AdminHealth from "@/pages/AdminHealth";
 import AdminKnowledgeSources from "@/pages/AdminKnowledgeSources";
 import AdminLLMModels from "@/pages/AdminLLMModels";
+import AdminSecrets from "@/pages/AdminSecrets";
 import AdminUploadSettings from "@/pages/AdminUploadSettings";
 import AdminUsage from "@/pages/AdminUsage";
 import ChatPage from "@/pages/ChatPage";
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="skills" element={<AdminSkills />} />
         <Route path="knowledge-sources" element={<AdminKnowledgeSources />} />
         <Route path="llm-models" element={<AdminLLMModels />} />
+        <Route path="secrets" element={<AdminSecrets />} />
         <Route path="connectors" element={<AdminConnectors />} />
         <Route path="system-status" element={<AdminHealth />} />
         <Route path="upload-settings" element={<AdminUploadSettings />} />
