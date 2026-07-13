@@ -13,6 +13,7 @@ from app.services.gdrive import sync_gdrive_folder
 from app.services.notion import sync_notion_database, sync_notion_page
 from app.services.rag import get_rag_service
 from app.services.s3 import sync_s3_prefix
+from app.services.secrets import get_connector_credentials_encrypted
 
 router = APIRouter(prefix="/admin/knowledge-sources", tags=["admin"])
 
@@ -210,7 +211,7 @@ async def trigger_knowledge_source_sync(
             task = sync_notion_database.delay(
                 database_id=str(database_id),
                 source_title=ks.name,
-                connector_credentials=connector.credentials_encrypted,
+                connector_credentials=get_connector_credentials_encrypted(connector),
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
                 force_full=force_full,
@@ -221,7 +222,7 @@ async def trigger_knowledge_source_sync(
                 page_id=str(page_id),
                 page_title=str(page_title),
                 source_title=ks.name,
-                connector_credentials=connector.credentials_encrypted,
+                connector_credentials=get_connector_credentials_encrypted(connector),
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
                 force_full=force_full,
@@ -244,7 +245,7 @@ async def trigger_knowledge_source_sync(
             bucket=str(bucket),
             prefix=str(prefix),
             source_title=ks.name,
-            connector_credentials=connector.credentials_encrypted,
+            connector_credentials=get_connector_credentials_encrypted(connector),
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
             force_full=force_full,
@@ -265,7 +266,7 @@ async def trigger_knowledge_source_sync(
         task = sync_gdrive_folder.delay(
             folder_id=str(folder_id),
             source_title=ks.name,
-            connector_credentials=connector.credentials_encrypted,
+            connector_credentials=get_connector_credentials_encrypted(connector),
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
             force_full=force_full,

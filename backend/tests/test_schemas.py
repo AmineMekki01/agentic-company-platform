@@ -83,12 +83,15 @@ def test_agent_setting_update_defaults():
 
 
 def test_connector_create_validation():
+    import uuid
+
+    secret_id = uuid.uuid4()
     conn = ConnectorCreate(
         slug="s3", name="S3", connector_type="s3",
-        credentials={"access_key": "AKIA..."},
+        secret_id=secret_id,
     )
     assert conn.slug == "s3"
-    assert conn.credentials["access_key"] == "AKIA..."
+    assert conn.secret_id == secret_id
 
 
 def test_knowledge_source_create_validation():

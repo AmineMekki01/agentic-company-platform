@@ -19,7 +19,6 @@ async def _purge():
 
     from sqlalchemy import select
 
-    from app.core.encryption import EncryptionService
     from app.db.celery_session import get_celery_session_factory
     from app.models import ChatAttachment, Connector, UploadSettings
 
@@ -33,16 +32,9 @@ async def _purge():
                 select(Connector).where(Connector.id == upload_settings.s3_connector_id)
             )
             if connector:
-                crypto = EncryptionService()
-                creds_str = crypto.decrypt(connector.credentials_encrypted)
-                try:
-                    import json
+                from app.services.secrets import get_connector_credentials
 
-                    credentials = json.loads(creds_str)
-                except Exception:
-                    import ast
-
-                    credentials = ast.literal_eval(creds_str)
+                credentials = get_connector_credentials(connector)
 
                 import boto3
 

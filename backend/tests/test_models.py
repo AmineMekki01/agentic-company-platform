@@ -84,18 +84,29 @@ async def test_token_usage_cost_calculation(session_factory):
 
 
 async def test_connector_encrypted_field(session_factory):
-    from app.models import Connector
+    from sqlalchemy import select
+
+    from app.models import Connector, Secret
     async with session_factory() as session:
+        secret = Secret(
+            slug="test-secret",
+            name="Test Secret",
+            secret_type="s3",
+            credentials_encrypted="encrypted-string-here",
+        )
+        session.add(secret)
+        await session.flush()
         conn = Connector(
             slug="test-conn",
             name="Test",
             connector_type="s3",
-            credentials_encrypted="encrypted-string-here",
+            secret_id=secret.id,
         )
         session.add(conn)
         await session.commit()
-        await session.refresh(conn)
-        assert conn.credentials_encrypted == "encrypted-string-here"
+
+        loaded = await session.scalar(select(Connector).where(Connector.slug == "test-conn"))
+        assert loaded.secret.credentials_encrypted == "encrypted-string-here"
 
 
 async def test_knowledge_source_fields(session_factory):

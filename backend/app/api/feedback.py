@@ -14,7 +14,7 @@ from fastapi import UploadFile
 
 from app.api.conversations import get_owned_conversation
 from app.api.deps import AdminUser, CurrentUser, DbSession
-from app.core.encryption import EncryptionService
+from app.services.secrets import get_connector_credentials
 from app.models import (
     Conversation,
     FeedbackAttachment,
@@ -296,14 +296,7 @@ async def upload_feedback_screenshot(
             detail="No S3 connector available for uploads",
         )
 
-    crypto = EncryptionService()
-    creds_str = crypto.decrypt(connector.credentials_encrypted)
-    try:
-        import json
-        credentials = json.loads(creds_str)
-    except Exception:
-        import ast
-        credentials = ast.literal_eval(creds_str)
+    credentials = get_connector_credentials(connector)
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     safe_name = _sanitize_filename(file.filename or "upload")

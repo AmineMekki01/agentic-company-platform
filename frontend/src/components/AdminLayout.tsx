@@ -1,5 +1,5 @@
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import { Bot, BookOpen, ChevronRight, Cpu, HardDrive, LogOut, MessageSquare, Plug, Store, BarChart3, Activity, Sparkles } from "lucide-react";
+import { Bot, BookOpen, ChevronRight, Cpu, HardDrive, KeyRound, LogOut, MessageSquare, Plug, Store, BarChart3, Activity, Sparkles } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -16,6 +16,7 @@ const navGroups = [
   {
     label: "Integrations",
     items: [
+      { to: "/admin/secrets", label: "Secrets", icon: KeyRound },
       { to: "/admin/connectors", label: "Connectors", icon: Plug },
       { to: "/admin/knowledge-sources", label: "Knowledge Sources", icon: BookOpen },
       { to: "/admin/upload-settings", label: "Upload Settings", icon: HardDrive },

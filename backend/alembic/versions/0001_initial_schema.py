@@ -188,15 +188,35 @@ def upgrade() -> None:
         ondelete="SET NULL",
     )
 
+    # secrets
+    op.create_table(
+        "secrets",
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
+        sa.Column("slug", sa.String(length=50), nullable=False, unique=True),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("secret_type", sa.Enum("s3", "gdrive", "notion", "jira", "custom", name="secret_type"), nullable=False),
+        sa.Column("credentials_encrypted", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    )
+
     # connectors
     op.create_table(
         "connectors",
         sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
         sa.Column("slug", sa.String(length=50), nullable=False, unique=True),
         sa.Column("name", sa.String(length=200), nullable=False),
-        sa.Column("connector_type", sa.Enum("notion", "s3", "sharepoint", "jira", "gdrive", name="connector_type"), nullable=False),
-        sa.Column("credentials_encrypted", sa.Text(), nullable=False),
+        sa.Column("connector_type", sa.Enum("notion", "s3", "jira", "gdrive", name="connector_type"), nullable=False),
+        sa.Column("secret_id", sa.Uuid(), nullable=True),
+        sa.Column("config", sa.JSON(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    )
+    op.create_foreign_key(
+        "fk_connectors_secret",
+        "connectors",
+        "secrets",
+        ["secret_id"],
+        ["id"],
     )
 
     # knowledge_sources
@@ -799,6 +819,8 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS knowledge_source_type")
     op.drop_table("connectors")
     op.execute("DROP TYPE IF EXISTS connector_type")
+    op.drop_table("secrets")
+    op.execute("DROP TYPE IF EXISTS secret_type")
     op.drop_constraint("fk_agent_settings_published_version", "agent_settings", type_="foreignkey")
     op.drop_index("ix_agent_versions_version_number", table_name="agent_versions")
     op.drop_index("ix_agent_versions_agent_settings_id", table_name="agent_versions")

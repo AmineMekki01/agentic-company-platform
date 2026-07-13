@@ -5,9 +5,47 @@ from cryptography.fernet import Fernet
 from unittest.mock import MagicMock
 
 from app.core.config import settings
-from app.models import Connector, KnowledgeSource
+from app.models import Connector, KnowledgeSource, Secret
 
 pytestmark = pytest.mark.asyncio
+
+
+async def _seed_connector(session_factory, slug: str, connector_type: str, credentials: str) -> Connector:
+    """Create a Secret + Connector pair directly via the DB, pre-encrypted `credentials` JSON string."""
+    from app.core.encryption import EncryptionService
+
+    crypto = EncryptionService()
+    async with session_factory() as session:
+        secret = Secret(
+            slug=f"{slug}-secret",
+            name=f"{slug} secret",
+            secret_type=connector_type,
+            credentials_encrypted=crypto.encrypt(credentials),
+        )
+        session.add(secret)
+        await session.flush()
+        connector = Connector(slug=slug, name=slug, connector_type=connector_type, secret_id=secret.id)
+        session.add(connector)
+        await session.commit()
+        await session.refresh(connector)
+        return connector
+
+
+async def _create_connector_via_api(client, admin_headers, slug: str, connector_type: str, credentials: dict) -> str:
+    """Create a Secret + Connector via the admin API. Returns the connector id."""
+    secret_res = await client.post(
+        "/api/admin/secrets",
+        headers=admin_headers,
+        json={"slug": f"{slug}-secret", "name": f"{slug} secret", "secret_type": connector_type, "credentials": credentials},
+    )
+    assert secret_res.status_code == 201, secret_res.text
+    conn_res = await client.post(
+        "/api/admin/connectors",
+        headers=admin_headers,
+        json={"slug": slug, "name": slug, "connector_type": connector_type, "secret_id": secret_res.json()["id"]},
+    )
+    assert conn_res.status_code == 201, conn_res.text
+    return conn_res.json()["id"]
 
 
 async def test_list_knowledge_sources_admin_only(client, auth_headers):
@@ -17,11 +55,7 @@ async def test_list_knowledge_sources_admin_only(client, auth_headers):
 
 async def test_create_knowledge_source(client, admin_headers, monkeypatch):
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    connector = await client.post(
-        "/api/admin/connectors",
-        headers=admin_headers,
-        json={"slug": "s3-conn", "name": "S3", "connector_type": "s3", "credentials": {"k": "v"}},
-    )
+    connector_id = await _create_connector_via_api(client, admin_headers, "s3-conn", "s3", {"access_key": "ak", "secret_key": "sk"})
     res = await client.post(
         "/api/admin/knowledge-sources",
         headers=admin_headers,
@@ -30,7 +64,7 @@ async def test_create_knowledge_source(client, admin_headers, monkeypatch):
             "name": "My Source",
             "source_type": "s3",
             "config": {"bucket": "test-bucket", "prefix": "data/"},
-            "connector_id": connector.json()["id"],
+            "connector_id": connector_id,
         },
     )
     assert res.status_code == 201
@@ -78,13 +112,8 @@ async def test_sync_nonexistent_ks(client, admin_headers):
 
 
 async def test_create_duplicate_slug(client, admin_headers, monkeypatch):
-    from cryptography.fernet import Fernet
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    await client.post(
-        "/api/admin/connectors",
-        headers=admin_headers,
-        json={"slug": "s3-conn-dup", "name": "S3", "connector_type": "s3", "credentials": {"k": "v"}},
-    )
+    await _create_connector_via_api(client, admin_headers, "s3-conn-dup", "s3", {"access_key": "ak", "secret_key": "sk"})
     payload = {
         "slug": "dup-source",
         "name": "First",
@@ -97,7 +126,6 @@ async def test_create_duplicate_slug(client, admin_headers, monkeypatch):
 
 
 async def test_sync_notion_missing_connector(client, admin_headers, session_factory):
-    from app.models import KnowledgeSource
     async with session_factory() as session:
         ks = KnowledgeSource(
             slug="notion-no-conn",
@@ -113,19 +141,10 @@ async def test_sync_notion_missing_connector(client, admin_headers, session_fact
 
 
 async def test_sync_notion_database(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"token": "test_token"}')
+    connector = await _seed_connector(session_factory, "notion-conn", "notion", '{"token": "test_token"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="notion-conn", name="Notion", connector_type="notion", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="notion-src",
             name="Notion Source",
@@ -148,19 +167,10 @@ async def test_sync_notion_database(client, admin_headers, session_factory, monk
 
 
 async def test_sync_notion_page(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"token": "test_token"}')
+    connector = await _seed_connector(session_factory, "notion-conn-p", "notion", '{"token": "test_token"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="notion-conn-p", name="NotionP", connector_type="notion", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="notion-page-src",
             name="Notion Page",
@@ -182,19 +192,10 @@ async def test_sync_notion_page(client, admin_headers, session_factory, monkeypa
 
 
 async def test_sync_s3_source(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"access_key": "ak", "secret_key": "sk"}')
+    connector = await _seed_connector(session_factory, "s3-conn-sync", "s3", '{"access_key": "ak", "secret_key": "sk"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="s3-conn-sync", name="S3Sync", connector_type="s3", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="s3-src",
             name="S3 Source",
@@ -216,19 +217,10 @@ async def test_sync_s3_source(client, admin_headers, session_factory, monkeypatc
 
 
 async def test_sync_gdrive_source(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"service_account_json": "{}"}')
+    connector = await _seed_connector(session_factory, "gdrive-conn", "gdrive", '{"service_account_json": "{}"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="gdrive-conn", name="GDrive", connector_type="gdrive", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="gdrive-src",
             name="GDrive Source",
@@ -250,19 +242,10 @@ async def test_sync_gdrive_source(client, admin_headers, session_factory, monkey
 
 
 async def test_sync_notion_no_config(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"token": "tok"}')
+    connector = await _seed_connector(session_factory, "notion-conn-nocfg", "notion", '{"token": "tok"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="notion-conn-nocfg", name="NotionNoCfg", connector_type="notion", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="notion-nocfg",
             name="Notion No Config",
@@ -278,19 +261,10 @@ async def test_sync_notion_no_config(client, admin_headers, session_factory, mon
 
 
 async def test_sync_s3_no_bucket(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"access_key": "ak", "secret_key": "sk"}')
+    connector = await _seed_connector(session_factory, "s3-conn-nobucket", "s3", '{"access_key": "ak", "secret_key": "sk"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="s3-conn-nobucket", name="S3NoBucket", connector_type="s3", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="s3-nobucket",
             name="S3 No Bucket",
@@ -306,19 +280,10 @@ async def test_sync_s3_no_bucket(client, admin_headers, session_factory, monkeyp
 
 
 async def test_sync_gdrive_no_folder(client, admin_headers, session_factory, monkeypatch):
-    from app.models import KnowledgeSource, Connector
-    from cryptography.fernet import Fernet
-    from app.core.encryption import EncryptionService
-
     monkeypatch.setattr(settings, "fernet_key", Fernet.generate_key().decode())
-    crypto = EncryptionService()
-    creds_encrypted = crypto.encrypt('{"service_account_json": "{}"}')
+    connector = await _seed_connector(session_factory, "gdrive-conn-nofolder", "gdrive", '{"service_account_json": "{}"}')
 
     async with session_factory() as session:
-        connector = Connector(slug="gdrive-conn-nofolder", name="GDriveNoFolder", connector_type="gdrive", credentials_encrypted=creds_encrypted)
-        session.add(connector)
-        await session.commit()
-        await session.refresh(connector)
         ks = KnowledgeSource(
             slug="gdrive-nofolder",
             name="GDrive No Folder",

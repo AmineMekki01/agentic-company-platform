@@ -30,6 +30,7 @@ from app.api.conversation_folders import router as conversation_folders_router
 from app.api.conversations import router as conversations_router
 from app.api.health import router as health_router
 from app.api.knowledge_sources import router as knowledge_sources_router
+from app.api.secrets import router as secrets_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
@@ -115,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_sources_router, prefix="/api")
     app.include_router(feedback_router, prefix="/api")
     app.include_router(connector_credentials_router, prefix="/api")
+    app.include_router(secrets_router, prefix="/api")
     app.include_router(connector_browse_router, prefix="/api")
 
     return app
