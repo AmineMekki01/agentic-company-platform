@@ -869,11 +869,6 @@ def upgrade() -> None:
         ["tenant_id", "owner_agent_slug"], ["tenant_id", "slug"], ondelete="CASCADE",
     )
 
-    # Users email: unique -> per-tenant unique; keep a plain (non-unique) index on email
-    op.drop_index("ix_users_email", table_name="users")
-    op.create_index("ix_users_email", "users", ["email"])
-    op.create_unique_constraint("uq_users_tenant_email", "users", ["tenant_id", "email"])
-
     # ===== Row-Level Security =====
     apply_rls(op.execute)
 
@@ -893,10 +888,6 @@ def downgrade() -> None:
     remove_rls(op.execute)
 
     # ===== undo constraints =====
-    op.drop_constraint("uq_users_tenant_email", "users", type_="unique")
-    op.drop_index("ix_users_email", table_name="users")
-    op.create_index("ix_users_email", "users", ["email"], unique=True)
-
     op.drop_constraint("fk_agent_workflows_agent", "agent_workflows", type_="foreignkey")
     op.drop_constraint("fk_skills_agent", "skills", type_="foreignkey")
     op.drop_constraint("fk_agent_skills_agent", "agent_skills", type_="foreignkey")
