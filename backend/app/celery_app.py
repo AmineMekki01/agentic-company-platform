@@ -20,6 +20,15 @@ celery_app.conf.update(
     task_track_started=True,
     task_time_limit=600,
     worker_prefetch_multiplier=1,
+    task_default_queue="interactive",
+    task_routes={
+        "app.tasks.eval_tasks.*": {"queue": "batch"},
+        "app.tasks.memory_maintenance.*": {"queue": "batch"},
+        "app.tasks.retention.*": {"queue": "batch"},
+        "app.services.notion.*": {"queue": "batch"},
+        "app.services.s3.*": {"queue": "batch"},
+        "app.services.gdrive.*": {"queue": "batch"},
+    },
     beat_schedule={
         "process-eval-schedules": {
             "task": "app.tasks.eval_tasks.process_eval_schedules",
@@ -28,6 +37,10 @@ celery_app.conf.update(
         "decay-stale-memories": {
             "task": "app.tasks.memory_maintenance.decay_stale_memories",
             "schedule": 604800.0,  # weekly
+        },
+        "purge-old-traces": {
+            "task": "app.tasks.retention.purge_old_traces",
+            "schedule": 86400.0,  # daily
         },
     },
 )

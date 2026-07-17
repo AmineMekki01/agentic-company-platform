@@ -124,3 +124,31 @@ async def test_knowledge_source_fields(session_factory):
 async def test_user_role_enum():
     assert UserRole.USER == "user"
     assert UserRole.ADMIN == "admin"
+
+
+def test_all_tenant_owned_models_have_tenant_id():
+    import app.models
+    from app.db.base import Base
+    owned = {
+        "users", "agent_settings", "agent_versions", "agent_workflows", "agent_skills",
+        "skills", "agent_memories", "agent_emotion_states", "agent_episodes",
+        "agent_eval_tests", "agent_eval_test_sets", "agent_eval_runs", "agent_eval_results",
+        "agent_eval_schedules", "conversations", "conversation_folders", "messages",
+        "chat_attachments", "message_feedback", "feedback_attachments", "connectors",
+        "secrets", "knowledge_sources", "token_usage", "token_budgets", "upload_settings",
+    }
+    tables = Base.metadata.tables
+    missing = [t for t in owned if "tenant_id" not in tables[t].columns]
+    assert not missing, f"missing tenant_id: {missing}"
+
+
+async def test_tenant_and_settings_link(session_factory):
+    from app.models.tenant import Tenant
+    from app.models.llm_settings import LLMSettings
+    async with session_factory() as s:
+        t = Tenant(slug="acme", name="Acme")
+        s.add(t)
+        await s.flush()
+        s.add(LLMSettings(tenant_id=t.id))
+        await s.commit()
+        assert t.status == "active"

@@ -39,14 +39,18 @@ def verify_password(plain: str, hashed: str) -> bool:
     return _password_hash.verify(plain, hashed)
 
 
-def create_access_token(user_id: uuid.UUID, role: str) -> str:
+def create_access_token(
+    user_id: uuid.UUID, role: str, tenant_id: uuid.UUID | None = None
+) -> str:
     """
     Create a JWT access token for a user.
-    
+
     Args:
         user_id: The user ID
         role: The user role
-        
+        tenant_id: The user's tenant ID (added as a signed claim used to scope
+            the request to the tenant before any DB lookup)
+
     Returns:
         The JWT access token
     """
@@ -56,6 +60,8 @@ def create_access_token(user_id: uuid.UUID, role: str) -> str:
         "exp": datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         "iat": datetime.now(UTC),
     }
+    if tenant_id is not None:
+        payload["tenant_id"] = str(tenant_id)
     return jwt.encode(payload, settings.jwt_secret, algorithm=ALGORITHM)
 
 

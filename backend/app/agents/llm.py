@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator
+from contextvars import ContextVar, Token
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -8,6 +9,23 @@ from langchain_openai import ChatOpenAI
 from app.core.config import settings
 
 OLLAMA_PREFIX = "ollama/"
+
+
+_ollama_base_url: ContextVar[str | None] = ContextVar("ollama_base_url", default=None)
+
+
+def set_ollama_base_url(url: str | None) -> Token:
+    """Set the current tenant's Ollama endpoint for this request/task."""
+    return _ollama_base_url.set(url or None)
+
+
+def reset_ollama_base_url(token: Token) -> None:
+    _ollama_base_url.reset(token)
+
+
+def get_ollama_base_url() -> str:
+    """The current tenant's Ollama endpoint, or the deployment-wide default."""
+    return _ollama_base_url.get() or settings.ollama_base_url
 
 _api_semaphore = asyncio.Semaphore(settings.llm_api_concurrency)
 _local_semaphore = asyncio.Semaphore(settings.llm_local_concurrency)
@@ -60,7 +78,7 @@ def get_chat_model(model: str, temperature: float = 0.3) -> BaseChatModel:
             model=actual_model,
             temperature=temperature,
             api_key="ollama",
-            base_url=settings.ollama_base_url,
+            base_url=get_ollama_base_url(),
             timeout=settings.llm_local_timeout,
             max_retries=settings.llm_max_retries,
         )

@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 import jwt
@@ -16,7 +17,7 @@ _bearer = HTTPBearer(auto_error=False)
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> User:
+) -> AsyncIterator[User]:
     """
     Validate the bearer token and return the authenticated user.
     
@@ -52,7 +53,25 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
-    return user
+
+    resets: list = []
+    if user.tenant_id is not None:
+        from app.agents.llm import reset_ollama_base_url, set_ollama_base_url
+        from app.core.tenant_settings_cache import get_tenant_runtime
+        from app.core.tracing import reset_tracing_mode, set_tracing_mode
+
+        runtime = await get_tenant_runtime(db, user.tenant_id)
+        resets.append((reset_tracing_mode, set_tracing_mode(runtime.tracing_mode)))
+        resets.append((reset_ollama_base_url, set_ollama_base_url(runtime.ollama_base_url)))
+
+    try:
+        yield user
+    finally:
+        for reset, token in reversed(resets):
+            try:
+                reset(token)
+            except Exception:
+                pass
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]

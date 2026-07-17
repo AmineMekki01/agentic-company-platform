@@ -10,6 +10,8 @@ class Settings(BaseSettings):
         environment: Environment (development, staging, production)
         cors_origins: List of allowed CORS origins
         database_url: PostgreSQL database URL
+        database_url_migrations: PostgreSQL database URL for migrations
+        default_tenant_id: Default tenant ID
         qdrant_url: Qdrant vector database URL
         redis_url: Redis URL
         openai_api_key: OpenAI API key
@@ -37,6 +39,8 @@ class Settings(BaseSettings):
     ]
 
     database_url: str = "postgresql+asyncpg://app:app@localhost:5432/app"
+    database_url_migrations: str = "postgresql+asyncpg://app:app@localhost:5432/app"
+    default_tenant_id: str = "00000000-0000-0000-0000-000000000001"
     qdrant_url: str = "http://localhost:6333"
     redis_url: str = "redis://localhost:6379/0"
 
@@ -60,7 +64,7 @@ class Settings(BaseSettings):
 
     rate_limit_chat: str = "30/minute"
     rate_limit_actions: str = "10/minute"
-    rate_limit_storage_uri: str = "memory://"
+    rate_limit_storage_uri: str = "redis://localhost:6379/1"
 
     jira_base_url: str = ""
     jira_email: str = ""
@@ -74,5 +78,6 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = ""
     langfuse_public_host: str = ""
+    langfuse_trace_retention_days: int = 30
 
 settings = Settings()

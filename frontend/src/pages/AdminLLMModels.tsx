@@ -1,7 +1,27 @@
 import { useEffect, useState } from "react";
-import { Cpu, Save, Loader2, Plug, CheckCircle2, XCircle, Cloud, HardDrive } from "lucide-react";
-import { api, type LLMSettings, type OllamaModelInfo, type OllamaTestResult } from "@/lib/api";
+import { Cpu, Save, Loader2, Plug, CheckCircle2, XCircle, Cloud, HardDrive, ShieldCheck } from "lucide-react";
+import { api, type LLMSettings, type OllamaModelInfo, type OllamaTestResult, type TracingMode } from "@/lib/api";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+
+const TRACING_OPTIONS: { value: TracingMode; label: string; description: string }[] = [
+  {
+    value: "full",
+    label: "Full",
+    description:
+      "Record prompts and responses. Needed to debug answers and run evaluations.",
+  },
+  {
+    value: "masked",
+    label: "Masked",
+    description:
+      "Record timing, token counts, tool calls and errors, but redact the prompt and response text.",
+  },
+  {
+    value: "off",
+    label: "Off",
+    description: "Record nothing. No trace data leaves the request.",
+  },
+];
 
 export default function AdminLLMModels() {
   const [settings, setSettings] = useState<LLMSettings | null>(null);
@@ -105,6 +125,7 @@ export default function AdminLLMModels() {
         ollama_enabled: settings.ollama_enabled,
         ollama_base_url: urlInput,
         ollama_enabled_models: settings.ollama_enabled_models,
+        tracing_mode: settings.tracing_mode,
       });
       setSettings(updated);
       setSuccess("Settings saved successfully");
@@ -162,6 +183,58 @@ export default function AdminLLMModels() {
                 {m}
               </span>
             ))}
+          </div>
+        </div>
+
+        {/* Trace capture (privacy) section */}
+        <div className="rounded-2xl border border-line/60 bg-card p-5 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-primary">Trace capture</h2>
+              <p className="text-xs text-tertiary">
+                Traces record what your agents send to and receive from the model — including your
+                documents. This controls how much of that is stored.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {TRACING_OPTIONS.map((opt) => {
+              const selected = settings.tracing_mode === opt.value;
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                    selected
+                      ? "border-brand/50 bg-brand/5"
+                      : "border-line/60 bg-canvas hover:border-line"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="tracing_mode"
+                    value={opt.value}
+                    checked={selected}
+                    onChange={() =>
+                      setSettings((s) => (s ? { ...s, tracing_mode: opt.value } : s))
+                    }
+                    className="mt-0.5 accent-brand"
+                  />
+                  <div>
+                    <div className="text-xs font-medium text-primary">
+                      {opt.label}
+                      {opt.value === "full" && (
+                        <span className="ml-2 text-[10px] font-normal text-tertiary">Default</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-tertiary">{opt.description}</div>
+                  </div>
+                </label>
+              );
+            })}
           </div>
         </div>
 

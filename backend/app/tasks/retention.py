@@ -4,13 +4,39 @@ import logging
 
 from app.celery_app import celery_app
 from app.db.celery_session import run_async
+from app.tasks.base import TenantTask
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(bind=True, max_retries=3)
+def purge_old_traces(self):
+    """Enforce Langfuse trace retention across all tenants.
+
+    Traces hold customer prompts/completions; this bounds how long they live.
+    Time-based and tenant-agnostic, so it runs once rather than per tenant.
+    """
+    from app.services.langfuse_admin import purge_traces_older_than
+
+    deleted = purge_traces_older_than()
+    logger.info("Trace retention purge removed %d traces", deleted)
+    return {"deleted": deleted}
+
+
+@celery_app.task(bind=True, max_retries=3)
 def purge_expired_attachments(self):
-    """Delete S3 objects and DB rows for attachments past retention_until."""
+    """Dispatcher: fan out one purge task per active tenant."""
+    async def _dispatch():
+        from app.db.celery_session import iter_active_tenant_ids
+        for tid in await iter_active_tenant_ids():
+            purge_expired_attachments_for_tenant.delay(tenant_id=str(tid))
+
+    run_async(_dispatch())
+
+
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
+def purge_expired_attachments_for_tenant(self, tenant_id: str):
+    """Delete S3 objects and DB rows for one tenant's attachments past retention."""
     run_async(_purge())
 
 
@@ -19,12 +45,10 @@ async def _purge():
 
     from sqlalchemy import select
 
-    from app.db.celery_session import get_celery_session_factory
+    from app.db.celery_session import tenant_scoped_session
     from app.models import ChatAttachment, Connector, UploadSettings
 
-    session_factory = get_celery_session_factory()
-
-    async with session_factory() as db:
+    async with tenant_scoped_session() as db:
         upload_settings = await db.scalar(select(UploadSettings))
         s3_client = None
         if upload_settings and upload_settings.s3_connector_id:

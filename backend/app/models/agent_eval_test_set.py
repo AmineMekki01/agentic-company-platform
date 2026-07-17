@@ -12,6 +12,9 @@ class AgentEvalTestSet(Base):
     __tablename__ = "agent_eval_test_sets"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     agent_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("agent_settings.id", ondelete="CASCADE"), nullable=False, index=True
     )

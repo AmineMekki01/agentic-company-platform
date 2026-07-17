@@ -92,6 +92,7 @@ async def test_rag_ensure_collection_creates_new():
         client = mock_qdrant_cls.return_value
         client.collection_exists = AsyncMock(return_value=False)
         client.create_collection = AsyncMock()
+        client.create_payload_index = AsyncMock()
 
         with patch("app.services.rag.OpenAIEmbeddings"), \
              patch("app.services.rag.tiktoken.get_encoding"):
@@ -131,6 +132,7 @@ async def test_rag_ensure_collection_old_schema_recreates():
         client.get_collection = AsyncMock(return_value=mock_info)
         client.delete_collection = AsyncMock()
         client.create_collection = AsyncMock()
+        client.create_payload_index = AsyncMock()
 
         with patch("app.services.rag.OpenAIEmbeddings"), \
              patch("app.services.rag.tiktoken.get_encoding"):

@@ -215,6 +215,7 @@ async def trigger_knowledge_source_sync(
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
                 force_full=force_full,
+                tenant_id=str(user.tenant_id),
             )
         else:
             page_title = config.get("page_title", "Untitled")
@@ -226,6 +227,7 @@ async def trigger_knowledge_source_sync(
                 slug=ks.slug,
                 knowledge_source_id=str(ks.id),
                 force_full=force_full,
+                tenant_id=str(user.tenant_id),
             )
         return {"task_id": task.id, "status": "queued"}
 
@@ -249,6 +251,7 @@ async def trigger_knowledge_source_sync(
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
             force_full=force_full,
+            tenant_id=str(user.tenant_id),
         )
         return {"task_id": task.id, "status": "queued"}
 
@@ -270,6 +273,7 @@ async def trigger_knowledge_source_sync(
             slug=ks.slug,
             knowledge_source_id=str(ks.id),
             force_full=force_full,
+            tenant_id=str(user.tenant_id),
         )
         return {"task_id": task.id, "status": "queued"}
 

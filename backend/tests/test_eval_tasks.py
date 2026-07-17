@@ -17,7 +17,7 @@ async def test_run_evaluation_run_not_found():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(uuid.uuid4()), None)
 
@@ -36,7 +36,7 @@ async def test_run_evaluation_agent_not_found():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id), None)
 
@@ -70,7 +70,7 @@ async def test_run_evaluation_no_tests():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id), None)
 
@@ -118,7 +118,7 @@ async def test_run_evaluation_with_tests():
     mock_runtime.startup = AsyncMock()
     mock_runtime.shutdown = AsyncMock()
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
          patch("app.tasks.eval_tasks._get_worker_runtime", new_callable=AsyncMock, return_value=mock_runtime):
 
@@ -178,7 +178,7 @@ async def test_run_evaluation_test_exception_handled():
     mock_runtime.startup = AsyncMock()
     mock_runtime.shutdown = AsyncMock()
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf), \
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf), \
          patch("app.tasks.eval_tasks.run_single_test", new_callable=AsyncMock) as mock_run_test, \
          patch("app.tasks.eval_tasks._get_worker_runtime", new_callable=AsyncMock, return_value=mock_runtime):
 
@@ -204,6 +204,6 @@ async def test_run_evaluation_outer_exception():
     mock_sf.return_value.__aenter__ = AsyncMock(return_value=mock_session)
     mock_sf.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.tasks.eval_tasks.get_celery_session_factory", return_value=mock_sf):
+    with patch("app.db.celery_session.get_celery_session_factory", return_value=mock_sf):
         from app.tasks.eval_tasks import _run_evaluation
         await _run_evaluation(str(run_id), None)

@@ -1,29 +1,60 @@
 {
   "comment": "Demo accounts for local development. Modify as needed.",
-  "users": [
+  "tenants": [
     {
-      "email": "user1@guild.com",
-      "password": "admin123",
-      "first_name": "Alice",
-      "last_name": "Johnson",
-      "occupation": "Product Manager",
-      "role": "user"
+      "slug": "guild-labs",
+      "name": "Guild Labs",
+      "default": true,
+      "llm_settings": {
+        "ollama_enabled": false,
+        "ollama_base_url": "http://ollama:11434/v1",
+        "ollama_enabled_models": []
+      },
+      "users": [
+        {
+          "email": "user1@guild.com",
+          "password": "admin123",
+          "first_name": "Alice",
+          "last_name": "Johnson",
+          "occupation": "Product Manager",
+          "role": "user"
+        },
+        {
+          "email": "admin1@guild.com",
+          "password": "admin123",
+          "first_name": "Charlie",
+          "last_name": "Davis",
+          "occupation": "AI Engineer",
+          "role": "admin"
+        }
+      ]
     },
     {
-      "email": "user2@guild.com",
-      "password": "admin123",
-      "first_name": "Bob",
-      "last_name": "Smith",
-      "occupation": "Software Engineer",
-      "role": "user"
-    },
-    {
-      "email": "admin1@guild.com",
-      "password": "admin123",
-      "first_name": "Charlie",
-      "last_name": "Davis",
-      "occupation": "AI Engineer",
-      "role": "admin"
+      "slug": "acme-industries",
+      "name": "Acme Industries",
+      "llm_settings": {
+        "ollama_enabled": true,
+        "ollama_base_url": "http://ollama:11434/v1",
+        "ollama_enabled_models": ["llama3.2"]
+      },
+      "users": [
+        {
+          "email": "user@acme.com",
+          "password": "admin123",
+          "first_name": "Dana",
+          "last_name": "Miller",
+          "occupation": "Operations Manager",
+          "role": "user"
+        },
+        {
+          "email": "admin@acme.com",
+          "password": "admin123",
+          "first_name": "Evan",
+          "last_name": "Lee",
+          "occupation": "Platform Administrator",
+          "role": "admin"
+        }
+      ]
     }
   ]
 }

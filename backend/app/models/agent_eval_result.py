@@ -13,6 +13,9 @@ class AgentEvalResult(Base):
     __tablename__ = "agent_eval_results"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     run_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("agent_eval_runs.id", ondelete="CASCADE"), nullable=False, index=True
     )

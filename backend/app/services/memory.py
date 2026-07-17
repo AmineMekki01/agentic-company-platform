@@ -14,6 +14,8 @@ from typing import Any
 from langchain_core.messages import SystemMessage
 from langchain_openai import OpenAIEmbeddings
 from qdrant_client import AsyncQdrantClient, models
+
+from app.services.qdrant_tenant import TENANT_KEY, TenantScopedQdrant
 from sqlalchemy import desc, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +30,7 @@ MEMORIES_COLLECTION = "agent_memories"
 _EMBED_MODEL = "text-embedding-3-small"
 
 _memories_qdrant: AsyncQdrantClient | None = None
+_memories_qdrant_scoped: TenantScopedQdrant | None = None
 _embeddings: OpenAIEmbeddings | None = None
 
 MERGE_CANDIDATE_THRESHOLD = 0.75
@@ -60,11 +63,19 @@ def _effective_importance(memory: AgentMemory, now: datetime) -> float:
     return max(0.0, score)
 
 
-def _get_qdrant() -> AsyncQdrantClient:
+def _get_raw_qdrant() -> AsyncQdrantClient:
     global _memories_qdrant
     if _memories_qdrant is None:
         _memories_qdrant = AsyncQdrantClient(url=settings.qdrant_url, check_compatibility=False)
     return _memories_qdrant
+
+
+def _get_qdrant() -> TenantScopedQdrant:
+    """Tenant-scoped client for all data operations (search/upsert/delete)."""
+    global _memories_qdrant_scoped
+    if _memories_qdrant_scoped is None:
+        _memories_qdrant_scoped = TenantScopedQdrant(_get_raw_qdrant())
+    return _memories_qdrant_scoped
 
 
 def _get_embeddings() -> OpenAIEmbeddings:
@@ -80,13 +91,18 @@ def _get_embeddings() -> OpenAIEmbeddings:
 
 async def ensure_memories_collection() -> None:
     try:
-        client = _get_qdrant()
+        client = _get_raw_qdrant()
         collections = await client.get_collections()
         names = {c.name for c in collections.collections}
         if MEMORIES_COLLECTION not in names:
             await client.create_collection(
                 MEMORIES_COLLECTION,
                 vectors_config=models.VectorParams(size=1536, distance=models.Distance.COSINE),
+            )
+            await client.create_payload_index(
+                MEMORIES_COLLECTION,
+                field_name=TENANT_KEY,
+                field_schema=models.KeywordIndexParams(type="keyword", is_tenant=True),
             )
             logger.info("Created Qdrant collection: %s", MEMORIES_COLLECTION)
     except Exception:

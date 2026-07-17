@@ -1,3 +1,10 @@
+import os
+
+
+os.environ["RATE_LIMIT_STORAGE_URI"] = "memory://"
+
+pytest_plugins = ["tests.conftest_pg"]
+
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -11,6 +18,18 @@ from app.db.session import get_db
 from app.main import app as fastapi_app
 import app.models  # register models on Base.metadata
 from app.models.user import User, UserRole
+
+DEFAULT_TEST_TENANT = __import__("uuid").UUID("00000000-0000-0000-0000-000000000001")
+
+
+@pytest.fixture(autouse=True)
+def _default_tenant_context():
+    """Give every test a tenant in context so tenant_id auto-stamping works,
+    mirroring how get_current_user sets it per request in production."""
+    from app.core.tenant_context import set_current_tenant, reset_current_tenant
+    token = set_current_tenant(DEFAULT_TEST_TENANT)
+    yield
+    reset_current_tenant(token)
 
 
 @pytest.fixture

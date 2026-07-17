@@ -288,7 +288,11 @@ async def create_eval_run(
     await db.commit()
     await db.refresh(run)
 
-    execute_eval_run.delay(str(run.id), [str(tsid) for tsid in body.test_set_ids])
+    execute_eval_run.delay(
+        str(run.id),
+        [str(tsid) for tsid in body.test_set_ids],
+        tenant_id=str(user.tenant_id),
+    )
 
     return AgentEvalRunOut.model_validate(
         {

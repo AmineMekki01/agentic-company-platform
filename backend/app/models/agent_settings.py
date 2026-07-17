@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, ForeignKey, JSON, DateTime, String, Text, func
+from sqlalchemy import Boolean, ForeignKey, JSON, DateTime, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -22,9 +22,15 @@ class AgentSettings(Base):
     - Draft/publish versioning support
     """
     __tablename__ = "agent_settings"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_agent_settings_tenant_slug"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    slug: Mapped[str] = mapped_column(String(50), nullable=False)
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     description: Mapped[str | None] = mapped_column(Text(), nullable=True)
     llm_model: Mapped[str | None] = mapped_column(

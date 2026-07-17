@@ -1,22 +1,52 @@
-"""initial schema
+"""initial schema — multi-tenant foundation (tables, default tenant, RLS)
+
+Consolidated single migration for the pre-deployment dev database. Creates every
+table, seeds the default tenant, applies composite per-tenant uniqueness and
+foreign keys, and enables Row-Level Security. Later real migrations build on top.
 
 Revision ID: 0001
 Revises:
-Create Date: 2026-06-12
-
 """
+import uuid
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
+
+from app.core.config import settings
+from app.db.rls import apply_rls, remove_rls
 
 revision: str = "0001"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+DEFAULT_TENANT_ID = settings.default_tenant_id
+
+OWNED = [
+    "users", "agent_settings", "agent_versions", "agent_workflows", "agent_skills",
+    "skills", "agent_memories", "agent_emotion_states", "agent_episodes",
+    "agent_eval_tests", "agent_eval_test_sets", "agent_eval_runs", "agent_eval_results",
+    "agent_eval_schedules", "conversations", "conversation_folders", "messages",
+    "chat_attachments", "message_feedback", "feedback_attachments", "connectors",
+    "secrets", "knowledge_sources", "token_usage", "token_budgets", "upload_settings",
+]
+
+NOT_NULL = [
+    "users", "agent_settings", "agent_versions", "agent_workflows", "agent_skills",
+    "skills", "agent_memories", "agent_emotion_states", "agent_episodes",
+    "agent_eval_tests", "agent_eval_test_sets", "agent_eval_runs", "agent_eval_results",
+    "agent_eval_schedules", "conversations", "conversation_folders", "messages",
+    "chat_attachments", "message_feedback", "feedback_attachments", "connectors",
+    "secrets", "knowledge_sources", "token_usage", "token_budgets", "upload_settings",
+    "llm_settings",
+]
+
+SLUG_TABLES = ["agent_settings", "connectors", "knowledge_sources", "secrets"]
+
 
 def upgrade() -> None:
+    # ===== base tables =====
     # users
     op.create_table(
         "users",
@@ -775,8 +805,133 @@ def upgrade() -> None:
     op.create_index("ix_agent_memories_user_agent", "agent_memories", ["user_id", "agent_slug"])
     op.create_index("ix_agent_memories_user_category", "agent_memories", ["user_id", "category"])
 
+    # ===== tenants + tenant_id columns + default tenant =====
+    op.create_table(
+        "tenants",
+        sa.Column("id", sa.Uuid(), primary_key=True),
+        sa.Column("slug", sa.String(50), nullable=False, unique=True),
+        sa.Column("name", sa.String(200), nullable=False),
+        sa.Column("status", sa.String(20), nullable=False, server_default="active"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+    )
+    op.bulk_insert(
+        sa.table(
+            "tenants",
+            sa.column("id", sa.Uuid()), sa.column("slug", sa.String),
+            sa.column("name", sa.String), sa.column("status", sa.String),
+        ),
+        [{"id": uuid.UUID(DEFAULT_TENANT_ID), "slug": "default", "name": "Default", "status": "active"}],
+    )
+
+    # llm_settings.tenant_id (unique - one settings row per tenant)
+    op.add_column("llm_settings", sa.Column("tenant_id", sa.Uuid(), nullable=True))
+    op.execute(f"UPDATE llm_settings SET tenant_id = '{DEFAULT_TENANT_ID}'")
+    op.create_unique_constraint("uq_llm_settings_tenant", "llm_settings", ["tenant_id"])
+    op.create_foreign_key(
+        "fk_llm_settings_tenant", "llm_settings", "tenants",
+        ["tenant_id"], ["id"], ondelete="CASCADE",
+    )
+
+    for table in OWNED:
+        op.add_column(table, sa.Column("tenant_id", sa.Uuid(), nullable=True))
+        op.execute(f"UPDATE {table} SET tenant_id = '{DEFAULT_TENANT_ID}'")
+        op.create_index(f"ix_{table}_tenant_id", table, ["tenant_id"])
+        op.create_foreign_key(
+            f"fk_{table}_tenant", table, "tenants",
+            ["tenant_id"], ["id"], ondelete="CASCADE",
+        )
+
+    # ===== NOT NULL + composite uniques + composite slug FKs =====
+    for table in NOT_NULL:
+        op.alter_column(table, "tenant_id", nullable=False)
+
+    # Drop the FKs that target agent_settings.slug before dropping that unique.
+    op.drop_constraint("agent_skills_agent_slug_fkey", "agent_skills", type_="foreignkey")
+    op.drop_constraint("skills_agent_slug_fkey", "skills", type_="foreignkey")
+    op.drop_constraint("agent_workflows_owner_agent_slug_fkey", "agent_workflows", type_="foreignkey")
+
+    # Global slug uniques -> composite (tenant_id, slug)
+    for table in SLUG_TABLES:
+        op.drop_constraint(f"{table}_slug_key", table, type_="unique")
+        op.create_unique_constraint(f"uq_{table}_tenant_slug", table, ["tenant_id", "slug"])
+
+    # Recreate the slug FKs as composite (tenant_id, slug) -> agent_settings(tenant_id, slug)
+    op.create_foreign_key(
+        "fk_agent_skills_agent", "agent_skills", "agent_settings",
+        ["tenant_id", "agent_slug"], ["tenant_id", "slug"], ondelete="CASCADE",
+    )
+    op.create_foreign_key(
+        "fk_skills_agent", "skills", "agent_settings",
+        ["tenant_id", "agent_slug"], ["tenant_id", "slug"], ondelete="CASCADE",
+    )
+    op.create_foreign_key(
+        "fk_agent_workflows_agent", "agent_workflows", "agent_settings",
+        ["tenant_id", "owner_agent_slug"], ["tenant_id", "slug"], ondelete="CASCADE",
+    )
+
+    # Users email: unique -> per-tenant unique; keep a plain (non-unique) index on email
+    op.drop_index("ix_users_email", table_name="users")
+    op.create_index("ix_users_email", "users", ["email"])
+    op.create_unique_constraint("uq_users_tenant_email", "users", ["tenant_id", "email"])
+
+    # ===== Row-Level Security =====
+    apply_rls(op.execute)
+
+    # ===== per-tenant tracing_mode =====
+    op.add_column(
+        "llm_settings",
+        sa.Column("tracing_mode", sa.String(10), nullable=False, server_default="full"),
+    )
+
+
 
 def downgrade() -> None:
+    # ===== undo tracing_mode =====
+    op.drop_column("llm_settings", "tracing_mode")
+
+    # ===== undo Row-Level Security =====
+    remove_rls(op.execute)
+
+    # ===== undo constraints =====
+    op.drop_constraint("uq_users_tenant_email", "users", type_="unique")
+    op.drop_index("ix_users_email", table_name="users")
+    op.create_index("ix_users_email", "users", ["email"], unique=True)
+
+    op.drop_constraint("fk_agent_workflows_agent", "agent_workflows", type_="foreignkey")
+    op.drop_constraint("fk_skills_agent", "skills", type_="foreignkey")
+    op.drop_constraint("fk_agent_skills_agent", "agent_skills", type_="foreignkey")
+
+    for table in SLUG_TABLES:
+        op.drop_constraint(f"uq_{table}_tenant_slug", table, type_="unique")
+        op.create_unique_constraint(f"{table}_slug_key", table, ["slug"])
+
+    op.create_foreign_key(
+        "skills_agent_slug_fkey", "skills", "agent_settings",
+        ["agent_slug"], ["slug"], ondelete="CASCADE",
+    )
+    op.create_foreign_key(
+        "agent_skills_agent_slug_fkey", "agent_skills", "agent_settings",
+        ["agent_slug"], ["slug"], ondelete="CASCADE",
+    )
+    op.create_foreign_key(
+        "agent_workflows_owner_agent_slug_fkey", "agent_workflows", "agent_settings",
+        ["owner_agent_slug"], ["slug"], ondelete="CASCADE",
+    )
+
+    for table in NOT_NULL:
+        op.alter_column(table, "tenant_id", nullable=True)
+
+    # ===== undo tenants + tenant_id =====
+    for table in OWNED:
+        op.drop_constraint(f"fk_{table}_tenant", table, type_="foreignkey")
+        op.drop_index(f"ix_{table}_tenant_id", table)
+        op.drop_column(table, "tenant_id")
+    op.drop_constraint("fk_llm_settings_tenant", "llm_settings", type_="foreignkey")
+    op.drop_constraint("uq_llm_settings_tenant", "llm_settings", type_="unique")
+    op.drop_column("llm_settings", "tenant_id")
+    op.drop_table("tenants")
+
+    # ===== drop base tables =====
     op.drop_column("agent_settings", "episodes_enabled")
     op.drop_column("agent_settings", "emotions_enabled")
     op.drop_column("agent_settings", "memory_enabled")
@@ -834,3 +989,4 @@ def downgrade() -> None:
     op.drop_table("conversations")
     op.drop_index("ix_users_email", table_name="users")
     op.drop_table("users")
+

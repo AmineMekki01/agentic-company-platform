@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, String, Text, func
+from sqlalchemy import ForeignKey, ForeignKeyConstraint, JSON, DateTime, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -17,8 +17,18 @@ class AgentWorkflow(Base):
     workflow steps sequentially, invoking sub-agents with rendered prompts.
     """
     __tablename__ = "agent_workflows"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_agent_slug"],
+            ["agent_settings.tenant_id", "agent_settings.slug"],
+            ondelete="CASCADE",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     owner_agent_slug: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

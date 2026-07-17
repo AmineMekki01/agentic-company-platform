@@ -30,11 +30,6 @@ async def _get_or_create(db: DbSession) -> LLMSettings:
     return row
 
 
-def _sync_to_runtime(row: LLMSettings) -> None:
-    app_settings.ollama_enabled = row.ollama_enabled
-    app_settings.ollama_base_url = row.ollama_base_url
-
-
 @router.get("", response_model=LLMSettingsOut)
 async def get_llm_settings(user: AdminUser, db: DbSession) -> LLMSettingsOut:
     row = await _get_or_create(db)
@@ -51,9 +46,14 @@ async def update_llm_settings(
     row.ollama_enabled = body.ollama_enabled
     row.ollama_base_url = body.ollama_base_url
     row.ollama_enabled_models = body.ollama_enabled_models
+    row.tracing_mode = body.tracing_mode
     await db.commit()
     await db.refresh(row)
-    _sync_to_runtime(row)
+
+    if row.tenant_id is not None:
+        from app.core.tenant_settings_cache import invalidate
+
+        invalidate(row.tenant_id)
     return LLMSettingsOut.model_validate(row)
 
 

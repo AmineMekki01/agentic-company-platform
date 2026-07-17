@@ -61,7 +61,11 @@ def test_trace_config_merges_callback_and_metadata(monkeypatch):
     assert result["callbacks"] == [fake_handler]
     assert result["metadata"]["langfuse_session_id"] == "c1"
     assert result["metadata"]["langfuse_user_id"] == "u1"
-    assert result["metadata"]["langfuse_tags"] == ["chat", "eval"]
+
+    from app.core.tenant_context import get_current_tenant
+    tenant_tag = f"tenant:{get_current_tenant()}"
+    assert result["metadata"]["langfuse_tags"] == ["chat", tenant_tag, "eval"]
+    assert result["metadata"]["tenant_id"] == str(get_current_tenant())
     assert "callbacks" not in base
 
 
@@ -71,7 +75,8 @@ def test_trace_config_drops_falsy_tags(monkeypatch):
 
     result = trace_config({}, agent_slug=None, tags=None)
 
-    assert result["metadata"]["langfuse_tags"] == []
+    from app.core.tenant_context import get_current_tenant
+    assert result["metadata"]["langfuse_tags"] == [f"tenant:{get_current_tenant()}"]
 
 
 def test_trace_config_preserves_existing_callbacks(monkeypatch):
@@ -141,3 +146,54 @@ def test_trace_url_for_builds_url(monkeypatch):
     handler.last_trace_id = "abc123"
 
     assert trace_url_for(handler) == "http://localhost:3000/trace/abc123"
+
+
+def test_trace_config_off_mode_records_nothing(monkeypatch):
+    """tracing_mode='off' means no callback is attached at all."""
+    from app.core.tracing import reset_tracing_mode, set_tracing_mode
+
+    fake_handler = MagicMock()
+    monkeypatch.setattr("app.core.tracing.get_langfuse_handler", lambda: fake_handler)
+
+    base = {"configurable": {"thread_id": "abc"}}
+    token = set_tracing_mode("off")
+    try:
+        result = trace_config(base, conversation_id="c1", agent_slug="chat")
+    finally:
+        reset_tracing_mode(token)
+
+    assert result == base
+    assert "callbacks" not in result
+
+
+def test_mask_redacts_only_in_masked_mode():
+    from app.core.tracing import MASK_PLACEHOLDER, _mask, reset_tracing_mode, set_tracing_mode
+
+    payload = {"prompt": "confidential customer document"}
+
+    token = set_tracing_mode("full")
+    try:
+        assert _mask(data=payload) == payload
+    finally:
+        reset_tracing_mode(token)
+
+    token = set_tracing_mode("masked")
+    try:
+        assert _mask(data=payload) == MASK_PLACEHOLDER
+    finally:
+        reset_tracing_mode(token)
+
+
+def test_tracing_mode_defaults_to_full():
+    from app.core.tracing import get_tracing_mode
+    assert get_tracing_mode() == "full"
+
+
+def test_invalid_tracing_mode_falls_back_to_default():
+    from app.core.tracing import get_tracing_mode, reset_tracing_mode, set_tracing_mode
+
+    token = set_tracing_mode("bogus")
+    try:
+        assert get_tracing_mode() == "full"
+    finally:
+        reset_tracing_mode(token)

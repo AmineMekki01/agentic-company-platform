@@ -50,6 +50,43 @@ def get_celery_session_factory() -> async_sessionmaker:
     return _ensure_session_factory()
 
 
+async def iter_active_tenant_ids() -> list:
+    """Return the ids of all active tenants, for per-tenant task fan-out."""
+    from sqlalchemy import select
+
+    from app.models.tenant import Tenant
+
+    factory = _ensure_session_factory()
+    async with factory() as session:
+        rows = await session.execute(select(Tenant.id).where(Tenant.status == "active"))
+        return [r[0] for r in rows.all()]
+
+
+def tenant_scoped_session():
+    """Async context manager yielding a session scoped to the current tenant
+    (SET LOCAL ROLE app_rls + app.tenant_id), so RLS applies inside Celery just
+    like in a web request. Requires a tenant in context (set by TenantTask)."""
+    from contextlib import asynccontextmanager
+
+    from sqlalchemy import text
+
+    from app.core.tenant_context import get_current_tenant
+
+    @asynccontextmanager
+    async def _cm():
+        factory = get_celery_session_factory()
+        async with factory() as session:
+            tid = get_current_tenant()
+            if tid is not None and session.bind.dialect.name == "postgresql":
+                await session.execute(text("SET LOCAL ROLE app_rls"))
+                await session.execute(
+                    text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)}
+                )
+            yield session
+
+    return _cm()
+
+
 async def dispose_celery_engine() -> None:
     """Dispose the cached engine. Call on Celery worker shutdown."""
     global _engine, _session_factory

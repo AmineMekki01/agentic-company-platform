@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.celery_app import celery_app
 from app.db.celery_session import run_async
+from app.tasks.base import TenantTask
 
 logger = logging.getLogger(__name__)
 
@@ -21,20 +22,29 @@ FORGET_FLOOR = 0.05
 
 @celery_app.task(bind=True, max_retries=3)
 def decay_stale_memories(self):
+    """Dispatcher: fan out one decay task per active tenant."""
+    async def _dispatch():
+        from app.db.celery_session import iter_active_tenant_ids
+        for tid in await iter_active_tenant_ids():
+            decay_stale_memories_for_tenant.delay(tenant_id=str(tid))
+
+    run_async(_dispatch())
+
+
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
+def decay_stale_memories_for_tenant(self, tenant_id: str):
     run_async(_decay())
 
 
 async def _decay():
-    from sqlalchemy import select
-
-    from app.db.celery_session import get_celery_session_factory
+    from app.db.celery_session import tenant_scoped_session
     from app.models import AgentMemory
     from app.services.memory import _effective_importance, delete_memory
+    from sqlalchemy import select
 
-    session_factory = get_celery_session_factory()
     cutoff = datetime.now(UTC) - timedelta(days=STALE_AFTER_DAYS)
 
-    async with session_factory() as db:
+    async with tenant_scoped_session() as db:
         result = await db.execute(
             select(AgentMemory).where(AgentMemory.last_accessed_at <= cutoff)
         )

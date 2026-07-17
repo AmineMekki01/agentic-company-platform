@@ -6,9 +6,10 @@ import uuid
 from sqlalchemy import select
 
 from app.celery_app import celery_app
-from app.db.celery_session import get_celery_session_factory, run_async
+from app.db.celery_session import get_celery_session_factory, run_async, tenant_scoped_session
 from app.models import AgentEvalRun, AgentEvalResult, AgentEvalSchedule, AgentEvalTest, AgentEvalTestSet, AgentSettings
 from app.services.eval_runner import run_single_test
+from app.tasks.base import TenantTask
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,8 @@ async def _get_worker_runtime():
     return _worker_runtime
 
 
-@celery_app.task(bind=True, max_retries=3)
-def execute_eval_run(self, run_id: str, test_set_ids: list[str] | None = None):
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
+def execute_eval_run(self, run_id: str, test_set_ids: list[str] | None = None, tenant_id: str | None = None):
     """Execute an agent evaluation run in a background Celery task."""
     run_async(_run_evaluation(run_id, test_set_ids))
 
@@ -33,10 +34,8 @@ def execute_eval_run(self, run_id: str, test_set_ids: list[str] | None = None):
 async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
     from datetime import datetime, timezone
 
-    session_factory = get_celery_session_factory()
-
     try:
-        async with session_factory() as db:
+        async with tenant_scoped_session() as db:
             run = await db.get(AgentEvalRun, uuid.UUID(run_id))
             if run is None:
                 logger.error("Eval run %s not found", run_id)
@@ -159,7 +158,7 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
 
     except Exception:
         logger.exception("Eval run %s failed", run_id)
-        async with session_factory() as db:
+        async with tenant_scoped_session() as db:
             run = await db.get(AgentEvalRun, uuid.UUID(run_id))
             if run:
                 run.status = "failed"
@@ -169,15 +168,25 @@ async def _run_evaluation(run_id: str, test_set_ids: list[str] | None = None):
 
 @celery_app.task
 def process_eval_schedules():
-    """Check all enabled eval schedules and trigger due runs."""
-    run_async(_process_eval_schedules())
+    """Dispatcher: fan out schedule processing per active tenant."""
+    async def _dispatch():
+        from app.db.celery_session import iter_active_tenant_ids
+        for tid in await iter_active_tenant_ids():
+            process_eval_schedules_for_tenant.delay(tenant_id=str(tid))
+
+    run_async(_dispatch())
 
 
-async def _process_eval_schedules():
+@celery_app.task(base=TenantTask)
+def process_eval_schedules_for_tenant(tenant_id: str):
+    """Check one tenant's enabled eval schedules and trigger due runs."""
+    run_async(_process_eval_schedules(tenant_id))
+
+
+async def _process_eval_schedules(tenant_id: str):
     from datetime import datetime, timedelta, timezone
 
-    session_factory = get_celery_session_factory()
-    async with session_factory() as db:
+    async with tenant_scoped_session() as db:
         stmt = select(AgentEvalSchedule).where(AgentEvalSchedule.enabled == True)  # noqa: E712
         result = await db.execute(stmt)
         schedules = result.scalars().all()
@@ -238,7 +247,7 @@ async def _process_eval_schedules():
                     await db.commit()
 
                     test_set_ids = schedule.test_set_ids if schedule.test_set_ids else None
-                    execute_eval_run.delay(str(run.id), test_set_ids)
+                    execute_eval_run.delay(str(run.id), test_set_ids, tenant_id=tenant_id)
                     logger.info("Triggered scheduled eval run %s for agent %s", run.id, agent.slug)
             except Exception:
                 logger.exception("Failed to process eval schedule %s", schedule.id)

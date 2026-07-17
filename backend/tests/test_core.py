@@ -266,3 +266,9 @@ def test_configure_logging_development_text(monkeypatch):
     handler = root.handlers[0]
     assert isinstance(handler.formatter, _logging.Formatter)
     assert not isinstance(handler.formatter, JsonFormatter)
+
+
+def test_tenant_config_defaults():
+    from app.core.config import settings
+    assert settings.default_tenant_id
+    assert settings.database_url_migrations

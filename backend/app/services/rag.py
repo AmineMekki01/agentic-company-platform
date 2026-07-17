@@ -20,6 +20,8 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import AsyncQdrantClient, models
 
+from app.services.qdrant_tenant import TENANT_KEY, TenantScopedQdrant
+
 from app.core.config import settings
 
 T = TypeVar("T")
@@ -106,9 +108,10 @@ class RetrievedChunk:
 
 class RAGService:
     def __init__(self) -> None:
-        self.qdrant = AsyncQdrantClient(
+        self._raw_qdrant = AsyncQdrantClient(
             url=settings.qdrant_url, check_compatibility=False
         )
+        self.qdrant = TenantScopedQdrant(self._raw_qdrant)
         self.emb_model = "text-embedding-3-small"
         self.embeddings = OpenAIEmbeddings(
             model=self.emb_model,
@@ -240,6 +243,14 @@ class RAGService:
                     modifier=models.Modifier.IDF,
                 )
             },
+        )
+        # Tenant partition key: co-locates each tenant's points and speeds
+        # filtered search (Qdrant multitenancy). Uses the raw client (no scope).
+        await _qdrant_retry(
+            self._raw_qdrant.create_payload_index,
+            collection_name=COLLECTION_NAME,
+            field_name=TENANT_KEY,
+            field_schema=models.KeywordIndexParams(type="keyword", is_tenant=True),
         )
         logger.info("Created Qdrant collection %s", COLLECTION_NAME)
 

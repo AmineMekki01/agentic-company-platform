@@ -21,6 +21,7 @@ from app.models.message import Message
 from app.models.message_feedback import MessageFeedback
 from app.models.secret import Secret
 from app.models.skill import Skill
+from app.models.tenant import Tenant
 from app.models.token_budget import TokenBudget
 from app.models.token_usage import TokenUsage
 from app.models.upload_settings import UploadSettings
@@ -50,6 +51,7 @@ __all__ = [
     "MessageFeedback",
     "Secret",
     "Skill",
+    "Tenant",
     "TokenBudget",
     "TokenUsage",
     "UploadSettings",

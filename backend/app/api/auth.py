@@ -31,7 +31,7 @@ async def login(body: LoginRequest, db: DbSession) -> TokenResponse:
             detail="Invalid email or password",
         )
 
-    token = create_access_token(user.id, user.role)
+    token = create_access_token(user.id, user.role, user.tenant_id)
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 

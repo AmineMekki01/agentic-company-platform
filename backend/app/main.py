@@ -34,6 +34,7 @@ from app.api.secrets import router as secrets_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
+from app.core.tenant_middleware import TenantMiddleware
 from app.services.rag import get_rag_service
 
 configure_logging()
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(SlowAPIMiddleware)
+    app.add_middleware(TenantMiddleware)
 
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 

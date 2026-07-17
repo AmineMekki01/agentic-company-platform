@@ -3,6 +3,11 @@ __pycache__/
 *.py[codz]
 *$py.class
 docs/
+
+# Dev/ops scripts kept out of the repo. NOTE: files already tracked here
+# (seed_users.py, demo_users.json, setup_workspace.py) stay tracked until
+# `git rm --cached` — gitignore does not retroactively untrack them.
+backend/scripts/
 # C extensions
 *.so
 

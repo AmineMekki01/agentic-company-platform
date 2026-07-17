@@ -10,6 +10,7 @@ from typing import Any
 from app.celery_app import celery_app
 from app.core.encryption import EncryptionService
 from app.db.celery_session import run_async
+from app.tasks.base import TenantTask
 from app.services.parsers import _detect_file_type, parse_upload
 from app.services.rag import get_rag_service
 
@@ -136,7 +137,7 @@ def _extract_text(content: bytes, mime_type: str, filename: str) -> str:
     return parse_upload(content, mime_type, fn)
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
 def sync_gdrive_folder(
     self,
     folder_id: str,
@@ -145,6 +146,7 @@ def sync_gdrive_folder(
     knowledge_source_id: str | None = None,
     slug: str | None = None,
     force_full: bool = False,
+    tenant_id: str | None = None,
 ) -> dict:
     """Celery task: sync all files under a Google Drive folder into the knowledge base.
 
@@ -244,11 +246,10 @@ async def _update_source_status(slug: str, chunk_count: int, status: str = "read
     """Update KnowledgeSource status and chunk_count after sync."""
     from sqlalchemy import select
 
-    from app.db.celery_session import get_celery_session_factory
+    from app.db.celery_session import tenant_scoped_session
     from app.models import KnowledgeSource
 
-    session_factory = get_celery_session_factory()
-    async with session_factory() as db:
+    async with tenant_scoped_session() as db:
         try:
             result = await db.execute(
                 select(KnowledgeSource).where(KnowledgeSource.slug == slug)

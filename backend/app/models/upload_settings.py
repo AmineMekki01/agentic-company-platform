@@ -19,6 +19,9 @@ class UploadSettings(Base):
     __tablename__ = "upload_settings"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     enabled: Mapped[bool] = mapped_column(nullable=False, server_default="0")
 
     s3_connector_id: Mapped[uuid.UUID | None] = mapped_column(

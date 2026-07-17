@@ -8,6 +8,7 @@ from app.celery_app import celery_app
 from app.core.config import settings
 from app.core.encryption import EncryptionService
 from app.db.celery_session import run_async
+from app.tasks.base import TenantTask
 from app.services.parsers import parse_upload
 from app.services.rag import RAGService, get_rag_service
 
@@ -274,9 +275,9 @@ async def _ingest_page_tree_async(
     return total
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
 def sync_notion_database(
-    self, database_id: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False
+    self, database_id: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False, tenant_id: str | None = None
 ) -> dict:
     """
     Celery task: sync a Notion database into the knowledge base.
@@ -383,9 +384,9 @@ def sync_notion_database(
         raise self.retry(exc=exc, countdown=60)
 
 
-@celery_app.task(bind=True, max_retries=3)
+@celery_app.task(bind=True, base=TenantTask, max_retries=3)
 def sync_notion_page(
-    self, page_id: str, page_title: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False
+    self, page_id: str, page_title: str, source_title: str, connector_credentials: str | None = None, knowledge_source_id: str | None = None, slug: str | None = None, force_full: bool = False, tenant_id: str | None = None
 ) -> dict:
     """Celery task: sync a Notion page (with all subpages) into the knowledge base.
 
@@ -469,12 +470,11 @@ async def _update_source_status(slug: str, chunk_count: int, status: str = "read
     Raises:
         Exception: If database update fails
     """
-    from app.db.celery_session import get_celery_session_factory
+    from app.db.celery_session import tenant_scoped_session
     from app.models import KnowledgeSource
     from sqlalchemy import select
 
-    session_factory = get_celery_session_factory()
-    async with session_factory() as db:
+    async with tenant_scoped_session() as db:
         try:
             result = await db.execute(select(KnowledgeSource).where(KnowledgeSource.slug == slug))
             source = result.scalar_one_or_none()
